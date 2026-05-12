@@ -207,34 +207,37 @@ def execute_takedown():
 @app.route('/paystack/webhook', methods=['POST'])
 def paystack_webhook():
     data = request.json
+    print(f"WEBHOOK RECEIVED: {data.get('event')}") # This will show in Render Logs
+
     if data['event'] == "charge.success":
         payload = data['data']
-        meta = payload['metadata']['custom_fields']
+        meta = payload.get('metadata', {}).get('custom_fields', [])
         
-        # Extract metadata anchored at checkout
-        buyer_phone = next(f['value'] for f in meta if f['variable_name'] == 'phone')
-        device_token = next(f['value'] for f in meta if f['variable_name'] == 'device_token')
-        item_name = next(f['value'] for f in meta if f['variable_name'] == 'item_name')
-
-        # 1. Trigger Hubtel SMS (Professional Confirmation)
-        msg = f"Ledgehold: Payment for {item_name} SECURED. Order ID: {payload['reference']}. Scan QR at pickup to release funds."
-        send_professional_sms(buyer_phone, msg)
-
-        # 2. Trigger Resend Audit (The Sealed Envelope)
-        resend.Emails.send({
-            "from": "Vault Guard <onboarding@resend.dev>",
-            "to": "chris@ledgehold.xyz",
-            "subject": f"Escrow Secured: {payload['reference']}",
-            "html": f"<p>Buyer Token: {device_token}</p>"
-        })
-
-        # 3. Anchor to Firestore
-        db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders').document(payload['reference']).set({
-            "securityStamp": {"token": device_token},
-            "status": "paid_in_escrow",
-            "item": item_name,
-            "buyerPhone": buyer_phone
-        })
+        # Safely extract the metadata we anchored in the checkout.html
+        try:
+            buyer_phone = next((f['value'] for f in meta if f['variable_name'] == 'phone'), "Unknown")
+            device_token = next((f['value'] for f in meta if f['variable_name'] == 'device_token'), "None")
+            item_name = next((f['value'] for f in meta if f['variable_name'] == 'item_name'), "Item")
+            
+            # THE CRITICAL STEP: Create the 'orders' collection entry
+            order_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders').document(payload['reference'])
+            
+            order_ref.set({
+                "status": "paid_in_escrow",
+                "securityStamp": {
+                    "token": device_token,
+                    "ip": payload.get('ip_address') # Paystack gives us the buyer's IP!
+                },
+                "item": item_name,
+                "amount": payload['amount'] / 100,
+                "buyerPhone": buyer_phone,
+                "createdAt": firestore.SERVER_TIMESTAMP
+            })
+            
+            print(f"VAULT SECURED: Order {payload['reference']} created for {item_name}")
+            
+        except Exception as e:
+            print(f"WEBHOOK PROCESSING ERROR: {str(e)}")
 
     return "OK", 200
 
@@ -245,22 +248,33 @@ def gatekeeper_verify():
     current_stamp = data.get('securityStamp')
 
     try:
+        # 1. Fetch the Order from the 'orders' collection
         order_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders').document(order_id)
-        order_doc = order_ref.get().to_dict()
+        order_snapshot = order_ref.get()
 
-        # Perform the Match logic
-        is_match = current_stamp['token'] == order_doc['securityStamp']['token']
+        if not order_snapshot.exists:
+            print(f"VERIFY FAIL: Order {order_id} not found in database.")
+            return jsonify({"success": False, "verified": False, "error": "Order not found. Ensure payment was successful."}), 404
 
-        if is_match:
-            # Notify Merchant via Hubtel SMS that funds are released
-            merchant_msg = f"Ledgehold: Verification Successful. Your payout for {order_doc['item']} has been authorized."
-            send_professional_sms(order_doc.get('merchantPhone'), merchant_msg)
-            
-            order_ref.update({"status": "completed"})
+        order_doc = order_snapshot.to_dict()
+        master_stamp = order_doc.get('securityStamp', {})
 
-        return jsonify({"success": True, "verified": is_match})
+        # 2. PERFORM THE MATCH (Token OR IP)
+        token_match = current_stamp.get('token') == master_stamp.get('token')
+        ip_match = current_stamp.get('ip') == master_stamp.get('ip')
+        
+        is_verified = token_match or ip_match
+
+        if is_verified:
+            # Update status so it can't be released twice
+            order_ref.update({"status": "completed", "releasedAt": firestore.SERVER_TIMESTAMP})
+            return jsonify({"success": True, "verified": True})
+        else:
+            return jsonify({"success": True, "verified": False, "error": "Security Mismatch."})
+
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        print(f"GATEKEEPER CRASH: {str(e)}")
+        return jsonify({"success": False, "error": "Internal Server Error"}), 500
     
 @app.route('/verify_order')
 def verify_order_landing():
