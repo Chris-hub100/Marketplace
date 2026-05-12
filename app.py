@@ -204,42 +204,51 @@ def execute_takedown():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
     
-@app.route('/paystack/webhook', methods=['POST'])
-def paystack_webhook():
+@app.route('/api/gatekeeper/verify', methods=['POST'])
+def gatekeeper_verify():
     data = request.json
-    print(f"WEBHOOK RECEIVED: {data.get('event')}") # This will show in Render Logs
+    order_id = data.get('orderId')
+    current_stamp = data.get('securityStamp')
 
-    if data['event'] == "charge.success":
-        payload = data['data']
-        meta = payload.get('metadata', {}).get('custom_fields', [])
+    try:
+        # 1. Fetch the order record
+        order_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders').document(order_id)
+        order_snapshot = order_ref.get()
+
+        # Safety Check: Prevent 500 crash if order doesn't exist yet
+        if not order_snapshot.exists:
+            print(f"Verify Attempt Fail: Order {order_id} not found.")
+            return jsonify({"success": False, "error": "Order record not found."}), 404
+
+        order_doc = order_snapshot.to_dict()
+
+        # 2. Perform the Match logic (Token Comparison)
+        # Fallback to IP if Token is missing (fixes the 'New Browser' issue)
+        master_stamp = order_doc.get('securityStamp', {})
         
-        # Safely extract the metadata we anchored in the checkout.html
-        try:
-            buyer_phone = next((f['value'] for f in meta if f['variable_name'] == 'phone'), "Unknown")
-            device_token = next((f['value'] for f in meta if f['variable_name'] == 'device_token'), "None")
-            item_name = next((f['value'] for f in meta if f['variable_name'] == 'item_name'), "Item")
-            
-            # THE CRITICAL STEP: Create the 'orders' collection entry
-            order_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders').document(payload['reference'])
-            
-            order_ref.set({
-                "status": "paid_in_escrow",
-                "securityStamp": {
-                    "token": device_token,
-                    "ip": payload.get('ip_address') # Paystack gives us the buyer's IP!
-                },
-                "item": item_name,
-                "amount": payload['amount'] / 100,
-                "buyerPhone": buyer_phone,
-                "createdAt": firestore.SERVER_TIMESTAMP
-            })
-            
-            print(f"VAULT SECURED: Order {payload['reference']} created for {item_name}")
-            
-        except Exception as e:
-            print(f"WEBHOOK PROCESSING ERROR: {str(e)}")
+        token_match = current_stamp.get('token') == master_stamp.get('token')
+        ip_match = current_stamp.get('ip') == master_stamp.get('ip')
+        
+        is_match = token_match or ip_match
 
-    return "OK", 200
+        if is_match:
+            # 3. Secure the Database State First
+            order_ref.update({"status": "completed"})
+            
+            # 4. Attempt Hubtel SMS (Wrapped to prevent crashing on DNS errors)
+            try:
+                merchant_msg = f"Ledgehold: Verification Successful. Your payout for {order_doc.get('item', 'Item')} has been authorized."
+                # Using your specific function name
+                send_professional_sms(order_doc.get('merchantPhone'), merchant_msg)
+                print("Hubtel Handshake Notification Sent.")
+            except Exception as sms_err:
+                print(f"SMS Alert Failed (Handshake): {str(sms_err)}")
+
+        return jsonify({"success": True, "verified": is_match})
+
+    except Exception as e:
+        print(f"Gatekeeper Logic Error: {str(e)}")
+        return jsonify({"success": False, "error": "Internal System Error"}), 500
 
 @app.route('/api/gatekeeper/verify', methods=['POST'])
 def gatekeeper_verify():
@@ -248,33 +257,22 @@ def gatekeeper_verify():
     current_stamp = data.get('securityStamp')
 
     try:
-        # 1. Fetch the Order from the 'orders' collection
         order_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders').document(order_id)
-        order_snapshot = order_ref.get()
+        order_doc = order_ref.get().to_dict()
 
-        if not order_snapshot.exists:
-            print(f"VERIFY FAIL: Order {order_id} not found in database.")
-            return jsonify({"success": False, "verified": False, "error": "Order not found. Ensure payment was successful."}), 404
+        # Perform the Match logic
+        is_match = current_stamp['token'] == order_doc['securityStamp']['token']
 
-        order_doc = order_snapshot.to_dict()
-        master_stamp = order_doc.get('securityStamp', {})
+        if is_match:
+            # Notify Merchant via Hubtel SMS that funds are released
+            merchant_msg = f"Ledgehold: Verification Successful. Your payout for {order_doc['item']} has been authorized."
+            send_professional_sms(order_doc.get('merchantPhone'), merchant_msg)
+            
+            order_ref.update({"status": "completed"})
 
-        # 2. PERFORM THE MATCH (Token OR IP)
-        token_match = current_stamp.get('token') == master_stamp.get('token')
-        ip_match = current_stamp.get('ip') == master_stamp.get('ip')
-        
-        is_verified = token_match or ip_match
-
-        if is_verified:
-            # Update status so it can't be released twice
-            order_ref.update({"status": "completed", "releasedAt": firestore.SERVER_TIMESTAMP})
-            return jsonify({"success": True, "verified": True})
-        else:
-            return jsonify({"success": True, "verified": False, "error": "Security Mismatch."})
-
+        return jsonify({"success": True, "verified": is_match})
     except Exception as e:
-        print(f"GATEKEEPER CRASH: {str(e)}")
-        return jsonify({"success": False, "error": "Internal Server Error"}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
     
 @app.route('/verify_order')
 def verify_order_landing():
