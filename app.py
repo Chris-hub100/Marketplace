@@ -204,6 +204,57 @@ def execute_takedown():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
     
+@app.route('/paystack/webhook', methods=['POST'])
+def paystack_webhook():
+    data = request.json
+    print(f"WEBHOOK RECEIVED: {data.get('event')}")
+
+    if data['event'] == "charge.success":
+        payload = data['data']
+        meta = payload.get('metadata', {}).get('custom_fields', [])
+        
+        try:
+            # 1. EXTRACT DATA (Including the Listing ID from Checkout)
+            # Make sure your checkout.html is sending 'listing_id' in the metadata!
+            listing_id = next((f['value'] for f in meta if f['variable_name'] == 'listing_id'), None)
+            buyer_phone = next((f['value'] for f in meta if f['variable_name'] == 'phone'), "Unknown")
+            device_token = next((f['value'] for f in meta if f['variable_name'] == 'device_token'), "None")
+            item_name = next((f['value'] for f in meta if f['variable_name'] == 'item_name'), "Item")
+            
+            if not listing_id:
+                print("❌ WEBHOOK ERROR: No listing_id found. Check checkout.html metadata.")
+                return "Missing ID", 400
+
+            # 2. SAVE TO FIRESTORE (Using listing_id as the Document ID)
+            order_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders').document(listing_id)
+            
+            order_ref.set({
+                "status": "paid_in_escrow",
+                "securityStamp": {
+                    "token": device_token,
+                    "ip": payload.get('ip_address') 
+                },
+                "item": item_name,
+                "amount": payload['amount'] / 100,
+                "buyerPhone": buyer_phone,
+                "paystack_ref": payload['reference'], # Save this for accounting
+                "createdAt": firestore.SERVER_TIMESTAMP
+            })
+            
+            print(f"✅ SECURED: Order for {item_name} saved as {listing_id}")
+
+            # 3. ATTEMPT SMS (Safety Wrapped)
+            try:
+                msg = f"Ledgehold: Payment for {item_name} secured in escrow. Scan merchant QR to release."
+                send_professional_sms(buyer_phone, msg)
+            except Exception as sms_err:
+                print(f"⚠️ SMS Notification failed: {str(sms_err)}")
+            
+        except Exception as e:
+            print(f"❌ WEBHOOK PROCESSING ERROR: {str(e)}")
+
+    return "OK", 200
+
 @app.route('/api/gatekeeper/verify', methods=['POST'])
 def gatekeeper_verify():
     data = request.json
@@ -249,7 +300,6 @@ def gatekeeper_verify():
     except Exception as e:
         print(f"Gatekeeper Logic Error: {str(e)}")
         return jsonify({"success": False, "error": "Internal System Error"}), 500
-
     
 @app.route('/verify_order')
 def verify_order_landing():
