@@ -250,29 +250,6 @@ def gatekeeper_verify():
         print(f"Gatekeeper Logic Error: {str(e)}")
         return jsonify({"success": False, "error": "Internal System Error"}), 500
 
-@app.route('/api/gatekeeper/verify', methods=['POST'])
-def gatekeeper_verify():
-    data = request.json
-    order_id = data.get('orderId')
-    current_stamp = data.get('securityStamp')
-
-    try:
-        order_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders').document(order_id)
-        order_doc = order_ref.get().to_dict()
-
-        # Perform the Match logic
-        is_match = current_stamp['token'] == order_doc['securityStamp']['token']
-
-        if is_match:
-            # Notify Merchant via Hubtel SMS that funds are released
-            merchant_msg = f"Ledgehold: Verification Successful. Your payout for {order_doc['item']} has been authorized."
-            send_professional_sms(order_doc.get('merchantPhone'), merchant_msg)
-            
-            order_ref.update({"status": "completed"})
-
-        return jsonify({"success": True, "verified": is_match})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
     
 @app.route('/verify_order')
 def verify_order_landing():
