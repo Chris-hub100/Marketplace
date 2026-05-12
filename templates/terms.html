@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Terms of Service | ProlyfiQ{% endblock %}
+
+{% block content %}
+
+<!-- BACK BUTTON -->
+<div class="mb-6">
+  <a href="javascript:history.back()" 
+    style="display: inline-flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 0.875rem; font-weight: bold; color: #64748b; text-decoration: none; transition: all 0.3s ease;"
+    class="hover:text-slate-900"
+  >
+    <div style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background-color: #f1f5f9;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 18-6-6 6-6"/>
+      </svg>
+    </div>
+    <span>Back</span>
+  </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="bg-slate-900 p-5 text-white text-center">
+                <i class="bi bi-file-earmark-text-fill display-4 text-primary mb-3"></i>
+                <h2 class="fw-bold">Terms of Service</h2>
+                <p class="opacity-75 mb-0">Universal Legal Framework for Ledgehold Enterprise's ProlyfiQ Services</p>
+            </div>
+            <div class="card-body p-4 p-md-5">
+
+                <!-- 1. UNIVERSAL SCOPE -->
+                <section class="mb-5">
+                    <h5 class="fw-bold text-dark border-start border-primary border-4 ps-3 mb-3">1. Scope of Services</h5>
+                    <p class="text-muted small">
+                        These Terms of Service govern all platforms and products operated by <strong>Ledgehold Enterprise</strong> (trading as <strong>ProlyfiQ</strong>), including:
+                    </p>
+                    <ul class="text-muted small">
+                        <li><strong>Campus Marketplace:</strong> Peer-to-peer student sales and secure escrow protection.</li>
+                        <li><strong>Utility Hub:</strong> Digital top-ups for Airtime, Data, ECG, DStv, and GOtv.</li>
+                        <li><strong>Logistics (FoodRun™):</strong> Student-led campus delivery and fulfillment.</li>
+                        <li><strong>Compliance Tools:</strong> Digital logging and receipt verification systems.</li>
+                        <li><strong>TV Hub & Media Discovery:</strong> Curated student entertainment and discovery content.</li>
+                    </ul>
+                </section>
+
+                <!-- THE GATEKEEPER POLICY -->
+                <div class="bg-warning-subtle border-start border-warning border-4 p-4 mb-5 rounded-end-4">
+                    <h6 class="fw-bold text-dark mb-2"><i class="bi bi-shield-check-fill me-2 text-warning"></i>The Gatekeeper Policy</h6>
+                    <p class="small mb-0 text-dark opacity-75" style="line-height: 1.5;">
+                        ProlyfiQ (via Ledgehold Enterprise) maintains a strict transparency mandate. <strong>Payout requests submitted without a corresponding proof of delivery will be flagged as ineligible for payout.</strong> 
+                    </p>
+                </div>
+
+                <!-- 2. MERCHANT IDENTITY & SOVEREIGNTY (NEW SECTION) -->
+                <section class="mb-5">
+                    <h5 class="fw-bold text-dark mb-3">2. Merchant Identity & Vault Security</h5>
+                    <p class="text-muted small">
+                        To ensure DPC compliance, Ledgehold utilizes a <strong>Zero-Knowledge Identity Architecture</strong>.
+                    </p>
+                    <ul class="text-muted small">
+                        <li><strong>PIN Sovereignty:</strong> Merchants are the sole generators and custodians of their private access PINs. Ledgehold staff cannot view or retrieve PINs.</li>
+                        <li><strong>Cryptographic Hashing:</strong> All PINs are transformed via one-way SHA-256 hashing before storage.</li>
+                        <li><strong>Accountability:</strong> Merchants are liable for all actions taken via their dashboard. Compromised PINs must be reported immediately for PIN reset.</li>
+                        <li><strong>Case Sensitivity:</strong> Merchant 'Names' are case-sensitive. It is the merchant's responsibility to utilize the exact casing registered during onboarding.</li>
+                    </ul>
+                </section>
+
+                <!-- 3. UTILITY PAYMENTS -->
+                <section class="mb-5">
+                    <h5 class="fw-bold text-dark mb-3">3. Utility & Digital Services</h5>
+                    <p class="text-muted small">
+                        Utility payments and Data/Airtime purchases are processed through our licensed partner, <strong>Hubtel</strong>. 
+                    </p>
+                    <ul class="text-muted small">
+                        <li><strong>Finality:</strong> Digital top-ups are non-refundable once confirmed by the third-party provider.</li>
+                        <li><strong>Errors:</strong> Users are responsible for providing correct Meter Numbers. ProlyfiQ is not liable for funds sent to incorrectly provided IDs.</li>
+                    </ul>
+                </section>
+
+                <!-- 4. LOGISTICS & FOOD RUN -->
+                <section class="mb-5">
+                    <h5 class="fw-bold text-dark mb-3">4. Logistics & Campus Fulfillment</h5>
+                    <p class="text-muted small">
+                        Our logistics services act as a facilitator for student errands and food delivery.
+                    </p>
+                    <ul class="text-muted small">
+                        <li><strong>Handover & Collection:</strong> Logistics are campus-specific. We only facilitate handovers within designated university landmarks and approved university hostels for security. Delivery agents will wait for only 10 minutes to prevent delays.</li>
+                        <li><strong>Receipt Upload:</strong> Delivery agents are required to upload proof of delivery to satisfy our Gatekeeper Policy.</li>
+                        <li><strong>Refund Policy:</strong> Refunds on item prices excluding fees are only issued if the Run has not commenced. Perishable food items are non-refundable once the Run begins.</li>
+                    </ul>
+                </section>
+
+                <!-- 5. MARKETPLACE ESCROW & REFUNDS -->
+                <section class="mb-5">
+                    <h5 class="fw-bold text-dark mb-3">5. Marketplace Escrow & Refund Policy</h5>
+                    <p class="text-muted small">
+                        For P2P sales, ProlyfiQ (via Ledgehold) acts as the <strong>Neutral Escrow Agent</strong>.
+                    </p>
+                    <ul class="text-muted small">
+                        <li><strong>Fee Structure:</strong> All marketplace transactions include a <strong>5% Security & Processing Fee</strong></li>
+                        <li><strong>Mandatory Inspection & Liability Waiver:</strong> It is the sole responsibility of the buyer to perform a thorough physical inspection of the item at the campus landmark before collection. <strong>By collecting the item an scanning the QR code provided by the merchant, the buyer acknowledges and confirms that the item meets their expectations and matches the description.</strong> Hence, <strong>no refund will be issued after collection.</strong></li>
+                        <li><strong>External Routing Disclaimer:</strong> Our Escrow and Security protections apply <strong>ONLY</strong> to sales processed through the official ProlyfiQ "Buy Now" system. If a buyer and seller choose to bypass our platform to arrange a direct payment (cash-on-hand or direct MoMo), <strong>Prolyfiq and Ledgehold shall not be held liable for any resulting scams, fraud, or quality issues.</strong></li>
+                        <li><strong>Finality of Collection:</strong> ProlyfiQ (via Ledgehold) and all its affiliates shall not be held liable for any defects, discrepancies, or dissatisfaction discovered after the physical handoff is complete. Once an item is collected, the transaction is considered final and no refunds will be issued.</li>
+                        <li><strong>Pre-Collection Refunds:</strong> If an item fails inspection <em>at</em> the landmark, the item price excluding the non-refundable security fee will be refunded within 30 minutes to 2 hours of filing a complaint.</li>
+                    </ul>
+                </section>
+
+                <!-- 6. TV HUB & CONTENT -->
+                <section class="mb-5">
+                    <h5 class="fw-bold text-dark mb-3">6. TV Hub & Media Discovery</h5>
+                    <p class="text-muted small">
+                        The ProlyfiQ TV Hub acts as a curated discovery portal for student entertainment.
+                    </p>
+                    <ul class="text-muted small">
+                        <li><strong>Content Sourcing:</strong> Media content is sourced via external embeds and links from <strong>YouTube</strong> and other public broadcasters.</li>
+                        <li><strong>Amazon Affiliate Disclosure:</strong> ProlyfiQ is a participant in the Amazon Services LLC Associates Program. As an Amazon Associate, we earn from qualifying purchases made through links on this platform.</li>
+                    </ul>
+                </section>
+
+                <!-- 7. LIMITATION OF LIABILITY -->
+                <section class="mb-5">
+                    <h5 class="fw-bold text-dark mb-3">7. Limitation of Liability</h5>
+                    <p class="text-muted small">
+                        Ledgehold Enterprise provides a platform for economic efficiency. While we enforce the Gatekeeper Policy, we are not liable for the underlying quality of third-party goods, seller representations, or utility uptime provided by national telcos.
+                    </p>
+                </section>
+
+                <section class="mb-5">
+                    <h5 class="fw-bold text-dark mb-3">8. Governing Law</h5>
+                    <p class="text-muted small">
+                        These terms are governed by the laws of the <strong>Republic of Ghana</strong>. Dispute resolution shall occur through arbitration in Accra.
+                    </p>
+                </section>
+
+                <div class="alert bg-primary-subtle border-0 rounded-4 p-4 text-center">
+                    <h6 class="fw-bold text-primary mb-1">Regulatory and Legal Support</h6>
+                    <p class="small text-primary opacity-75 mb-3">For institutional inquiries or legal clarification, contact our Compliance Team.</p>
+                    <a href="https://wa.me/233551681706" class="btn btn-primary rounded-pill px-4 fw-bold">Contact Compliance</a>
+                </div>
+
+            </div>
+            <div class="bg-light p-3 text-center">
+                <small class="text-muted">Last Updated: December 26, 2025</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+  .bg-slate-900 { background-color: #0f172a !important; }
+  .bg-warning-subtle { background-color: #fffbeb !important; }
+  .bg-primary-subtle { background-color: #e0e7ff !important; }
+  section h5 { letter-spacing: -0.5px; font-size: 1.1rem; }
+  ul li { margin-bottom: 8px; }
+  .card { border: 1px solid rgba(0,0,0,0.05) !important; }
+</style>
+
+{% endblock %}

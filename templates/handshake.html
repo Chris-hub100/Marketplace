@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}P.O.D. Handshake | ProlyfiQ{% endblock %}
+
+{% block content %}
+<!-- BRIDGE SCRIPT -->
+<script>
+    var __firebase_config = '{{ __firebase_config | safe if __firebase_config else "{}" }}';
+    var __app_id = '{{ __app_id if __app_id else "ledgehold-ghana1" }}';
+</script>
+
+<div class="container py-4" style="min-height: 85vh; max-width: 500px;">
+    <!-- SESSION LOADING STATE -->
+    <div id="loadingView" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-3 text-muted small">Loading...</p>
+    </div>
+
+    <!-- MAIN HANDSHAKE INTERFACE -->
+    <div id="handshakeView" class="d-none animate-slide-up">
+        <div class="mb-4">
+            <a href="/merchant_dashboard" class="text-decoration-none small fw-bold text-muted d-inline-flex align-items-center gap-2">
+                <i class="bi bi-arrow-left"></i> Dashboard
+            </a>
+            <h4 class="fw-bold text-dark mt-3 mb-1">P.O.D. Handshake</h4>
+            <p class="text-muted small">Generate a verification QR for the buyer to scan.</p>
+        </div>
+
+        <!-- GENERATOR FORM (SIMPLIFIED) -->
+        <div id="setupState">
+            <div class="card border-0 shadow-lg rounded-4 p-4 mb-4 bg-white">
+                <div class="mb-4">
+                    <label class="form-label small fw-bold text-muted">ITEM NAME (as listed in the marketplace)</label>
+                    <input type="text" id="itemInput" class="form-control rounded-pill border-light bg-light py-2 px-4" placeholder="e.g. iPhone 13">
+                </div>
+                <button onclick="generateHandshakeQR()" class="btn btn-dark w-100 rounded-pill py-3 fw-bold shadow-sm">
+                    Generate Delivery QR <i class="bi bi-qr-code-scan ms-2"></i>
+                </button>
+            </div>
+            
+            <div class="bg-warning-subtle p-3 rounded-4">
+                <div class="d-flex gap-2">
+                    <i class="bi bi-shield-check-fill text-primary"></i>
+                    <p class="x-small text-muted mb-0" style="line-height: 1.4;">
+                        <strong>Warning: </strong>Wrong item names may nullify payout.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- QR DISPLAY STATE -->
+        <div id="qrState" class="d-none text-center">
+            <div class="card border-0 shadow-lg rounded-5 p-5 bg-white mb-4 position-relative overflow-hidden">
+                <div class="position-absolute top-0 start-0 w-100 h-100 opacity-5" style="background: radial-gradient(circle at 50% 50%, #0d6efd 0%, transparent 70%);"></div>
+                
+                <h6 class="fw-bold text-muted text-uppercase small mb-4" style="letter-spacing: 2px;">Scan to Verify Delivery</h6>
+                
+                <div id="qrContainer" class="d-inline-block p-3 bg-white rounded-4 border shadow-sm mb-4">
+                    <img id="qrImage" src="" class="img-fluid" style="width: 220px; height: 220px;">
+                </div>
+
+                <div class="mb-2">
+                    <h5 id="displayItem" class="fw-bold text-dark mb-1">---</h5>
+                    <p class="text-primary small fw-bold mb-0">STATUS: WAITING FOR SCAN</p>
+                </div>
+            </div>
+            <div class="mt-4 p-3 border rounded-4 border-dashed">
+                <p class="x-small text-muted mb-0">
+                    <i class="bi bi-info-circle me-1"></i> Instruct the buyer to point their camera at the screen and hit "Send" on the pre-filled WhatsApp message.
+                </p>
+            </div>
+            <p></p>
+
+            <button onclick="resetHandshake()" class="btn btn-outline-secondary w-100 rounded-pill py-2 fw-bold">
+                Generate New Handshake
+            </button>
+            
+            
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+
+    const config = JSON.parse(__firebase_config);
+    const app = initializeApp(config);
+    const auth = getAuth(app);
+    const appId = __app_id;
+
+    const currentMerchant = localStorage.getItem('ledgehold_merchant_name');
+    const SESSION_TIMEOUT = 120000;
+
+    function refreshUI() {
+        const lastActive = localStorage.getItem('ledgehold_last_active');
+        const now = Date.now();
+        
+        if (!currentMerchant || (lastActive && (now - lastActive > SESSION_TIMEOUT))) {
+            window.location.href = '/merchant_dashboard';
+            return;
+        }
+
+        document.getElementById('loadingView').classList.add('d-none');
+        document.getElementById('handshakeView').classList.remove('d-none');
+        localStorage.setItem('ledgehold_last_active', now);
+
+        // Pre-fill item if passed via URL (from inbox)
+        const params = new URLSearchParams(window.location.search);
+        const item = params.get('item');
+        if (item) document.getElementById('itemInput').value = item;
+    }
+
+    window.generateHandshakeQR = function() {
+        const item = document.getElementById('itemInput').value.trim();
+
+        if (!item) {
+            alert("Please enter the Item Name.");
+            return;
+        }
+
+        // Format: RELEASE:[MerchantName]:[ItemName]
+        const handshakeToken = `RELEASE:${currentMerchant.replace(/\s+/g, '_')}:${item.replace(/\s+/g, '_')}`;
+        
+        // Deep Link for Buyer
+        const message = `HANDSHAKE_P.O.D:%0A%0A*${handshakeToken}*%0A%0AI confirm receipt of this item and authorize ProlyfiQ to release funds to the merchant.`;
+        const whatsappUrl = `https://wa.me/233551681706?text=${message}`;
+        
+        // Generate QR
+        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(whatsappUrl)}`;
+        
+        document.getElementById('qrImage').src = qrApiUrl;
+        document.getElementById('displayItem').innerText = item;
+        
+        document.getElementById('setupState').classList.add('d-none');
+        document.getElementById('qrState').classList.remove('d-none');
+    };
+
+    window.resetHandshake = function() {
+        document.getElementById('setupState').classList.remove('d-none');
+        document.getElementById('qrState').classList.add('d-none');
+        document.getElementById('itemInput').value = "";
+    };
+
+    onAuthStateChanged(auth, (user) => { 
+        if (user) refreshUI(); 
+        else signInAnonymously(auth); 
+    });
+</script>
+
+<style>
+    body { background-color: #f8fafc; }
+    .bg-primary-subtle { background-color: #e0e7ff !important; }
+    .x-small { font-size: 0.65rem; }
+    .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .border-dashed { border-style: dashed !important; }
+</style>
+{% endblock %}

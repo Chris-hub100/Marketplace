@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- HEADER SECTION -->
+
+<div class="mb-6">
+  <a href="javascript:history.back()" 
+    style="display: inline-flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 0.875rem; font-weight: bold; color: #64748b; text-decoration: none; transition: all 0.3s ease;"
+    class="hover:text-slate-900"
+    onmouseover="this.style.color='#0f172a'"
+    onmouseout="this.style.color='#64748b'"
+  >
+    <div style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background-color: #f1f5f9; transition: background-color 0.3s ease;">
+      <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        width="16" 
+        height="16" 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        stroke-width="3" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        style="transition: transform 0.3s ease;"
+      >
+        <path d="m15 18-6-6 6-6"/>
+      </svg>
+    </div>
+    <span style="display: inline-block;">Back</span>
+  </a>
+</div>
+
+<div class="text-center mb-5">
+<h3 class="fw-bold display-6">Platform Services</h3>
+<p class="text-muted small mx-auto" style="max-width: 500px;">
+Browse our catalog.
+</p>
+</div>
+
+<!-- SERVICES GRID -->
+
+<div class="container">
+<div class="row g-4 justify-content-center">
+
+    <!-- PILLAR 1: DIGITAL UTILITIES -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm service-card overflow-hidden">
+            <div class="card-image-header position-relative" style="background-image: url('https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&q=80&w=800');">
+                <div class="image-overlay d-flex align-items-end p-3">
+                    <h5 class="text-white fw-bold mb-0">Digital Utilities</h5>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-4">Instant utility bill payments. Pay ECG, TV bills and purchase data bundles via Hubtel.</p>
+                <a href="/shop" class="btn btn-power-blue w-100 fw-bold py-2">
+                    Open Utility Hub
+                </a>
+            </div>
+            <div class="card-footer bg-white border-0 py-2 text-center">
+                <span class="text-primary fw-bold" style="font-size: 0.65rem;">
+                    <i class="bi bi-lightning-fill"></i> INSTANT FULFILLMENT
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- PILLAR 2: STUDENT MARKETPLACE -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm service-card overflow-hidden">
+            <div class="card-image-header position-relative" style="background-image: url('https://th.bing.com/th/id/OIP.LZb9VGaXIsAeTCSE5BFF7gHaEO?w=316&h=180&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3');">
+                <div class="image-overlay d-flex align-items-end p-3">
+                    <h5 class="text-white fw-bold mb-0">Campus Marketplace</h5>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-4">A privacy-first P2P hub. Buy and sell gear anonymously with escrow-backed security.</p>
+                <a href="/marketplace" class="btn btn-power-blue w-100 fw-bold py-2">
+                    Browse Listings
+                </a>
+            </div>
+            <div class="card-footer bg-white border-0 py-2 text-center">
+                <span class="text-primary fw-bold" style="font-size: 0.65rem;">
+                    <i class="bi bi-shield-lock-fill"></i> ANONYMOUS GUEST FLOW
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- PILLAR 3: CONTENT HUB -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm service-card overflow-hidden">
+            <div class="card-image-header position-relative" style="background-image: url('https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&q=80&w=800');">
+                <div class="image-overlay d-flex align-items-end p-3">
+                    <h5 class="text-white fw-bold mb-0">ProlyfiQ tv+</h5>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-4">Curated entertainment trends. View both released and unreleased trailers and streaming deals in one click.</p>
+                <a href="/tv" class="btn btn-power-blue w-100 fw-bold py-2">
+                    Watch Now
+                </a>
+            </div>
+            <div class="card-footer bg-white border-0 py-2 text-center">
+                <span class="text-primary fw-bold" style="font-size: 0.65rem;">
+                    <i class="bi bi-play-circle-fill"></i> DAILY UPDATES
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- B2B: LOGISTICS ENGINE -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm service-card overflow-hidden">
+            <div class="card-image-header position-relative" style="background-image: url('https://th.bing.com/th/id/OIP.M97fviWsE2QxRzfvkubQfAHaE8?w=237&h=180&c=7&r=0&o=7&dpr=1.5&pid=1.7&rm=3');">
+                <div class="image-overlay d-flex align-items-end p-3">
+                    <h5 class="text-white fw-bold mb-0">FoodRun™</h5>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-4">Food delivered directly to your hostel door front.</p>
+                <a href="/foodrun" class="btn btn-power-blue w-100 fw-bold py-2">
+                    Order Now
+                </a>
+            </div>
+            <div class="card-footer bg-white border-0 py-2 text-center">
+                <span class="text-primary fw-bold" style="font-size: 0.65rem;">
+                    <i class="bi bi-speedometer"></i> WEEKEND ONLY
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- B2B: ADVERTISING SOLUTIONS -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm service-card overflow-hidden">
+            <div class="card-image-header position-relative" style="background-image: url('https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&q=80&w=800');">
+                <div class="image-overlay d-flex align-items-end p-3">
+                    <h5 class="text-white fw-bold mb-0">Ad Space Solutions</h5>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-4">Monetize your campus brand. Strategic banner slots and B2B spotlighting for verified vendors.</p>
+                <a href="https://wa.me/233551681706?text=I+want+to+advertise+on+ProlyfiQ" class="btn btn-power-blue w-100 fw-bold py-2">
+                    Book Slot
+                </a>
+            </div>
+            <div class="card-footer bg-white border-0 py-2 text-center">
+                <span class="text-primary fw-bold" style="font-size: 0.65rem;">
+                    <i class="bi bi-megaphone-fill"></i> MEDIA INVENTORY
+                </span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+
+</div>
+
+<!-- CORPORATE FOOTER -->
+<div class="mt-5 pt-4 text-center pb-5 animate-in delay-400">
+    <p class="text-muted" style="font-size: 0.65rem; letter-spacing: 1.5px; font-weight: 700;">PAYMENTS PROCESSED via :</p>
+    <div class="opacity-50 grayscale d-flex justify-content-center gap-4 align-items-center mt-2">
+        <span class="fw-bold text-dark fs-5">LEDGEHOLD <span class="fw-bold text-primary fs-5">escrow</span></span>
+        <div style="height: 20px; width: 1px; background: #0f1112;"></div>
+        <div class="d-flex align-items-center gap-2">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Paystack_Logo.svg/500px-Paystack_Logo.svg.png" style="width: 100px; opacity: 0.6;">
+            <span class="fw-bold text-dark fs-5"></span>
+        </div>
+    </div>
+</div>
+
+<!-- STYLE OVERRIDES -->
+
+<style>
+.service-card {
+border-radius: 24px;
+transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.service-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 1.5rem 4rem rgba(0, 51, 102, 0.15) !important;
+}
+
+.card-image-header {
+    height: 160px;
+    background-size: cover;
+    background-position: center;
+    transition: transform 0.6s ease;
+}
+
+.service-card:hover .card-image-header {
+    transform: scale(1.05);
+}
+
+.image-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to top, rgba(0, 51, 102, 0.9) 0%, rgba(0, 51, 102, 0.2) 60%);
+}
+
+.btn-power-blue {
+    background-color: #003366;
+    color: white;
+    border-radius: 12px;
+    transition: 0.3s;
+}
+
+.btn-power-blue:hover {
+    background-color: #001f3f;
+    color: white;
+    transform: scale(1.02);
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+
+</style>
+
+<div style="height: 60px;"></div>
+
+{% endblock %}

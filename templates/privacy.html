@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy | ProlyfiQ{% endblock %}
+
+{% block content %}
+<!-- BACK BUTTON -->
+<div class="mb-6">
+  <a href="javascript:history.back()" class="hover:text-slate-900" style="display: inline-flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 0.875rem; font-weight: bold; color: #64748b; text-decoration: none;">
+    <div style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background-color: #f1f5f9;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </div>
+    <span>Back</span>
+  </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="bg-slate-900 p-5 text-white text-center">
+                <i class="bi bi-shield-lock-fill display-4 text-primary mb-3"></i>
+                <h2 class="fw-bold">Privacy Policy</h2>
+                <p class="opacity-75 mb-0">Ledgehold's ProlyfiQ Enterprise Standards</p>
+            </div>
+            <div class="card-body p-4 p-md-5">
+                
+                <!-- COMMITMENT TO ACT 843 -->
+                <section class="mb-5">
+                    <h5 class="fw-bold text-dark border-start border-primary border-4 ps-3 mb-3">Commitment to Act 843</h5>
+                    <p class="text-muted small">
+                        ProlyfiQ operates in strict accordance with the <strong>Data Protection Act, 2012 (Act 843)</strong> of Ghana. We treat Student ID data and Merchant Access Keys as "Special Personal Data," ensuring maximum encryption and limited access to maintain the Ledgehold Standard.
+                    </p>
+                </section>
+
+                <!-- DATA VISIBILITY GRID -->
+                <div class="row g-4 mb-5">
+                    <div class="col-md-6">
+                        <div class="p-4 bg-light rounded-4 h-100 border">
+                            <h6 class="fw-bold"><i class="bi bi-eye-slash-fill text-primary me-2"></i>What we see</h6>
+                            <ul class="small text-muted ps-3 mb-0">
+                                <li class="mb-2">Full Name & University Details</li>
+                                <li class="mb-2">Uploaded Photos</li>
+                                <li class="mb-2">Course of Study</li>
+                                <li class="mb-2">MoMo Payout Numbers</li>
+                                <li>Daily Logs & Verification Receipts</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-4 bg-light rounded-4 h-100 border">
+                            <h6 class="fw-bold"><i class="bi bi-shield-check text-success me-2"></i>How we protect it</h6>
+                            <ul class="small text-muted ps-3 mb-0">
+                                <li class="mb-2">AES-256 Cloud Encryption</li>
+                                <li class="mb-2">6-hour Auto-Purge for ID uploads</li>
+                                <li class="mb-2">12-hour Auto-Purge for Photo uploads</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ZERO-KNOWLEDGE ARCHITECTURE (NEW SECTION) -->
+                <section class="mb-5 bg-primary-subtle p-4 rounded-4">
+                    <h5 class="fw-bold text-primary mb-3"><i class="bi bi-cpu-fill me-2"></i>Zero-Knowledge PIN Standards</h5>
+                    <p class="text-muted small">
+                        To guarantee total data protection for our <strong>Users</strong>, Ledgehold utilizes a zero-knowledge architecture for dashboard access:
+                    </p>
+                    <ul class="text-muted small">
+                        <li><strong>Non-Retrievable Keys:</strong> We do not store plain-text PINs. Your PIN is mathematically transformed into a hash that cannot be reversed.</li>
+                        <li><strong>Staff Access:</strong> Ledgehold employees, administrators, and developers have zero visibility into your private keys.</li>
+                        <li><strong>Security Mandate:</strong> In the event of a lost PIN, the existing record must be administratively revoked (wiped) and the merchant must re-onboard to generate a new key.</li>
+                        <li><strong>Session Security:</strong> To prevent unauthorized access on shared devices, active dashboard sessions automatically terminate after 2 minutes of inactivity.</li>
+                    </ul>
+                </section>
+
+                <!-- THE GATEKEEPER POLICY -->
+                <section class="mb-5">
+                    <h5 class="fw-bold text-dark mb-3">The Gatekeeper Policy</h5>
+                    <p class="text-muted small">
+                        ProlyfiQ (via Ledgehold) maintains a strict transparency mandate. <strong>Payout requests submitted without a corresponding proof of delivery will be flagged as ineligible for payout.</strong> This verification data is retained solely for compliance auditing and annual tax filing requirements.
+                    </p>
+                </section>
+
+                <!-- THIRD-PARTY DISCLOSURE -->
+                <section class="mb-5">
+                    <h5 class="fw-bold text-dark mb-3">Third-Party Disclosure</h5>
+                    <p class="text-muted small">
+                        We use existing, enterprise tools for maximum reliability. Your data is securely routed through <strong>Cloudinary</strong> (Identity Verification) and <strong>Paystack</strong> (Financial Settlements). These providers are industry-standard and maintain their own rigorous security protocols.
+                    </p>
+                </section>
+
+                <div class="alert bg-primary-subtle border-0 rounded-4 p-4 text-center">
+                    <h6 class="fw-bold text-primary mb-1">Questions about your data?</h6>
+                    <p class="small text-primary opacity-75 mb-3">Our Compliance Team is ready to assist you with DPC-related inquiries.</p>
+                    <a href="https://wa.me/233551681706" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">Contact Compliance</a>
+                </div>
+
+            </div>
+            <div class="bg-light p-3 text-center border-top">
+                <small class="text-muted">© 2026 ProlyfiQ. A Ledgehold Platform.</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-slate-900 { background-color: #0f172a !important; }
+    .bg-primary-subtle { background-color: #e0e7ff !important; }
+    section h5 { letter-spacing: -0.5px; }
+    .card { border: 1px solid rgba(0,0,0,0.05) !important; }
+    ul li { margin-bottom: 8px; }
+</style>
+{% endblock %}

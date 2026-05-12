@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Frequently Asked Questions | ProlyfiQ{% endblock %}
+
+{% block content %}
+
+<!-- BACK BUTTON -->
+<div class="mb-6">
+  <a href="javascript:history.back()" 
+    style="display: inline-flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 0.875rem; font-weight: bold; color: #64748b; text-decoration: none; transition: all 0.3s ease;"
+    class="hover:text-slate-900"
+  >
+    <div style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background-color: #f1f5f9;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 18-6-6 6-6"/>
+      </svg>
+    </div>
+    <span>Back</span>
+  </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold text-dark">Frequently Asked Questions</h2>
+            <p class="text-muted">Answers to common questions about Marketplace, Payouts, and Logistics.</p>
+        </div>
+
+        <!-- FAQ ACCORDION -->
+        <div class="accordion accordion-flush shadow-sm rounded-4 overflow-hidden border" id="faqAccordion">
+            
+            <!-- SELLER PAYOUTS -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button fw-bold py-4" type="button" data-bs-toggle="collapse" data-bs-target="#payoutFAQ">
+                        <i class="bi bi-cash-coin me-3 text-primary"></i> How do I get my payout as a seller?
+                    </button>
+                </h2>
+                <div id="payoutFAQ" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted small px-4 pb-4">
+                        To receive your payout, you must satisfy <strong>The Gatekeeper Policy</strong>. 
+                            <br><br>
+                            The primary method is the <strong>Instant Handshake</strong>: simply have the buyer scan the unique <strong>Transaction QR Code</strong> displayed on your Merchant Dashboard at the point of delivery. This instantly verifies the transaction and releases your payout.
+                            <br><br>
+                            As a secondary method (if scanning fails), you may upload visual <strong>Proof of Delivery (POD)</strong> through the <a href="/payout_portal" class="text-primary fw-bold text-decoration-none">payout portal</a>. Once verified, funds are released to your registered MoMo number within 3 minutes to an hour.
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- MARKETPLACE REFUNDS -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold py-4" type="button" data-bs-toggle="collapse" data-bs-target="#refundFAQ">
+                        <i class="bi bi-arrow-counterclockwise me-3 text-primary"></i> How do I get a refund for a Marketplace item?
+                    </button>
+                </h2>
+                <div id="refundFAQ" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted small px-4 pb-4">
+                        Refunds are issued if an item fails inspection at the campus landmark. If the item does not match the description, do not complete the handoff. File a complaint immediately via our WhatsApp support. We will refund the <strong>item price</strong> to your original payment method after we verify the complaint. Note that the <strong>5% Security & Processing Fee</strong> is non-refundable as it covers the security costs already incurred.
+                    </div>
+                </div>
+            </div>
+
+            <!-- FOOD RUN REFUNDS -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold py-4" type="button" data-bs-toggle="collapse" data-bs-target="#foodRefundFAQ">
+                        <i class="bi bi-bag-x me-3 text-primary"></i> Can I cancel my Food Run order?
+                    </button>
+                </h2>
+                <div id="foodRefundFAQ" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted small px-4 pb-4">
+                        Cancellations and refunds for Food Run orders are only possible <strong>before the Run begins</strong>. Once our delivery agents have started the fulfillment process, no refunds can be issued as food is a perishable good. Please ensure you are at the pickup landmark within 10 minutes of arrival to avoid forfeiture.
+                    </div>
+                </div>
+            </div>
+
+            <!-- ESCROW SECURITY -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold py-4" type="button" data-bs-toggle="collapse" data-bs-target="#escrowFAQ">
+                        <i class="bi bi-shield-lock me-3 text-primary"></i> How does the Escrow system protect me?
+                    </button>
+                </h2>
+                <div id="escrowFAQ" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted small px-4 pb-4">
+                        ProlyfiQ acts as a neutral third party. When a buyer pays, the money is held in the <strong>Ledgehold Vault</strong>. It is not given to the seller until the buyer confirms they have the item. This prevents "runaway sellers" and ensures students only pay for what they actually receive.
+                    </div>
+                </div>
+            </div>
+
+            <!-- EXTERNAL LINKS -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold py-4" type="button" data-bs-toggle="collapse" data-bs-target="#amazonFAQ">
+                        <i class="bi bi-link-45deg me-3 text-primary"></i> Why am I seeing Amazon links in the TV Hub?
+                    </button>
+                </h2>
+                <div id="amazonFAQ" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted small px-4 pb-4">
+                        The ProlyfiQ TV Hub includes curated discovery and entertainment content. Some links are part of the <strong>Amazon Associates Program</strong>. When you purchase recommended products through these links, ProlyfiQ earns a small commission which helps us keep the platform running for students. Your price remains exactly the same.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="mt-5 p-4 bg-light rounded-4 text-center border">
+            <h6 class="fw-bold mb-2">Still need help?</h6>
+            <p class="small text-muted mb-3">Our support team is available via WhatsApp for immediate assistance.</p>
+            <a href="https://wa.me/233551681706" class="btn btn-dark rounded-pill px-4 fw-bold">
+                <i class="bi bi-whatsapp me-2"></i> Chat with Support
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .accordion-button:not(.collapsed) {
+        background-color: #f8fafc;
+        color: #0f172a;
+        box-shadow: none;
+    }
+    .accordion-button:focus {
+        border-color: rgba(0,0,0,0.125);
+        box-shadow: none;
+    }
+    .accordion-item {
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .accordion-item:last-child {
+        border-bottom: none;
+    }
+    .bi-cash-coin, .bi-arrow-counterclockwise, .bi-bag-x, .bi-shield-lock, .bi-link-45deg {
+        font-size: 1.25rem;
+    }
+</style>
+
+{% endblock %}

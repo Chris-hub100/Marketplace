@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory Management | ProlyfiQ{% endblock %}
+
+{% block content %}
+<!-- FIREBASE COMPAT (Matches Seller Onboarding) -->
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+
+<script>
+    /** * LEDGEHOLD ENTERPRISE CONFIG & INITIALIZATION
+     */
+    const __app_id = '{{ __app_id if __app_id else "ledgehold-ghana1" }}';
+    const __firebase_config = '{{ __firebase_config | safe if __firebase_config else "{}" }}';
+    
+    // Initialize Firebase Compat
+    const config = JSON.parse(__firebase_config);
+    if (!firebase.apps.length) firebase.initializeApp(config);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    // Session Management
+    let currentMerchant = localStorage.getItem('ledgehold_merchant_name');
+    let inventoryData = [];
+    let logoutTimer, warningTimer, countdownInterval;
+    const SESSION_TIMEOUT = 120000; // 2 Minutes
+    const WARNING_THRESHOLD = 110000;
+
+    /**
+     * REDIRECT LOGIC: Redirect to dashboard if session is dead
+     */
+    function checkAuth() {
+        const lastActive = localStorage.getItem('ledgehold_last_active');
+        const now = Date.now();
+        
+        if (!currentMerchant || !lastActive || (now - lastActive > SESSION_TIMEOUT)) {
+            console.log("Session invalid or expired. Redirecting to Dashboard...");
+            window.location.href = '/merchant_dashboard';
+            return false;
+        }
+        return true;
+    }
+
+    function resetTimers() {
+        if (!currentMerchant) return;
+        clearTimeout(logoutTimer);
+        clearTimeout(warningTimer); 
+        clearInterval(countdownInterval);
+        localStorage.setItem('ledgehold_last_active', Date.now());
+        warningTimer = setTimeout(showWarning, WARNING_THRESHOLD);
+        logoutTimer = setTimeout(handleLogout, SESSION_TIMEOUT);
+    }
+
+    function showWarning() {
+        const el = document.getElementById('logoutWarningModal');
+        const modal = new bootstrap.Modal(el);
+        modal.show();
+        let val = 10;
+        document.getElementById('logoutCountdown').innerText = val;
+        countdownInterval = setInterval(() => {
+            val--;
+            document.getElementById('logoutCountdown').innerText = val;
+            if (val <= 0) {
+                clearInterval(countdownInterval);
+                handleLogout();
+            }
+        }, 1000);
+    }
+
+    window.staySignedIn = function() {
+        const el = document.getElementById('logoutWarningModal');
+        const modal = bootstrap.Modal.getInstance(el);
+        if (modal) modal.hide();
+        resetTimers();
+    }
+
+    window.handleLogout = function() {
+        localStorage.removeItem('ledgehold_merchant_name');
+        localStorage.removeItem('ledgehold_last_active');
+        window.location.href = '/merchant_dashboard'; 
+    }
+
+    /**
+     * INVENTORY FETCHING LOGIC
+     * Updated to target 'market_listings' to match Flask API logic
+     */
+    function startInventoryListener() {
+        if (!currentMerchant) return;
+
+        // Path matches Flask API: artifacts/{appId}/public/data/market_listings
+        const colRef = db.collection('artifacts').doc(__app_id)
+                         .collection('public').doc('data')
+                         .collection('market_listings');
+        
+        console.log("Syncing with Marketplace Silo:", colRef.path);
+        console.log("Target Merchant:", currentMerchant);
+
+        // Real-time listener
+        colRef.onSnapshot((snap) => {
+            const loadingEl = document.getElementById('loadingState');
+            if (loadingEl) loadingEl.classList.add('d-none');
+            
+            inventoryData = [];
+            const target = currentMerchant.trim().toLowerCase();
+
+            snap.forEach(doc => {
+                const data = doc.data();
+                
+                // Normalizing owner detection across multiple possible schemas
+                const dbOwner = (
+                    data.merchantId || 
+                    data.fullName || 
+                    data.merchantName || 
+                    data.seller || 
+                    data.merchant || 
+                    data.owner || 
+                    ""
+                ).toString().trim().toLowerCase();
+                
+                // Logging for local debugging in console
+                if (snap.size < 20) {
+                   console.log(`Checking [${data.itemName || 'Unnamed'}]: DB Owner="${dbOwner}" vs Local Target="${target}"`);
+                }
+
+                if (dbOwner === target && target !== "") {
+                    inventoryData.push({ id: doc.id, ...data });
+                }
+            });
+
+            console.log(`Verified matches for dashboard view: ${inventoryData.length}`);
+            renderInventory(inventoryData);
+        }, (err) => {
+            console.error("Ledgehold Ledger Sync Error:", err);
+            const loadingEl = document.getElementById('loadingState');
+            if (loadingEl) {
+                loadingEl.innerHTML = `
+                    <div class="alert alert-danger rounded-4 border-0 small shadow-sm mx-auto" style="max-width: 400px;">
+                        <i class="bi bi-shield-exclamation me-2"></i> Security Access Error: ${err.message}
+                    </div>`;
+            }
+        });
+    }
+
+    function renderInventory(items) {
+        const list = document.getElementById('inventoryList');
+        const empty = document.getElementById('emptyInventory');
+        const section = document.getElementById('inventorySection');
+        
+        if (section) section.classList.remove('d-none');
+        if (list) list.innerHTML = '';
+        
+        if (items.length === 0) {
+            if (empty) empty.classList.remove('d-none');
+            return;
+        }
+        if (empty) empty.classList.add('d-none');
+
+        items.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.className = "hover-lift-sm border-bottom border-light";
+            
+            const price = parseFloat(item.price || 0);
+            const stock = parseInt(item.stock || 0);
+            const statusLabel = item.status === 'active' ? 'Listed' : (item.status || 'Pending');
+            const statusClass = item.status === 'active' ? 'bg-success' : 'bg-warning';
+
+            tr.innerHTML = `
+                <td class="ps-4 py-4">
+                    <div class="fw-bold text-dark">${item.itemName || 'Unnamed Item'}</div>
+                    <div class="d-flex align-items-center gap-2 mt-1">
+                        <span class="badge ${statusClass} rounded-pill p-1" style="width: 6px; height: 6px;"></span>
+                        <span class="text-muted x-small text-uppercase fw-bold" style="font-size: 0.6rem; letter-spacing: 0.5px;">${statusLabel} • REF ID: ${item.id.substring(0,8)}</span>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge ${stock > 5 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'} rounded-pill px-3 fw-bold border border-success border-opacity-10">
+                        ${stock} Units
+                    </span>
+                </td>
+                <td class="fw-bold text-dark text-nowrap">₵${price.toFixed(2)}</td>
+                <td class="pe-4 text-end">
+                    <div class="btn-group shadow-sm rounded-pill overflow-hidden bg-white border">
+                        <button class="btn btn-white btn-sm border-0 px-3 py-2 text-primary" onclick="openEdit('${item.id}')" title="Edit Item">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                        <button class="btn btn-white btn-sm border-0 border-start px-3 py-2 text-danger" onclick="removeItem('${item.id}')" title="Remove Item">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            list.appendChild(tr);
+        });
+    }
+
+    /**
+     * CRUD ACTIONS (Updated to market_listings)
+     */
+    window.openEdit = function(id) {
+        const item = inventoryData.find(i => i.id === id);
+        if (!item) return;
+        document.getElementById('editItemId').value = item.id;
+        document.getElementById('editItemName').value = item.itemName || '';
+        document.getElementById('editItemPrice').value = item.price;
+        document.getElementById('editItemStock').value = item.stock;
+        document.getElementById('editItemDesc').value = item.description || '';
+        new bootstrap.Modal(document.getElementById('editItemModal')).show();
+    };
+
+    window.commitChanges = async function() {
+        const id = document.getElementById('editItemId').value;
+        const btn = document.getElementById('commitBtn');
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Updating Ledger...`;
+
+        try {
+            await db.collection('artifacts').doc(__app_id)
+                    .collection('public').doc('data')
+                    .collection('market_listings').doc(id).update({
+                        itemName: document.getElementById('editItemName').value,
+                        price: Number(document.getElementById('editItemPrice').value),
+                        stock: Number(document.getElementById('editItemStock').value),
+                        description: document.getElementById('editItemDesc').value,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+            bootstrap.Modal.getInstance(document.getElementById('editItemModal')).hide();
+        } catch (e) {
+            console.error("Ledger Update Error:", e);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Commit Changes";
+        }
+    };
+
+    window.removeItem = async function(id) {
+        if (!confirm("Remove this item from the active marketplace? All negotiation threads will be archived.")) return;
+        try {
+            await db.collection('artifacts').doc(__app_id)
+                    .collection('public').doc('data')
+                    .collection('market_listings').doc(id).delete();
+        } catch (e) {
+            console.error("Neutralization Error:", e);
+        }
+    };
+
+    window.filterInventory = function() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const filtered = inventoryData.filter(i => (i.itemName || '').toLowerCase().includes(query));
+        renderInventory(filtered);
+    };
+
+    // Monitor for interactions
+    ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
+        window.addEventListener(evt, resetTimers, true);
+    });
+
+    // Start Up
+    window.addEventListener('DOMContentLoaded', () => {
+        if (checkAuth()) {
+            auth.signInAnonymously().then(() => {
+                const displayEl = document.getElementById('activeMerchantDisplay');
+                if (displayEl) displayEl.innerText = currentMerchant;
+                startInventoryListener();
+                resetTimers();
+            }).catch(err => {
+                console.error("Auth Protocol Failed:", err);
+            });
+        }
+    });
+</script>
+
+<div class="container py-4" style="min-height: 80vh;">
+    <!-- Protected Content Section -->
+    <div id="inventorySection" class="d-none animate-in fade-in duration-500">
+        <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+            <div>
+                <a href="/merchant_dashboard" class="text-decoration-none small fw-bold text-muted d-inline-flex align-items-center gap-2">
+                    <i class="bi bi-arrow-left"></i> Dashboard
+                </a>
+                <h4 class="fw-bold mb-0 text-dark">Marketplace Inventory</h4>
+                <div class="d-flex align-items-center gap-2 mt-1">
+                    <span class="bg-success rounded-circle animate-pulse" style="width: 8px; height: 8px;"></span>
+                    <p class="text-muted small mb-0">Merchant: <span id="activeMerchantDisplay" class="fw-bold text-primary"></span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- SEARCH BAR -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="input-group shadow-sm rounded-pill overflow-hidden bg-white border">
+                    <span class="input-group-text bg-white border-0 ps-3"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" id="searchInput" class="form-control border-0 py-2 shadow-none" placeholder="Search your catalog..." onkeyup="filterInventory()">
+                </div>
+            </div>
+        </div>
+
+        <!-- INVENTORY TABLE -->
+        <div class="card border-0 shadow-lg rounded-4 overflow-hidden bg-white">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-muted small text-uppercase fw-bold" style="letter-spacing: 0.5px;">
+                        <tr>
+                            <th class="ps-4 py-3">Listing Details</th>
+                            <th class="py-3">Stock</th>
+                            <th class="py-3">Unit Price</th>
+                            <th class="pe-4 py-3 text-end">Management</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryList">
+                        <!-- Data injected via JS -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- EMPTY STATE -->
+            <div id="emptyInventory" class="text-center py-5 d-none">
+                <div class="py-5">
+                    <div class="bg-light d-inline-flex p-4 rounded-circle mb-4">
+                        <i class="bi bi-box-seam display-4 text-muted opacity-50"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark">Inventory Empty</h5>
+                    <p class="text-muted small mb-4">No active listings linked to your merchant identity were found in the silo.</p>
+                    <a href="/list_item" class="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow hover-scale">
+                        <i class="bi bi-plus-circle me-2"></i> Create First Listing
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOADING STATE -->
+    <div id="loadingState" class="text-center py-5 mt-5">
+        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="text-muted mt-3 fw-bold">Synchronizing with Market Silo...</p>
+    </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal fade" id="editItemModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 bg-light p-4">
+                <h5 class="fw-bold text-dark mb-0">Edit Marketplace Listing</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="editItemId">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted">LISTING NAME</label>
+                    <input type="text" id="editItemName" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" required>
+                </div>
+                <div class="row mb-3 g-3">
+                    <div class="col-6">
+                        <label class="form-label small fw-bold text-muted">PRICE (GHS)</label>
+                        <input type="number" step="0.01" id="editItemPrice" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" required>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-bold text-muted">STOCK LEVEL</label>
+                        <input type="number" id="editItemStock" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label small fw-bold text-muted">DESCRIPTION</label>
+                    <textarea id="editItemDesc" class="form-control rounded-4 border-light bg-light py-2 px-4 shadow-none" rows="3"></textarea>
+                </div>
+                <button onclick="commitChanges()" id="commitBtn" class="btn btn-dark w-100 rounded-pill py-3 fw-bold shadow">
+                    Commit Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SESSION ALERT MODAL -->
+<div class="modal fade" id="logoutWarningModal" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden text-center">
+            <div class="modal-body p-4">
+                <div class="bg-warning-subtle text-warning rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                    <i class="bi bi-hourglass-split fs-2"></i>
+                </div>
+                <h5 class="fw-bold text-dark">Session Alert</h5>
+                <p class="text-muted small mb-4">Marketplace access will expire in <span id="logoutCountdown" class="fw-bold text-danger">10</span> seconds.</p>
+                <div class="d-grid gap-2">
+                    <button type="button" onclick="staySignedIn()" class="btn btn-dark rounded-pill fw-bold">Stay Logged In</button>
+                    <button type="button" onclick="handleLogout()" class="btn btn-link text-muted text-decoration-none small">End Session</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    body { background-color: #f8fafc; }
+    .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .hover-lift-sm { transition: transform 0.2s ease, background-color 0.2s ease; }
+    .hover-lift-sm:hover { transform: translateY(-2px); background-color: #f1f5f9; }
+    .bg-warning-subtle { background-color: #fef3c7 !important; }
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .bg-danger-subtle { background-color: #fee2e2 !important; }
+    .btn-white:hover { background-color: #f8fafc; }
+    .hover-scale { transition: transform 0.2s ease; }
+    .hover-scale:hover { transform: scale(1.02); }
+    .x-small { font-size: 0.75rem; }
+</style>
+{% endblock %}

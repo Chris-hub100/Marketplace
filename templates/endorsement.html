@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+
+{% block title %}Endorsement Program | ProlyfiQ{% endblock %}
+
+{% block content %}
+<!-- EXTERNAL ENGINES -->
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+<script>
+    var __app_id = '{{ __app_id }}';
+    var __firebase_config = '{{ __firebase_config | safe }}';
+    
+    // Initialize Firebase Globally
+    var config = JSON.parse(__firebase_config);
+    if (!firebase.apps.length) firebase.initializeApp(config);
+    var db = firebase.firestore();
+</script>
+
+<!-- PREMIUM THEME STYLES -->
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    body {
+        font-family: 'Inter', sans-serif;
+        background-color: #ffffff;
+    }
+
+    .hero-gradient {
+        background: radial-gradient(circle at top right, #fef3c7, transparent),
+                    radial-gradient(circle at bottom left, #e0e7ff, transparent);
+        background-color: #ffffff;
+        border-radius: 40px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .glass-card {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 24px;
+        transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    }
+
+    .glass-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+        background: rgba(255, 255, 255, 0.9);
+    }
+
+    .premium-badge {
+        background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+        color: #000;
+        font-weight: 800;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        padding: 6px 16px;
+        border-radius: 100px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .sector-icon-box {
+        opacity: 0.5;
+        transition: all 0.3s ease;
+        text-align: center;
+    }
+
+    .sector-icon-box:hover {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+
+    .sector-label {
+        font-size: 0.6rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #64748b;
+        margin-top: 10px;
+    }
+
+    .step-number {
+        font-size: 3rem;
+        font-weight: 900;
+        color: #e2e8f0;
+        line-height: 1;
+        margin-bottom: 1rem;
+    }
+
+    .gold-glow {
+        box-shadow: 0 0 30px rgba(251, 191, 36, 0.2);
+    }
+
+    .nav-back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+        color: #64748b;
+        font-weight: 700;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+
+    .nav-back-btn:hover {
+        color: #0f172a;
+        transform: translateX(-4px);
+    }
+
+    .z-index-1 { z-index: 1; }
+
+    /* MOBILE BUTTON OPTIMIZATION */
+    @media (max-width: 576px) {
+        .hero-btn-group {
+            display: grid !important;
+            grid-template-columns: 1fr;
+            width: 100%;
+        }
+        .footer-cta-box {
+            margin-top: 2rem;
+        }
+    }
+</style>
+
+<div class="container py-4">
+    <!-- NAVIGATION -->
+    <div class="mb-5">
+        <a href="/merchant_dashboard" class="text-decoration-none small fw-bold text-muted d-inline-flex align-items-center gap-2">
+            <i class="bi bi-arrow-left"></i> Dashboard
+        </a>
+    </div>
+
+    <!-- HERO SECTION: THE VISION -->
+    <div class="hero-gradient p-4 p-md-5 mb-5 border">
+        <div class="row align-items-center py-4">
+            <div class="col-lg-7">
+                <div class="premium-badge mb-4 gold-glow">
+                    <i class="bi bi-stars"></i>Endorsement Tier
+                </div>
+                <h1 class="display-4 display-md-3 fw-800 text-dark mb-4 tracking-tight" style="letter-spacing: -2px;">
+                    Connecting <span class="text-primary">Corporate Giants</span> with Verified Merchants.
+                </h1>
+                <p class="lead text-muted mb-5" style="max-width: 600px;">
+                    We are currently in high-level strategic negotiations with top-tier commercial institutions to create the first <strong>Institutional Endorsement Protocol</strong> for verified student entrepreneurs.
+                </p>
+                <!-- MOBILE OPTIMIZED BUTTON GROUP -->
+                <div class="d-flex flex-column flex-sm-row gap-3 hero-btn-group">
+                    <button onclick="openWaitlistModal()" class="btn btn-dark btn-lg rounded-pill px-sm-5 fw-bold shadow-lg py-3">Join Waitlist</button>
+                    <a href="#benefits" class="btn btn-outline-dark btn-lg rounded-pill px-sm-4 fw-bold py-3 text-center">View Benefits</a>
+                </div>
+            </div>
+            <div class="col-lg-5 d-none d-lg-block">
+                <div class="position-relative">
+                    <img src="https://images.unsplash.com/photo-1739298061707-cefee19941b7?w=600&auto=format&fit=crop&q=60" class="img-fluid rounded-4 shadow-2xl" alt="Strategic Partnership" style="transform: rotate(2deg);">
+                    <div class="position-absolute bottom-0 start-0 m-4 shadow-lg glass-card p-3 d-flex align-items-center gap-3" style="width: 280px; transform: rotate(-4deg);">
+                        <div class="bg-success rounded-circle p-2 text-white">
+                            <i class="bi bi-graph-up-arrow"></i>
+                        </div>
+                        <div>
+                            <p class="mb-0 fw-bold small">Corporate Synergies</p>
+                            <p class="mb-0 text-muted x-small">The Endorsement Protocol</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PARTNER HUB: SECTORS -->
+    <div class="text-center py-5 mb-5">
+        <p class="text-uppercase small fw-bold text-muted mb-5" style="letter-spacing: 3px;">Establishing Strategic Corridors With</p>
+        <div class="container">
+            <div class="row justify-content-center align-items-center g-4 g-md-5 px-lg-5">
+                <div class="col-4 col-md-2 sector-icon-box">
+                    <i class="bi bi-reception-4 fs-1 text-secondary"></i>
+                    <p class="sector-label">Telecoms Sector</p>
+                </div>
+                <div class="col-4 col-md-2 sector-icon-box">
+                    <i class="bi bi-bank2 fs-1 text-secondary"></i>
+                    <p class="sector-label">Tier-1 Banking</p>
+                </div>
+                <div class="col-4 col-md-2 sector-icon-box">
+                    <i class="bi bi-cpu fs-1 text-secondary"></i>
+                    <p class="sector-label">Global Tech</p>
+                </div>
+                <div class="col-4 col-md-2 sector-icon-box">
+                    <i class="bi bi-cup-hot fs-1 text-secondary"></i>
+                    <p class="sector-label">FMCG Brands</p>
+                </div>
+                <div class="col-4 col-md-2 sector-icon-box">
+                    <i class="bi bi-wallet2 fs-1 text-secondary"></i>
+                    <p class="sector-label">FinTech Nodes</p>
+                </div>
+            </div>
+        </div>
+        <div class="mt-5 px-3 mx-auto" style="max-width: 600px;">
+            <p class="text-muted x-small italic text-center">
+                * In accordance with our <strong>Policies</strong>, all institutional endorsements are subject to compliance audits. Official endorsements are reserved for merchants maintaining 100% entrepreneurial integrity.
+            </p>
+        </div>
+    </div>
+
+    <!-- BENEFITS GRID -->
+    <div id="benefits" class="row g-4 mb-5 pb-5">
+        <div class="col-md-4">
+            <div class="glass-card p-5 h-100 border-0 shadow-sm">
+                <div class="step-number">01</div>
+                <h5 class="fw-bold text-dark mb-3">Corporate Endorsement</h5>
+                <p class="text-muted small">Gain an "Endorsed" badge on your storefront, backed by institutional industry leaders. This badge signals that your business practices meet the high-standard compliance requirements of our partners.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="glass-card p-5 h-100 border-0 shadow-sm">
+                <div class="step-number">02</div>
+                <h5 class="fw-bold text-dark mb-3">Priority Logistics</h5>
+                <p class="text-muted small">Endorsed merchants will receive specialized logistics support and dedicated pickup nodes to facilitate faster, safer student handovers across campuses nationwide.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="glass-card p-5 h-100 border-0 shadow-sm">
+                <div class="step-number">03</div>
+                <h5 class="fw-bold text-dark mb-3">Financial Visibility</h5>
+                <p class="text-muted small">Access to simplified micro-credit lines and grant opportunities from participating financial institutions based on your transaction transparency and audit history.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- CALL TO ACTION FOOTER -->
+    <div class="card border-0 shadow-2xl overflow-hidden p-4 p-md-5 mb-5" 
+         style="background: linear-gradient(135deg, #0f172a 0%, #020617 100%); border-radius: 35px;">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <h2 class="text-white fw-800 mb-3 display-5 tracking-tight">The Future of Student Trade is <span class="text-primary">Institutional</span>.</h2>
+                <p class="text-white-50 lead mb-4">We aren't just a marketplace; we are an ecosystem of trust. Start building your corporate reputation today.</p>
+                <div class="d-flex align-items-center gap-4">
+                    <div class="d-flex" style="margin-left: 10px;">
+                        <img src="https://i.pravatar.cc/400?img=59" class="rounded-circle border border-2 border-dark" style="width: 40px; height: 40px; margin-left: -10px;">
+                        <img src="https://i.pravatar.cc/400?img=51" class="rounded-circle border border-2 border-dark" style="width: 40px; height: 40px; margin-left: -10px;">
+                        <img src="https://i.pravatar.cc/150?img=16" class="rounded-circle border border-2 border-dark" style="width: 40px; height: 40px; margin-left: -10px;">
+                    </div>
+                    <span class="text-white-50 x-small fw-bold">Joined by 200+ Student Entrepreneurs</span>
+                </div>
+            </div>
+            <div class="col-lg-4 text-lg-end footer-cta-box">
+                <div class="bg-white p-4 rounded-4 text-center border gold-glow">
+                    <p class="text-dark fw-bold mb-3 small">Wait List Status: Active</p>
+                    <div class="d-grid">
+                        <button onclick="openWaitlistModal()" class="btn btn-primary rounded-pill py-3 fw-bold">Join the Wait List</button>
+                    </div>
+                    <p class="x-small text-muted mt-3 mb-0">Compliance audit takes 24-48 hours.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal fade" id="waitlistModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 30px;">
+            <div class="modal-body p-4 p-md-5">
+                <div class="text-center mb-4">
+                    <div class="bg-dark text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3 shadow-lg" style="width: 80px; height: 80px; border: 2px solid #fbbf24;">
+                        <i class="bi bi-shield-lock-fill fs-1 text-warning"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark">Merchant Verification</h4>
+                    <p class="text-muted small">Verify your identity to join the endorsement tier.</p>
+                </div>
+                <div id="verifyError" class="alert alert-danger d-none rounded-4 border-0 small mb-3">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i> <span>Invalid Credentials.</span>
+                </div>
+                <form onsubmit="handleWaitlistVerification(event)">
+                    <div class="mb-3">
+                        <!-- UPDATED: Asking for NAME not ID -->
+                        <label class="form-label small fw-bold text-muted">MERCHANT NAME</label>
+                        <input type="text" id="waitlistMerchantName" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" placeholder="e.g. Kwadwo Nkansah" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted">PRIVATE PIN</label>
+                        <input type="password" id="waitlistPin" maxlength="6" class="form-control rounded-pill border-light bg-light py-2 px-4 text-center fw-bold shadow-none" style="letter-spacing: 8px;" placeholder="••••••" inputmode="numeric" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" id="verifyBtn" class="btn btn-dark rounded-pill py-3 fw-bold shadow-sm">Verify & Join Waitlist</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="successWaitlistModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 30px;">
+            <div class="modal-body p-4 p-md-5 text-center">
+                <div class="bg-success bg-opacity-10 text-success rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px;">
+                    <i class="bi bi-check-circle-fill fs-1"></i>
+                </div>
+                <h4 class="fw-bold text-dark">Added to Wait List!</h4>
+                <p class="text-secondary small mb-4">
+                    Your Merchant status has been verified. You will be notified via the <strong>Merchant Intel Hub</strong> as soon as the partnership corridors are finalized.
+                </p>
+                <div class="p-3 rounded-4 bg-light mb-4 text-start border">
+                    <p class="mb-0 x-small text-muted"><i class="bi bi-info-circle me-1"></i> Next step: Maintain 100% accuracy in your merchant logs (activities) to clear the institutional audit.</p>
+                </div>
+                <div class="d-grid">
+                    <button type="button" class="btn btn-dark rounded-pill fw-bold py-3" data-bs-dismiss="modal">Excellent, Thank You</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // SHA-256 Hashing utility
+    async function hashPin(pin) {
+        const msgUint8 = new TextEncoder().encode(pin);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+        return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    window.openWaitlistModal = function() {
+        const modal = new bootstrap.Modal(document.getElementById('waitlistModal'));
+        modal.show();
+    };
+
+    window.handleWaitlistVerification = async function(e) {
+        e.preventDefault();
+        const merchantName = document.getElementById('waitlistMerchantName').value.trim();
+        const pin = document.getElementById('waitlistPin').value.trim();
+        const btn = document.getElementById('verifyBtn');
+        const err = document.getElementById('verifyError');
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Verifying...';
+        err.classList.add('d-none');
+
+        try {
+            const inputHash = await hashPin(pin);
+            
+            // SMART LOOKUP: Query by Name, Verify by PIN
+            const merchantsRef = db.collection('artifacts').doc(__app_id)
+                                 .collection('public').doc('data')
+                                 .collection('verified_merchants');
+            
+            // Note: In firebase-compat v9, we chain .where().get()
+            const snapshot = await merchantsRef.where('fullName', '==', merchantName).get();
+
+            let matchFound = false;
+            let uniqueMerchantId = null;
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.pin === inputHash) {
+                    matchFound = true;
+                    uniqueMerchantId = doc.id; // Capture the unique ID (Name + digits)
+                }
+            });
+
+            if (matchFound && uniqueMerchantId) {
+                // Add Unique ID to waitlist
+                await db.collection('artifacts').doc(__app_id)
+                        .collection('public').doc('data')
+                        .collection('endorsement_waitlist').doc(uniqueMerchantId).set({
+                            merchantId: uniqueMerchantId,
+                            timestamp: Date.now(),
+                            status: 'pending_audit'
+                        });
+
+                const modalEl = document.getElementById('waitlistModal');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) modalInstance.hide();
+                
+                setTimeout(() => {
+                    new bootstrap.Modal(document.getElementById('successWaitlistModal')).show();
+                }, 500);
+            } else {
+                throw new Error("Invalid Name or PIN. Please check your credentials.");
+            }
+        } catch (e) {
+            err.querySelector('span').innerText = e.message;
+            err.classList.remove('d-none');
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Verify & Join Waitlist';
+        }
+    };
+</script>
+
+<style>
+    .fw-800 { font-weight: 800; }
+    .tracking-tight { letter-spacing: -0.05em; }
+    .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+    .x-small { font-size: 0.7rem; }
+    .italic { font-style: italic; }
+    .animate-pulse { animation: subtlePulse 3s infinite; }
+    @keyframes subtlePulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.05); opacity: 0.8; }
+    }
+</style>
+{% endblock %}

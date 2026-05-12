@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Update | ProlyfiQ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-blue: #0d6efd;
+            --primary-dark: #0043a8;
+            --primary-light: #3b82f6;
+            --electric-blue-start: #0d6efd;
+            --electric-blue-end: #0043a8;
+            --light-grey: #f0f2f5;
+            --crisp-white: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --success-green: #198754;
+            --urgency-red: #dc3545;
+            --premium-gold: #ffc107;
+            --border-color: #e1e5e9;
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.16);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            min-height: 100vh;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: var(--light-grey);
+            color: var(--text-primary);
+            line-height: 1.5;
+            font-weight: 400;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .maintenance-wrapper {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header with Electric Blue Gradient */
+        .maintenance-header {
+            background: linear-gradient(135deg, var(--electric-blue-start) 0%, var(--electric-blue-end) 100%);
+            padding: 2rem 1rem;
+            text-align: center;
+            color: var(--crisp-white);
+            box-shadow: var(--shadow-md);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .maintenance-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--success-green), var(--premium-gold), var(--urgency-red));
+            opacity: 0.7;
+        }
+
+        .maintenance-header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.5px;
+        }
+
+        .maintenance-header .tagline {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-weight: 400;
+            letter-spacing: 0.2px;
+        }
+
+        .maintenance-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem 1rem;
+        }
+
+        /* Main Card with Crisp White Background */
+        .maintenance-card {
+            background: var(--crisp-white);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+            padding: 3rem 2.5rem;
+            max-width: 600px;
+            width: 100%;
+            border: 1px solid var(--border-color);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .maintenance-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, var(--electric-blue-start), var(--electric-blue-end));
+        }
+
+        /* Status Badge with Premium Gold */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            background: var(--premium-gold);
+            color: #000;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg);
+            font-size: 0.875rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-sm);
+            text-transform: uppercase;
+        }
+
+        /* Icon Container with Electric Blue Border */
+        .icon-container {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 2rem;
+            background: linear-gradient(135deg, var(--light-grey) 0%, #ffffff 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid var(--electric-blue-start);
+            box-shadow: var(--shadow-md);
+            position: relative;
+        }
+
+        .icon-container::after {
+            content: '';
+            position: absolute;
+            inset: -6px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            background: linear-gradient(135deg, var(--electric-blue-start), var(--electric-blue-end)) border-box;
+        }
+
+        .icon-container i {
+            font-size: 3.5rem;
+            background: linear-gradient(135deg, var(--electric-blue-start), var(--electric-blue-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Typography with Inter font weights */
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            line-height: 1.3;
+            letter-spacing: -0.3px;
+        }
+
+        .page-name {
+            color: var(--electric-blue-start);
+            font-weight: 800;
+            display: block;
+            font-size: 2.2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--electric-blue-start), var(--electric-blue-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .maintenance-message {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+            font-weight: 400;
+        }
+
+        /* Info Box with Light Grey Background */
+        .info-box {
+            background: var(--light-grey);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            margin: 2rem 0;
+            text-align: left;
+            border-left: 4px solid var(--electric-blue-start);
+        }
+
+        .info-box p {
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .info-box i {
+            color: var(--electric-blue-start);
+            margin-right: 0.75rem;
+            width: 20px;
+            text-align: center;
+        }
+
+        /* Countdown with Urgency Red */
+        .countdown {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            background: linear-gradient(135deg, #fff5f5, #fed7d7);
+            color: var(--urgency-red);
+            padding: 1rem 2rem;
+            border-radius: var(--radius-lg);
+            font-weight: 600;
+            margin: 1.5rem 0;
+            border: 1px solid #fecaca;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Primary Button with Electric Blue Gradient */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--electric-blue-start) 0%, var(--electric-blue-end) 100%);
+            border: none;
+            border-radius: var(--radius-lg);
+            padding: 1rem 2.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-md);
+            color: white;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+            color: white;
+        }
+
+        /* Alternative Options Section */
+        .alternative-options {
+            margin-top: 2.5rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .alternative-options p {
+            color: var(--text-secondary);
+            margin-bottom: 1.25rem;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .option-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+            justify-content: center;
+        }
+
+        @media (min-width: 480px) {
+            .option-buttons {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 768px) {
+            .option-buttons {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        .option-btn {
+            background: var(--crisp-white);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 0.875rem 1rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--electric-blue-start);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            text-align: center;
+        }
+
+        .option-btn:hover {
+            background: var(--light-grey);
+            border-color: var(--electric-blue-start);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-sm);
+            color: var(--electric-blue-end);
+        }
+
+        .option-btn.data {
+            color: var(--success-green);
+        }
+        
+        .option-btn.food {
+            color: var(--urgency-red);
+        }
+        
+        .option-btn.quote {
+            color: var(--electric-blue-start);
+        }
+        
+        .option-btn.entertainment {
+            color: var(--premium-gold);
+        }
+
+        /* Support Information */
+        .support-info {
+            margin-top: 2.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .contact-links {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            align-items: center;
+            margin-top: 1rem;
+        }
+
+        @media (min-width: 640px) {
+            .contact-links {
+                flex-direction: row;
+                justify-content: center;
+                gap: 2rem;
+            }
+        }
+
+        .contact-link {
+            color: var(--electric-blue-start);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .contact-link:hover {
+            color: var(--electric-blue-end);
+            text-decoration: underline;
+        }
+
+        /* Footer */
+        .maintenance-footer {
+            text-align: center;
+            padding: 2rem 1rem;
+            background: var(--text-primary);
+            color: var(--crisp-white);
+            font-size: 0.875rem;
+            font-weight: 400;
+        }
+
+        .maintenance-footer a {
+            color: #93c5fd;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .maintenance-footer a:hover {
+            text-decoration: underline;
+            color: #bfdbfe;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            33% { transform: translateY(-10px) rotate(5deg); }
+            66% { transform: translateY(-5px) rotate(-5deg); }
+        }
+
+        .icon-container {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .status-badge {
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .maintenance-card {
+                padding: 2rem 1.5rem;
+            }
+            
+            .page-title {
+                font-size: 1.75rem;
+            }
+            
+            .page-name {
+                font-size: 1.9rem;
+            }
+            
+            .icon-container {
+                width: 100px;
+                height: 100px;
+            }
+            
+            .icon-container i {
+                font-size: 2.8rem;
+            }
+            
+            .maintenance-header h1 {
+                font-size: 2rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .maintenance-header h1 {
+                font-size: 1.75rem;
+            }
+            
+            .maintenance-card {
+                padding: 1.5rem 1rem;
+                border-radius: var(--radius-lg);
+            }
+            
+            .page-title {
+                font-size: 1.5rem;
+            }
+            
+            .page-name {
+                font-size: 1.6rem;
+            }
+            
+            .option-buttons {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn-primary {
+                padding: 0.875rem 2rem;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="maintenance-wrapper">
+        <!-- Header with Electric Blue Gradient -->
+        <header class="maintenance-header">
+            <div class="container">
+                <h1>DataExpress</h1>
+                <p class="tagline">Your trusted campus partner for instant Data Bundles, Food Runs, Entertainment, and Digital Gift Cards.</p>
+            </div>
+        </header>
+
+        
+
+        
+        <!-- Main Content -->
+        <main class="maintenance-container">
+                <div class="maintenance-card">
+                    <!-- Status Badge with Premium Gold -->
+                    <div class="status-badge">
+                        <i class="fas fa-tools"></i>
+                        <span>MAINTENANCE UPDATE</span>
+                    </div>
+
+
+                    <!-- Title with Gradient Text -->
+                    <h1 class="page-title">
+                        <span class="page-name">{{ page_name }}</span>
+                        Is Temporarily Unavailable
+                    </h1>
+
+                    <!-- Message -->
+                    <p class="maintenance-message">
+                        We're enhancing our platform with critical updates to deliver faster, more reliable service. 
+                        This brief interruption ensures a better experience for all our users.
+                    </p>
+
+                    <!-- Info Box -->
+                    <div class="info-box">
+                        <p><strong>System Upgrade:</strong> Implementing performance enhancements and new features</p>
+                        <p><strong>Security Updates:</strong> Strengthening platform security protocols</p>
+                        <p><strong>Improved Experience:</strong> Optimizing for faster load times and better mobile performance</p>
+                    </div>
+
+                    
+
+                    <!-- Return Home Button with Electric Blue Gradient -->
+                    <div>
+                        <a href="/" class="btn btn-primary">
+                            <i class="fas fa-home"></i>
+                            <span>Return to Homepage</span>
+                        </a>
+                    </div>
+
+
+                    <!-- Support Information -->
+                    <div class="support-info">
+                        <p><i class="fas fa-headset"></i> Need immediate assistance?</p>
+                        <div class="contact-links">
+                            <a href="mailto:support@dataexpress.store" class="contact-link">
+                                <i class="fas fa-envelope"></i>
+                                <span>Email Support</span>
+                            </a>
+                            <a href="https://wa.me/233535333868" class="contact-link" target="_blank">
+                                <i class="fab fa-whatsapp"></i>
+                                <span>WhatsApp</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="maintenance-footer">
+            <div class="container">
+                <p>&copy; 2025 DataExpress Digital. All rights reserved.</p>
+                <div class="footer-links">
+                    <a href="/terms">Terms of Service</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Subtle hover effects for icon
+            const iconContainer = document.querySelector('.icon-container');
+            if (iconContainer) {
+                iconContainer.addEventListener('mouseenter', () => {
+                    iconContainer.style.transform = 'scale(1.05) rotate(5deg)';
+                });
+                
+                iconContainer.addEventListener('mouseleave', () => {
+                    iconContainer.style.transform = 'scale(1) rotate(0deg)';
+                });
+            }
+            
+            // Add timestamp for maintenance start
+            const maintenanceStart = new Date();
+            console.log(`Maintenance page loaded at: ${maintenanceStart.toLocaleTimeString()}`);
+        });
+    </script>
+</body>
+</html>

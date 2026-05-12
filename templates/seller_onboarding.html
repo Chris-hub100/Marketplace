@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+
+{% block title %}Merchant Onboarding | ProlyfiQ{% endblock %}
+
+{% block content %}
+<!-- Firebase Web SDKs (Compat Version for Secure Tools) -->
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+<script>
+  /**
+   * LEDGEHOLD SELF-ONBOARDING CONFIG
+   */
+  var __app_id = '{{ __app_id if __app_id else "ledgehold-ghana1" }}';
+  var __firebase_config = '{{ __firebase_config | safe if __firebase_config else "{}" }}';
+  
+  // CLOUDINARY CONFIG 
+  const CLOUD_NAME = 'dze9o4ymx'; // Verified Cloud Name
+  const UPLOAD_PRESET = 'ledgehold_uploads'; 
+  
+  let db = null;
+
+  // Initialize Firebase App
+  const config = JSON.parse(__firebase_config);
+  if (config && config.apiKey) { 
+      try {
+          if (!firebase.apps.length) {
+              firebase.initializeApp(config);
+          }
+          db = firebase.firestore(); 
+          console.log("Ledgehold System: Secure Onboarding Node Connected.");
+      } catch (initErr) {
+          console.error("Firebase Setup Failed:", initErr);
+      }
+  }
+
+  /**
+   * HELPER: IMAGE COMPRESSION ENGINE
+   * Reduces 5MB photos to ~200KB to maximize free storage.
+   */
+  async function compressImage(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                const MAX_DIM = 1200; // Standard HD limit
+
+                // Resize logic
+                if (width > height) {
+                    if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; }
+                } else {
+                    if (height > MAX_DIM) { width *= MAX_DIM / height; height = MAX_DIM; }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Compress to JPEG at 70% quality
+                canvas.toBlob((blob) => {
+                    resolve(blob);
+                }, 'image/jpeg', 0.7);
+            };
+            img.onerror = reject;
+        };
+        reader.onerror = reject;
+    });
+  }
+
+  /**
+   * HELPER: PATH RESOLUTION
+   */
+  function getCol(name) {
+    if (!db) throw new Error("System initialization pending. Please refresh the page.");
+    return db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection(name);
+  }
+
+  /**
+   * LIVE PREVIEW LOGIC
+   */
+  window.previewFile = function(input, targetContainerId, targetImgId) {
+      const container = document.getElementById(targetContainerId);
+      const img = document.getElementById(targetImgId);
+      
+      if (input.files && input.files[0]) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+              if (img) img.src = e.target.result;
+              if (container) container.classList.remove('d-none');
+          };
+          reader.readAsDataURL(input.files[0]);
+      }
+  };
+
+  window.retakePhoto = function(inputId, containerId) {
+      const input = document.getElementById(inputId);
+      const container = document.getElementById(containerId);
+      if (input) input.value = "";
+      if (container) container.classList.add('d-none');
+      if (input) input.click();
+  };
+
+  /**
+   * MAIN ONBOARDING: KYC Submission
+   */
+  window.submitOnboarding = async function(event) {
+    event.preventDefault();
+    
+    const submitBtn = document.getElementById('submitBtn');
+    const submitBtnText = document.getElementById('submitBtnText');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const idFileInput = document.getElementById('studentId');
+    const selfieFileInput = document.getElementById('selfiePhoto');
+    
+    if (!idFileInput || !idFileInput.files[0] || !selfieFileInput || !selfieFileInput.files[0]) {
+        alert("Both Student ID and Selfie are required for verification.");
+        return;
+    }
+
+    // Prevent double submission
+    if (submitBtn) submitBtn.disabled = true;
+    if (loadingSpinner) loadingSpinner.classList.remove('d-none');
+    if (submitBtnText) submitBtnText.innerText = 'Optimizing & Sending Request...';
+
+    try {
+        // 1. Compress & Upload Student ID to Cloudinary
+        const compressedId = await compressImage(idFileInput.files[0]);
+        const idFormData = new FormData();
+        idFormData.append("file", compressedId);
+        idFormData.append("upload_preset", UPLOAD_PRESET);
+        
+        const idResp = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: "POST", body: idFormData });
+        const idRes = await idResp.json();
+        if (!idRes.secure_url) throw new Error("ID Upload failed. Check Cloudinary preset.");
+
+        // 2. Compress & Upload Selfie to Cloudinary
+        const compressedSelfie = await compressImage(selfieFileInput.files[0]);
+        const selfieFormData = new FormData();
+        selfieFormData.append("file", compressedSelfie);
+        selfieFormData.append("upload_preset", UPLOAD_PRESET);
+        
+        const sResp = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: "POST", body: selfieFormData });
+        const sRes = await sResp.json();
+        if (!sRes.secure_url) throw new Error("Selfie Upload failed.");
+
+        // 3. Prepare Data with UNIQUE DISCRIMINATOR
+        const fullName = document.getElementById('fullName').value.trim();
+        const momo = document.getElementById('momo').value.trim();
+        
+        // GATEKEEPER PROTOCOL: Unique ID
+        const discriminator = momo.slice(-4);
+        const uniqueMerchantId = `${fullName} ${discriminator}`;
+
+        const payload = {
+            merchantId: uniqueMerchantId, 
+            fullName: fullName,          
+            university: document.getElementById('university').value,
+            course: document.getElementById('course').value,
+            whatsapp: document.getElementById('whatsapp').value,
+            momo: momo,
+            idUrl: idRes.secure_url,
+            selfieUrl: sRes.secure_url,
+            timestamp: Date.now(),
+            status: 'pending'
+        };
+
+        // 4. Save to Firestore
+        // Using global __app_id variable defined at top
+        await db.collection('artifacts').doc(__app_id)
+            .collection('public').doc('data')
+            .collection('pending_merchants').add(payload);
+
+        // 5. Success
+        const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+        successModal.show();
+
+    } catch (e) {
+        console.error(e);
+        alert(e.message || "Onboarding failed. Check your connection.");
+    } finally {
+        if (submitBtn) submitBtn.disabled = false;
+        if (loadingSpinner) loadingSpinner.classList.add('d-none');
+        if (submitBtnText) submitBtnText.innerText = 'Submit Verification Request';
+    }
+  };
+</script>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <!-- Error Box -->
+            <div id="errorBox" class="alert alert-danger d-none rounded-4 border-0 shadow-sm mb-4"></div>
+
+            <div class="text-center mb-5">
+                <h2 class="fw-bold text-dark">Merchant Registry</h2>
+                <p class="text-muted small">Verify your institutional identity to run your business with us.</p>
+            </div>
+
+            <form onsubmit="submitOnboarding(event)">
+                <!-- IDENTITY SECTION -->
+                <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 bg-white border">
+                    <h6 class="fw-bold mb-4 text-primary"><i class="bi bi-person-badge-fill me-2"></i>Institutional Identity</h6>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">FULL NAME (as on Student ID)</label>
+                        <input type="text" id="fullName" class="form-control rounded-pill border-light bg-light py-2 px-3" placeholder="e.g. Kwadwo Nkansah" required>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">COURSE</label>
+                            <input type="text" id="course" class="form-control rounded-pill border-light bg-light" placeholder="e.g. BSc. Computer Science" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">ENROLLED UNIVERSITY</label>
+                            <select id="university" class="form-select rounded-pill border-light bg-light">
+                                <option>UCC</option>
+                                <option>KNUST - Main</option>
+                                <option>UG Legon</option>
+                                <option>UMaT - Essikado</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- ID PREVIEW & UPLOAD -->
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted text-uppercase">Student ID Card (Front)</label>
+                        <div id="idPreviewContainer" class="mb-3 d-none">
+                            <div class="position-relative d-inline-block w-100">
+                                <img id="idPreviewImg" src="" class="rounded-3 border shadow-sm w-100" style="max-height: 250px; object-fit: contain; background: #f8fafc;">
+                                <button type="button" onclick="retakePhoto('studentId', 'idPreviewContainer')" class="btn btn-dark btn-sm rounded-pill position-absolute top-0 end-0 m-2 shadow">
+                                    <i class="bi bi-camera-fill me-1"></i> Retake
+                                </button>
+                            </div>
+                        </div>
+                        <input type="file" id="studentId" accept="image/*" capture="environment" class="d-none" onchange="previewFile(this, 'idPreviewContainer', 'idPreviewImg')">
+                        <button type="button" onclick="document.getElementById('studentId').click()" class="btn btn-outline-primary w-100 rounded-pill py-3 fw-bold border-2">
+                            <i class="bi bi-card-image me-2"></i> Scan Student ID
+                        </button>
+                    </div>
+
+                    <!-- SELFIE PREVIEW & UPLOAD -->
+                    <div class="mb-2">
+                        <label class="form-label small fw-bold text-muted text-uppercase">Live Selfie Verification</label>
+                        <div id="selfiePreviewContainer" class="mb-3 d-none text-center">
+                            <div class="position-relative d-inline-block">
+                                <img id="selfiePreviewImg" src="" class="rounded-circle border border-4 border-white shadow" style="width: 180px; height: 180px; object-fit: cover;">
+                                <button type="button" onclick="retakePhoto('selfiePhoto', 'selfiePreviewContainer')" class="btn btn-dark btn-sm rounded-pill position-absolute bottom-0 end-0 shadow">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <input type="file" id="selfiePhoto" accept="image/*" capture="user" class="d-none" onchange="previewFile(this, 'selfiePreviewContainer', 'selfiePreviewImg')">
+                        <button type="button" onclick="document.getElementById('selfiePhoto').click()" class="btn btn-outline-primary w-100 rounded-pill py-3 fw-bold border-2">
+                            <i class="bi bi-person-bounding-box me-2"></i> Take Live Selfie
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SETTLEMENT SECTION -->
+                <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 bg-white border">
+                    <h6 class="fw-bold mb-4 text-primary"><i class="bi bi-wallet2 me-2"></i>Settlement Channels</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">WhatsApp Number</label>
+                            <input type="tel" id="whatsapp" class="form-control rounded-pill border-light bg-light" placeholder="0240000000" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">MoMo Number</label>
+                            <input type="tel" id="momo" class="form-control rounded-pill border-light bg-light" placeholder="0550000000" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- POLICY CARD -->
+                <div class="card bg-dark text-white p-4 mb-4 rounded-4 shadow-lg border-0">
+                    <h6 class="fw-bold text-primary small mb-3 text-uppercase" style="letter-spacing: 1px;">Compliance Agreement</h6>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="policyCheck" required>
+                        <label class="form-check-label small opacity-75" for="policyCheck">
+                            I understand that I have to provide valid <strong>Proof of Delivery</strong> to be eligible for Payout.
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="feeCheck" required>
+                        <label class="form-check-label small opacity-75" for="feeCheck">
+                            I agree to the <strong>5% Service Fee</strong> deducted at Payout.
+                        </label>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" id="submitBtn" class="btn btn-primary btn-lg rounded-pill fw-bold py-3 shadow-lg">
+                        <span id="loadingSpinner" class="spinner-border spinner-border-sm d-none me-2" role="status"></span>
+                        <span id="submitBtnText">Submit Verification Request</span>
+                    </button>
+                    <p class="text-center text-muted mt-2" style="font-size: 0.65rem;">
+                        <i class="bi bi-lock-fill me-1"></i> Your sensitive documents are encrypted during transfer.
+                    </p>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- SUCCESS MODAL -->
+<div class="modal fade" id="successModal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 30px;">
+            <div class="modal-body p-5 text-center">
+                <div class="bg-success bg-opacity-10 text-success rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px;">
+                    <i class="bi bi-hourglass-split fs-1"></i>
+                </div>
+                <h4 class="fw-bold text-dark">Verification Pending</h4>
+                <p class="text-secondary small mb-4">
+                    Our compliance team is verifying your request. Once approved, you'll be notified on WhatsApp with your <strong>Unique Merchant ID</strong>. You will need this ID to activate your account.
+                </p>
+                <a href="/" class="btn btn-dark w-100 rounded-pill fw-bold py-3">Got it, thanks!</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    body { background-color: #f8fafc; }
+    .form-control:focus, .form-select:focus { 
+        border-color: #0d6efd; 
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.05); 
+        background-color: #fff !important;
+    }
+    .btn-outline-primary:hover { color: #fff !important; }
+</style>
+{% endblock %}

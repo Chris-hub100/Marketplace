@@ -1,0 +1,574 @@
+{% extends "base.html" %}
+
+{% block title %}List New Item | ProlyfiQ{% endblock %}
+
+{% block content %}
+<!-- Firebase & Image Engines -->
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+<script>
+    /** * LEDGEHOLD MERCHANT CONFIG */
+    var __app_id = '{{ __app_id if __app_id else "ledgehold-ghana1" }}';
+    var __firebase_config = '{{ __firebase_config | safe if __firebase_config else "{}" }}';
+    
+    // CLOUDINARY CONFIG (Zero-OpEx Infrastructure)
+    const CLOUD_NAME = 'dze9o4ymx'; // Verified Cloud Name
+    const UPLOAD_PRESET = 'ledgehold_uploads'; // Unsigned Preset
+
+    // Initialize Firebase
+    const config = JSON.parse(__firebase_config);
+    if (!firebase.apps.length) firebase.initializeApp(config);
+    const db = firebase.firestore();
+</script>
+
+<!-- NAVIGATION -->
+<div class="mb-6">
+    <a href="/merchant_dashboard" 
+      style="display: inline-flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 0.875rem; font-weight: bold; color: #64748b; text-decoration: none; transition: all 0.3s ease;"
+      class="hover:text-slate-900"
+    >
+      <div style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background-color: #f1f5f9;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 18-6-6 6-6"/>
+        </svg>
+      </div>
+      <span>Dashboard</span>
+    </a>
+</div>
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div id="errorBox" class="alert alert-danger d-none rounded-4 border-0 shadow-sm mb-4"></div>
+
+            <div class="text-center mb-5">
+                <h3 class="fw-bold text-dark">Create New Listing</h3>
+                <p class="text-muted small" id="syncText">Synchronized with your verified merchant profile.</p>
+                
+                <!-- MERCHANT PROFILE BADGE -->
+                <div class="merchant-badge-animation-wrapper" style="position: relative; height: 70px; margin-top: 10px;">
+                    <div id="merchantBadge" class="merchant-badge-animating" style="position: absolute; top: -40px; left: 50%; transform: translateX(-50%); width: 35px; height: 35px; border-radius: 50%; background-color: #0d6efd; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); z-index: 20;">
+                        <i class="bi bi-person-check-fill text-white"></i>
+                    </div>
+                </div>
+            </div>
+
+            <form id="listItemForm" onsubmit="handleItemSubmission(event)">
+                <!-- SECTION 1: PRODUCT CORE -->
+                <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 bg-white border">
+                    <h6 class="fw-bold mb-4 text-primary text-uppercase small" style="letter-spacing: 1px;">Product Details</h6>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">Item Name</label>
+                        <input type="text" id="itemName" class="form-control rounded-pill border-light bg-light py-2 px-3" placeholder="e.g. iPhone 13 Pro" required>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Price (GHS)</label>
+                            <input type="number" id="itemPrice" step="0.01" class="form-control rounded-pill border-light bg-light py-2 px-3" placeholder="0.00" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Initial Stock Level</label>
+                            <input type="number" id="itemStock" class="form-control rounded-pill border-light bg-light py-2 px-3" placeholder="1" min="1" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label small fw-bold text-muted">Description</label>
+                        <textarea id="description" class="form-control rounded-4 border-light bg-light p-3" rows="3" placeholder="Condition, specs, or key features..." required></textarea>
+                    </div>
+                </div>
+
+                <!-- SECTION 2: VARIATIONS -->
+                <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 bg-white border">
+                    <h6 class="fw-bold mb-3 text-primary text-uppercase small" style="letter-spacing: 1px;">Variations (Optional)</h6>
+                    <p class="x-small text-muted mb-3">Add different sizes, colors, or versions of this product.</p>
+                    
+                    <div class="input-group mb-3">
+                        <input type="text" id="varietyInput" class="form-control rounded-start-pill border-light bg-light px-3" placeholder="e.g. 128GB, Blue, XL">
+                        <button type="button" onclick="addVariety()" class="btn btn-primary rounded-end-pill px-4 fw-bold">Add</button>
+                    </div>
+                    <div id="varietyPillContainer" class="d-flex flex-wrap gap-2"></div>
+                </div>
+
+                <!-- SECTION 3: LOGISTICS -->
+                <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 bg-white border" style="border-left: 5px solid #0d6efd !important;">
+                    <h6 class="fw-bold mb-4 text-primary text-uppercase small" style="letter-spacing: 1px;">Pickup & Logistics</h6>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">Item Availability</label>
+                        <select id="availability" onchange="toggleSchedule(this.value)" class="form-select rounded-pill border-light bg-light py-2 px-3">
+                            <option value="Ready for Instant Pickup">Ready for Instant Delivery (In-Hand)</option>
+                            <option value="Available in 24 Hours">Available in 24 Hours</option>
+                            <option value="Available in (2-5 Days)">Pre-order (2-5 Days)</option>
+                        </select>
+                    </div>
+
+                    <!-- SCHEDULE DROPDOWNS -->
+                    <div id="scheduleSection">
+                        <label class="form-label small fw-bold text-muted">Delivery Schedule</label>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <select id="pickupDays" class="form-select rounded-pill border-light bg-light py-2 px-3">
+                                    <option value="">Select days</option>
+                                    <option value="Monday">Monday</option>
+                                    <option value="Tuesday">Tuesday</option>
+                                    <option value="Wednesday">Wednesday</option>
+                                    <option value="Thursday">Thursday</option>
+                                    <option value="Friday">Friday</option>
+                                    <option value="Weekdays (Mon - Fri)">Weekdays</option>
+                                    <option value="Weekends (Sat - Sun)">Weekends Only</option>
+                                    <option value="Tommorow">Anyday</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <select id="pickupTime" class="form-select rounded-pill border-light bg-light py-2 px-3">
+                                    <option value="">Select time range</option>
+                                    <option value="8am-12pm">Morning (8am-11pm)</option>
+                                    <option value="12pm-4pm">Noon (11pm-2pm)</option>
+                                    <option value="4pm-8pm">Afternoon (2pm-5pm)</option>
+                                    <option value="8am-4pm">Full Day (7am-5pm)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">Campus Landmark</label>
+                        <input type="text" id="landmark" class="form-control rounded-pill border-light bg-light py-2 px-3" placeholder="e.g. Unity Hall Main Gate" required>
+                        <div class="form-text mt-1 d-flex align-items-center gap-1" style="color: #64748b; font-size: 0.75rem;">
+                            <i class="bi bi-info-circle-fill text-primary"></i>
+                            Specify exactly where you will meet the buyer.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 4: VISUALS -->
+                <div class="card border-0 shadow-sm p-4 mb-5 rounded-4 bg-white border">
+                    <h6 class="fw-bold mb-4 text-primary small" style="letter-spacing: 1px;">Product Visual</h6>
+                    
+                    <!-- PREVIEW BOX -->
+                    <div id="imagePreviewContainer" class="mb-3 d-none">
+                        <div class="position-relative d-inline-block w-100">
+                            <img id="imagePreviewImg" src="" class="rounded-4 border shadow-sm w-100" style="max-height: 250px; object-fit: cover;">
+                            <button type="button" onclick="resetImage()" class="btn btn-dark btn-sm rounded-pill position-absolute top-0 end-0 m-2 shadow">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- UPLOAD OPTIONS -->
+                    <div id="uploadButtonsGroup">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <button type="button" onclick="document.getElementById('itemImageCamera').click()" class="btn btn-outline-secondary w-100 rounded-pill py-3 fw-bold border-2">
+                                    <i class="bi bi-camera-fill me-2"></i> Photo
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button type="button" onclick="document.getElementById('itemImageUpload').click()" class="btn btn-outline-secondary w-100 rounded-pill py-3 fw-bold border-2">
+                                    <i class="bi bi-image me-2"></i> Gallery
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-center text-muted x-small mt-2 mb-0 italic">Clear and accurate product visuals boosts buyer trust</p>
+                    </div>
+
+                    <!-- HIDDEN INPUTS -->
+                    <input type="file" id="itemImageCamera" accept="image/*" capture="environment" class="d-none" onchange="previewProductImage(this)">
+                    <input type="file" id="itemImageUpload" accept="image/*" class="d-none" onchange="previewProductImage(this)">
+                </div>
+
+                <!-- SUBMIT -->
+                <div class="d-grid gap-2 mb-5">
+                    <button type="submit" id="submitBtn" class="btn btn-dark btn-lg rounded-pill fw-bold py-3 shadow-lg transition-transform active:scale-95" disabled>
+                        <span id="loader" class="spinner-border spinner-border-sm d-none me-2"></span>
+                        <span id="btnText">Initializing Listing Engine...</span>
+                    </button>
+                    <p class="text-center text-muted mt-2" style="font-size: 0.65rem;">
+                        <i class="bi bi-shield-check me-1"></i> Your listing is subject to institutional trust audits.
+                    </p>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- SUCCESS MODAL -->
+<div class="modal fade" id="successModal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 30px;">
+            <div class="modal-body p-5 text-center">
+                <div class="bg-success bg-opacity-10 text-success rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px;">
+                    <i class="bi bi-check-lg fs-1"></i>
+                </div>
+                <h4 class="fw-bold text-dark">Item is Live!</h4>
+                
+                <div class="bg-light rounded-4 p-3 mb-4 text-start border border-white">
+                    <div class="mb-3">
+                        <label class="x-small fw-bold text-muted text-uppercase mb-1 d-block">Item Reference ID</label>
+                        <code id="successRefId" class="text-primary fw-bold" style="font-size: 0.85rem;"></code>
+                    </div>
+                    <div>
+                        <label class="x-small fw-bold text-muted text-uppercase mb-1 d-block">Your Storefront Link</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" id="storefrontUrl" class="form-control bg-white border-light" readonly>
+                            <button class="btn btn-outline-primary" type="button" onclick="copyStorefrontLink()" id="copyLinkBtn">
+                                <i class="bi bi-clipboard"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="text-secondary small mb-4">
+                    Your product has been synchronized. Share your storefront link to start receiving orders.
+                </p>
+                
+                <div class="d-grid gap-2">
+                    <button onclick="location.reload()" class="btn btn-outline-dark rounded-pill fw-bold py-2">List Another</button>
+                    <a href="/marketplace" class="btn btn-dark rounded-pill fw-bold py-3">View Marketplace</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // AUTHENTICATION GUARD: Initial Check
+    const merchantName = localStorage.getItem('ledgehold_merchant_name');
+    let merchantUniversity = null;
+
+    if (!merchantName) {
+        window.location.replace('/merchant_dashboard');
+    }
+
+    /**
+     * IMAGE COMPRESSION ENGINE
+     * Same robust logic as Onboarding to ensure Zero-OpEx Compliance
+     */
+    async function compressImage(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const MAX_DIM = 1200; // Standard HD limit
+
+                    if (width > height) {
+                        if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; }
+                    } else {
+                        if (height > MAX_DIM) { width *= MAX_DIM / height; height = MAX_DIM; }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Compress to JPEG at 70% quality
+                    canvas.toBlob((blob) => {
+                        resolve(blob);
+                    }, 'image/jpeg', 0.7);
+                };
+                img.onerror = reject;
+            };
+            reader.onerror = reject;
+        });
+    }
+
+    /**
+     * INITIALIZE SESSION DATA
+     */
+    async function initMerchantSession() {
+        try {
+            if (!merchantName) return;
+
+            const docRef = db.collection('artifacts').doc(__app_id)
+                             .collection('public').doc('data')
+                             .collection('verified_merchants').doc(merchantName);
+            
+            const doc = await docRef.get();
+            
+            if (!doc.exists) {
+                console.error("Merchant profile missing in DB silo:", __app_id);
+                window.location.replace('/merchant_dashboard');
+                return;
+            }
+            
+            const data = doc.data();
+            merchantUniversity = data.university;
+
+            // Start animation
+            setTimeout(() => {
+                animateMerchantBadge(merchantName, merchantUniversity);
+            }, 300);
+            
+            // Enable Form
+            document.getElementById('submitBtn').disabled = false;
+            document.getElementById('btnText').innerText = "Publish to Marketplace";
+
+        } catch (err) {
+            console.error("Session Init Failure:", err);
+            window.location.replace('/merchant_dashboard');
+        }
+    }
+
+    /**
+     * ANIMATE MERCHANT BADGE
+     */
+    function animateMerchantBadge(name, campus) {
+        const badge = document.getElementById('merchantBadge');
+        const syncText = document.getElementById('syncText');
+        if (!badge) return;
+        
+        if (syncText) syncText.classList.add('sync-text-fade');
+        
+        setTimeout(() => {
+            badge.style.transition = 'all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
+            badge.style.top = '0';
+            
+            setTimeout(() => {
+                badge.style.transition = 'all 0.15s ease-out';
+                badge.style.top = '-5px';
+                
+                setTimeout(() => {
+                    badge.style.transition = 'all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
+                    badge.style.top = '0';
+                    badge.style.width = 'auto';
+                    badge.style.height = 'auto';
+                    badge.style.padding = '8px 16px 8px 8px';
+                    badge.style.borderRadius = '50px';
+                    badge.style.backgroundColor = '#fff';
+                    badge.style.border = '1px solid #e2e8f0';
+                    badge.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                    badge.style.display = 'flex';
+                    badge.style.alignItems = 'center';
+                    badge.style.gap = '12px';
+                    
+                    const textContainer = document.createElement('div');
+                    textContainer.className = 'text-start';
+                    textContainer.innerHTML = `
+                        <p class="mb-0 fw-bold text-dark x-small">${name}</p>
+                        <p class="mb-0 text-muted" style="font-size: 0.6rem;">${campus}</p>
+                    `;
+                    
+                    setTimeout(() => {
+                        textContainer.style.opacity = '0';
+                        textContainer.style.transform = 'translateX(-10px)';
+                        textContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        badge.appendChild(textContainer);
+                        
+                        setTimeout(() => {
+                            textContainer.style.opacity = '1';
+                            textContainer.style.transform = 'translateX(0)';
+                            if (syncText) syncText.classList.remove('sync-text-fade');
+                        }, 50);
+                    }, 200);
+                }, 150);
+            }, 300);
+        }, 100);
+    }
+
+    let varieties = [];
+
+    function toggleSchedule(val) {
+        const scheduleSection = document.getElementById('scheduleSection');
+        if (val === "Ready for Instant Pickup") {
+            scheduleSection.classList.remove('d-none');
+        } else {
+            scheduleSection.classList.add('d-none');
+        }
+    }
+
+    function addVariety() {
+        const input = document.getElementById('varietyInput');
+        const val = input.value.trim();
+        if (val && !varieties.includes(val)) {
+            varieties.push(val);
+            renderVarieties();
+            input.value = "";
+        }
+    }
+
+    function removeVariety(index) {
+        varieties.splice(index, 1);
+        renderVarieties();
+    }
+
+    function renderVarieties() {
+        const container = document.getElementById('varietyPillContainer');
+        container.innerHTML = varieties.map((v, i) => `
+            <span class="badge bg-primary rounded-pill d-flex align-items-center gap-2 py-2 px-3 fw-bold shadow-sm">
+                ${v}
+                <i class="bi bi-x-circle-fill cursor-pointer" onclick="removeVariety(${i})"></i>
+            </span>
+        `).join('');
+    }
+
+    function previewProductImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('imagePreviewImg').src = e.target.result;
+                document.getElementById('imagePreviewContainer').classList.remove('d-none');
+                document.getElementById('uploadButtonsGroup').classList.add('d-none');
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function resetImage() {
+        document.getElementById('itemImageCamera').value = "";
+        document.getElementById('itemImageUpload').value = "";
+        document.getElementById('imagePreviewContainer').classList.add('d-none');
+        document.getElementById('uploadButtonsGroup').classList.remove('d-none');
+    }
+
+    window.copyStorefrontLink = function() {
+        const input = document.getElementById('storefrontUrl');
+        input.select();
+        document.execCommand('copy');
+        
+        const btn = document.getElementById('copyLinkBtn');
+        btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+        btn.classList.replace('btn-outline-primary', 'btn-success');
+        setTimeout(() => {
+            btn.innerHTML = '<i class="bi bi-clipboard"></i>';
+            btn.classList.replace('btn-success', 'btn-outline-primary');
+        }, 2000);
+    };
+
+    /**
+     * HANDLE ITEM SUBMISSION (UPDATED FOR CLOUDINARY)
+     */
+    async function handleItemSubmission(e) {
+        e.preventDefault();
+        
+        if (!merchantName || !merchantUniversity) {
+            alert("Silo Verification pending. Please wait.");
+            return;
+        }
+
+        const camFile = document.getElementById('itemImageCamera').files[0];
+        const uploadFile = document.getElementById('itemImageUpload').files[0];
+        const imgFile = camFile || uploadFile;
+
+        if (!imgFile) {
+            alert("Image required.");
+            return;
+        }
+
+        const btn = document.getElementById('submitBtn');
+        const loader = document.getElementById('loader');
+        const btnText = document.getElementById('btnText');
+
+        btn.disabled = true;
+        loader.classList.remove('d-none');
+        btnText.innerText = "Optimizing Visuals...";
+
+        try {
+            // 1. Client-Side Compression
+            const compressedFile = await compressImage(imgFile);
+            
+            // 2. Upload to Cloudinary (Replaces ImgBB)
+            const formData = new FormData();
+            formData.append("file", compressedFile);
+            formData.append("upload_preset", UPLOAD_PRESET);
+
+            const imgResp = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: "POST", body: formData });
+            const imgRes = await imgResp.json();
+            
+            if (!imgRes.secure_url) throw new Error("Visual synchronization failed.");
+
+            btnText.innerText = "Syncing marketplace...";
+
+            // 3. Prepare Delivery Schedule
+            const availability = document.getElementById('availability').value;
+            let finalSchedule = '';
+            
+            if (availability === "Ready for Instant Pickup") {
+                const days = document.getElementById('pickupDays').value;
+                const time = document.getElementById('pickupTime').value;
+                if (!days || !time) throw new Error("Schedule incomplete.");
+                finalSchedule = `${days} | ${time}`;
+            }
+
+            // 4. Construct Final Payload
+            const payload = {
+                itemName: document.getElementById('itemName').value.trim(),
+                price: parseFloat(document.getElementById('itemPrice').value),
+                stock: parseInt(document.getElementById('itemStock').value) || 1,
+                university: merchantUniversity,
+                description: document.getElementById('description').value.trim(),
+                availability: availability,
+                schedule: finalSchedule,
+                landmark: document.getElementById('landmark').value.trim(),
+                varieties: varieties,
+                imgUrl: imgRes.secure_url, // Using Cloudinary URL
+                merchantId: merchantName,
+                seller: merchantName,
+                timestamp: Date.now(),
+                status: 'active'
+            };
+
+            // 5. Firestore Write
+            const writeRef = await db.collection('artifacts').doc(__app_id)
+                .collection('public').doc('data')
+                .collection('market_listings').add(payload);
+
+            // 6. Populate and show Modal
+            document.getElementById('successRefId').innerText = writeRef.id;
+            const storefrontLink = `${window.location.origin}/marketplace?merchant=${encodeURIComponent(merchantName)}`;
+            document.getElementById('storefrontUrl').value = storefrontLink;
+
+            const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+            successModal.show();
+
+        } catch (err) {
+            console.error("Submission error:", err);
+            document.getElementById('errorBox').innerText = err.message;
+            document.getElementById('errorBox').classList.remove('d-none');
+            window.scrollTo({top: 0, behavior: 'smooth'});
+            btn.disabled = false;
+            loader.classList.add('d-none');
+            btnText.innerText = "Publish to Marketplace";
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initMerchantSession();
+        toggleSchedule(document.getElementById('availability').value);
+    });
+</script>
+
+<style>
+    body { background-color: #f8fafc; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .cursor-pointer { cursor: pointer; }
+    .x-small { font-size: 0.75rem; }
+    .form-control:focus, .form-select:focus { 
+        border-color: #0d6efd; 
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.05); 
+        background-color: #fff !important;
+    }
+    .merchant-badge-animation-wrapper {
+        min-height: 70px;
+        overflow: visible !important;
+        margin-bottom: 10px;
+    }
+    .sync-text-fade { animation: syncTextFade 1.2s ease-in-out; }
+    @keyframes syncTextFade {
+        0%, 40% { opacity: 1; }
+        50% { opacity: 0.3; transform: translateY(-2px); }
+        60%, 100% { opacity: 1; transform: translateY(0); }
+    }
+    .italic { font-style: italic; }
+</style>
+{% endblock %}

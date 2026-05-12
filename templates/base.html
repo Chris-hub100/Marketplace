@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- 1. DYNAMIC SEO TITLES -->
+    <title>{% block title %}ProlyfiQ | Campus Community{% endblock %}</title>
+    
+    <!-- 2. SEO META TAGS -->
+    <meta name="description" content="{% block description %}ProlyfiQ is a premier campus community, logistics and utility platform. Providing secure student delivery services, and verified bill payments for DStv, GOtv, ECG and instant data top-ups. Operated by Ledgehold Enterprise.{% endblock %}">
+    <meta name="keywords" content="campus logistics ghana, student delivery service, campus community ghana, utility hub ghana, bill payments ghana, gatekeeper, ledgehold ghana, campus utility app">
+    <meta name="author" content="Ledgehold">
+
+    <!-- 3. SOCIAL MEDIA PREVIEW (Open Graph) -->
+    <meta property="og:url" content="{{ request.base_url }}{% if request.args.get('merchant') %}?merchant={{ request.args.get('merchant') }}{% endif %}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="ProlyfiQ">
+
+    {% set merchant_id = request.args.get('merchant') %}
+    {% if merchant_id %}
+        <!-- ADDED: Logic to remove last 4 digits for visual display -->
+        <!-- Changed from replace('_', ' ') to replace('+', ' ') for URL format -->
+        {% set raw_name = merchant_id | replace('+', ' ') %}
+        
+        <!-- Logic: If name ends in ' 1234' (Space + 4 Digits), strip it for the visual banner -->
+        {% set visual_name = raw_name[:-5] if raw_name[-1] in '0123456789' and raw_name[-5] == ' ' else raw_name %}
+
+        <!-- VERIFIED MERCHANT PREVIEW (Dynamic Text, Static Image) -->
+        <meta property="og:title" content="Verified Storefront: {{ visual_name }}">
+        <meta property="og:description" content="Official Ledgehold Merchant. Secure campus trade.">
+        
+        <!-- STATIC BRAND CARD (Reliable Fallback) -->
+        <meta property="og:image" content="{{ url_for('static', filename='images/brand_preview_card.png', _external=True) }}">
+        <meta property="og:image:type" content="image/png">
+        <meta property="og:image:width" content="1200">
+        <meta property="og:image:height" content="630">
+        
+        <!-- Twitter Fallback -->
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:image" content="{{ url_for('static', filename='images/brand_preview_card.png', _external=True) }}">
+    {% else %}
+        <!-- DEFAULT BRAND PREVIEW -->
+        <meta property="og:title" content="ProlyfiQ | Campus Logistics & Utility Hub">
+        <meta property="og:description" content="Streamline your campus life. Secure logistics, and verified bill & utility payments for students.">
+        
+        <meta property="og:image" content="{{ url_for('static', filename='images/brand_preview_card.png', _external=True) }}">
+        <meta property="og:image:type" content="image/png">
+        <meta property="og:image:width" content="1200">
+        <meta property="og:image:height" content="630">
+        
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:image" content="{{ url_for('static', filename='images/brand_preview_card.png', _external=True) }}">
+    {% endif %}
+
+    <!-- TrustBox script -->
+    <script type="text/javascript" src="//widget.trustpilot.com/bootstrap/v5/tp.widget.bootstrap.min.js" async></script>
+    <!-- End TrustBox script -->
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/brand_preview_card.png') }}">
+    
+    <!-- CSS Links -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=5">
+
+    <!-- LEDGEHOLD SECURITY CONFIGURATION -->
+    <script>
+        // API Key injected from the server environment (Flask app.py)
+        var __imgbb_api_key = "{{ IMGBB_API_KEY }}";
+    </script>
+    
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+</head>
+<body class="bg-light">
+
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm mb-4 sticky-top">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+                ProlyfiQ
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#desktopMenu">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="desktopMenu">
+                <ul class="navbar-nav ms-auto align-items-center gap-3">
+                    <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/shop">Utilities</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/marketplace">Marketplace</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/foodrun">FoodRun™</a></li>
+
+                    {% if not compliance_mode %}
+                    <li class="nav-item"><a class="nav-link" href="/tv">TV</a></li>
+                    {% endif %}
+                    <li class="nav-item"><a class="nav-link" href="/faq">FAQ</a></li>
+                    <li class="nav-item ms-2">
+                        <button class="btn btn-outline-primary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#contactModal">
+                            <i class="bi bi-headset"></i> Support
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <div class="container" style="min-height: 80vh;">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- MOBILE BOTTOM NAV -->
+    <nav id="mobileBottomNav" class="navbar fixed-bottom navbar-light bg-white border-top shadow-lg d-md-none" style="padding-bottom: 15px;">
+        <div class="container-fluid d-flex justify-content-around text-center">
+            
+            <!-- Home -->
+            <a href="/" class="nav-link {% if request.path == '/' %}text-primary{% else %}text-muted{% endif %}">
+                {% if request.path == '/' %}
+                    <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center shadow" 
+                         style="width: 50px; height: 50px; margin-top: -30px; border: 4px solid white;">
+                        <i class="bi bi-house-door-fill fs-4"></i>
+                    </div>
+                    <div style="font-size: 10px; margin-top: 5px;" class="fw-bold">Home</div>
+                {% else %}
+                    <i class="bi bi-house-door-fill fs-4"></i>
+                    <div style="font-size: 10px;">Home</div>
+                {% endif %}
+            </a>
+
+            <!-- Marketplace -->
+            <a href="/marketplace" class="nav-link {% if '/marketplace' in request.path %}text-primary{% else %}text-muted{% endif %}">
+                {% if '/marketplace' in request.path %}
+                    <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center shadow" 
+                         style="width: 50px; height: 50px; margin-top: -30px; border: 4px solid white;">
+                        <i class="bi bi-cart-fill fs-4"></i>
+                    </div>
+                    <div style="font-size: 10px; margin-top: 5px;" class="fw-bold">Marketplace</div>
+                {% else %}
+                    <i class="bi bi-cart-fill fs-4"></i>
+                    <div style="font-size: 10px;">Marketplace</div>
+                {% endif %}
+            </a>
+
+            <!-- Utilities / Shop -->
+            <a href="/shop" class="nav-link {% if '/shop' in request.path or '/buy/' in request.path %}text-primary{% else %}text-muted{% endif %}">
+                {% if '/shop' in request.path or '/buy/' in request.path %}
+                    <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center shadow" 
+                         style="width: 50px; height: 50px; margin-top: -30px; border: 4px solid white;">
+                        <i class="bi bi-receipt fs-4"></i>
+                    </div>
+                    <div style="font-size: 10px; margin-top: 5px;" class="fw-bold">Utilities</div>
+                {% else %}
+                    <i class="bi bi-receipt fs-4"></i>
+                    <div style="font-size: 10px;">Utilities</div>
+                {% endif %}
+            </a>
+
+            <!-- Logistics / Food Run -->
+            <a href="/foodrun" class="nav-link {% if '/foodrun' in request.path %}text-primary{% else %}text-muted{% endif %}">
+                {% if '/foodrun' in request.path %}
+                    <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center shadow" 
+                         style="width: 50px; height: 50px; margin-top: -30px; border: 4px solid white;">
+                        <i class="bi bi-cup-straw fs-4"></i>
+                    </div>
+                    <div style="font-size: 10px; margin-top: 5px;" class="fw-bold">FoodRun™</div>
+                {% else %}
+                    <i class="bi bi-cup-straw fs-4"></i>
+                    <div style="font-size: 10px;">FoodRun™</div>
+                {% endif %}
+            </a>
+
+            <!-- TV  -->
+            <a href="/tv" class="nav-link {% if request.path == '/tv' %}text-primary{% else %}text-muted{% endif %}">
+                {% if request.path == '/tv' %}
+                    <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center shadow" 
+                         style="width: 50px; height: 50px; margin-top: -30px; border: 4px solid white;">
+                        <i class="bi bi-tv fs-4"></i>
+                    </div>
+                    <div style="font-size: 10px; margin-top: 5px;" class="fw-bold">TV</div>
+                {% else %}
+                    <i class="bi bi-tv fs-4"></i>
+                    <div style="font-size: 10px;">TV</div>
+                {% endif %}
+            </a>
+        </div>
+    </nav>
+
+    <!-- FOOTER -->
+    <footer id="mainFooter" class="bg-dark text-white pt-5 pb-3 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <h4 class="fw-bold text-warning mb-3">ProlyfiQ</h4>
+                    <p class="text-secondary small">Your Campus Connectivity Partner.</p>
+                    <div class="d-flex gap-3 mt-4">
+                        <a href="javascript:void(0)" data-bs-toggle="modal" data-bs-target="#socialMediaModal" class="text-white opacity-50 hover-opacity-100 fs-5"><i class="bi bi-instagram"></i></a>
+                        <a href="javascript:void(0)" data-bs-toggle="modal" data-bs-target="#socialMediaModal" class="text-white opacity-50 hover-opacity-100 fs-5"><i class="bi bi-twitter-x"></i></a>
+                        <a href="javascript:void(0)" data-bs-toggle="modal" data-bs-target="#socialMediaModal" class="text-white opacity-50 hover-opacity-100 fs-5"><i class="bi bi-facebook"></i></a>
+                        <a href="javascript:void(0)" data-bs-toggle="modal" data-bs-target="#socialMediaModal" class="text-white opacity-50 hover-opacity-100 fs-5"><i class="bi bi-linkedin"></i></a>
+                    </div>
+                </div>
+                <div class="col-6 col-md-4 mb-4 border-start border-secondary border-opacity-25 ps-md-5">
+                    <h6 class="fw-bold mb-3 text-uppercase small" style="letter-spacing: 1px;">Discover</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><a href="/shop" class="text-secondary text-decoration-none small">Utility Payments</a></li>
+                        <li class="mb-2"><a href="/marketplace" class="text-secondary text-decoration-none small">Student Marketplace</a></li>
+                        <li class="mb-2"><a href="/foodrun" class="text-secondary text-decoration-none small">FoodRun™</a></li>
+                        {% if not compliance_mode %}
+                        <li class="mb-2"><a href="/tv" class="text-secondary text-decoration-none small">Entertainment Hub</a></li>
+                        {% endif %}
+                        <li class="mb-2"><a href="/terms" class="text-secondary text-decoration-none small">Terms of Service</a></li>
+                        <li class="mb-2"><a href="/privacy" class="text-secondary text-decoration-none small">Privacy Policy</a></li>
+                        <li class="mb-2"><a href="/faq" class="text-secondary text-decoration-none small">FAQ</a></li>
+                        <!--li><a href="/about_us" class="text-secondary text-decoration-none small">About Us</a></li-->
+                    </ul>
+                </div>
+                
+                <!-- OFFICIAL TRUSTPILOT REVIEW SECTION -->
+                <div class="col-6 col-md-4 mb-4 border-start border-secondary border-opacity-25 ps-md-5">
+                    <h6 class="fw-bold mb-3 text-uppercase small text-warning" style="letter-spacing: 1px;">Community</h6>
+                    <p class="text-secondary small mb-3">Rate your experience and suggest improvements.</p>
+                    
+                    <!-- TrustBox widget - Review Collector -->
+                    <div class="trustpilot-widget mb-3" data-locale="en-US" data-template-id="56278e9abfbbba0bdcd568bc" data-businessunit-id="6958dffcca6f6aed3292cc89" data-style-height="52px" data-style-width="100%" data-token="90782b66-0e75-4fa7-b967-be54ee7d6b5a">
+                        <a href="https://www.trustpilot.com/review/dataexpress.store" target="_blank" rel="noopener">Trustpilot</a>
+                    </div>
+                    <!-- End TrustBox widget -->
+                </div>
+            </div>
+
+            <hr class="border-secondary opacity-25 my-4">
+            <div class="text-center text-secondary small">
+                <p class="mb-0">&copy; 2026 ProlyfiQ. A Ledgehold Platform.</p>
+                <p class="x-small opacity-50 mt-1">Ledgehold is a Data Protection Commision registered company</p>
+            </div>
+        </div>
+        <div class="d-md-none" style="height: 70px;"></div> 
+    </footer>
+
+    <!-- SUPPORT MODAL -->
+    <div class="modal fade" id="contactModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">Customer Support</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <div class="mb-4">
+                        <h6 class="fw-bold">Email Us</h6>
+                        <a href="mailto:support@prolyfiq.store" class="btn btn-outline-primary rounded-pill px-4">support@prolyfiq.store</a>
+                    </div>
+                    <hr class="opacity-25">
+                    <div class="mt-4">
+                        <h6 class="fw-bold">WhatsApp Support</h6>
+                        <a href="https://wa.me/233551681706" class="btn btn-success rounded-pill px-4 fw-bold">
+                            <i class="bi bi-whatsapp me-2"></i>Chat with Support
+                        </a>
+                    </div>
+                </div>
+            </div>
+</div>
+        </div>
+    </div>
+
+    <!-- SECURITY MODAL -->
+    <div class="modal fade" id="securityModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg" style="border-left: 5px solid #dc3545;">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold text-danger">
+                        <i class="bi bi-shield-lock-fill me-2"></i> Security Alert
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <p class="mb-3"><strong>Please Be Careful!</strong> There are fake websites claiming to be us. Bookmark this site.</p>
+                    <p class="mb-4">Always verify you are on <strong>prolyfiq.store</strong>.</p>
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-primary btn-sm rounded-pill py-2 fw-bold" data-bs-dismiss="modal">I Understand, Continue</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SOCIAL MEDIA STATUS MODAL -->
+    <div class="modal fade" id="socialMediaModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content rounded-4 border-0 shadow-lg">
+                <div class="modal-body text-center py-5 px-4">
+                    <div class="bg-primary-subtle text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 65px; height: 65px;">
+                        <i class="bi bi-broadcast fs-2"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark">Coming Soon</h5>
+                    <p class="small text-muted mb-4">We are not yet on social media. We are currently focusing on giving you the best user experience right here.</p>
+                    <div class="d-grid">
+                        <button type="button" class="btn btn-primary rounded-pill fw-bold py-2 shadow-sm" data-bs-dismiss="modal">Back to Hub</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Security Alert logic
+            if (!sessionStorage.getItem('seenSecurityAlert')) {
+                setTimeout(() => {
+                    var securityModalEl = document.getElementById('securityModal');
+                    if(securityModalEl) {
+                        var securityModal = new bootstrap.Modal(securityModalEl);
+                        securityModal.show();
+                        sessionStorage.setItem('seenSecurityAlert', 'true');
+                    }
+                }, 20000); 
+            }
+        });
+    </script>
+
+    <style>
+        .hover-opacity-100 { transition: opacity 0.3s ease; }
+        .hover-opacity-100:hover { opacity: 1 !important; }
+        .x-small { font-size: 0.65rem; }
+        #mobileBottomNav .nav-link { padding: 8px 0; }
+        .bg-primary-subtle { background-color: #e0e7ff !important; }
+    </style>
+</body>
+</html>

@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+
+            <!-- PRODUCT CONTEXT CARD (image-driven) -->
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden mb-3">
+                <div class="position-relative">
+                    <!-- Item image pulled from marketplace card -->
+                    <div class="ratio ratio-16x9 bg-light overflow-hidden">
+                        <img 
+                            id="checkoutItemImage"
+                            src="{{ request.args.get('img', '') }}" 
+                            class="object-fit-cover"
+                            alt="{{ request.args.get('item') }}"
+                            onerror="this.closest('.ratio').classList.add('d-none')"
+                        >
+                    </div>
+
+                    <!-- Price pill overlaid on image -->
+                    <div class="position-absolute bottom-0 end-0 m-3">
+                        <span class="badge bg-dark text-white rounded-pill px-3 py-2 shadow fw-bold fs-6">
+                            GHS {{ request.args.get('price') }}
+                        </span>
+                    </div>
+
+                    <!-- Campus badge top-left -->
+                    {% if request.args.get('campus') %}
+                    <div class="position-absolute top-0 start-0 m-3">
+                        <span class="badge bg-primary rounded-pill" style="font-size: 0.65rem;">
+                            {{ request.args.get('campus') }}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Item name + variety strip -->
+                <div class="px-4 py-3 border-top d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="fw-bold mb-0 text-dark">{{ request.args.get('item') }}</p>
+                        {% if request.args.get('variety') %}
+                        <span class="badge bg-light text-dark border rounded-pill small">
+                            {{ request.args.get('variety') }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- CHECKOUT FORM CARD -->
+            <div class="card border-0 shadow-lg rounded-4 p-4 p-md-5">
+                <h5 class="fw-bold mb-1">Checkout</h5>
+                <p class="text-muted small mb-4">The Merchant will reach out to you using these numbers.</p>
+
+                <!-- Phone -->
+                <div class="mb-3">
+                    <label class="small fw-bold text-muted mb-1 ms-1">PHONE NUMBER</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-0" style="border-radius: 50px 0 0 50px;">
+                            <i class="bi bi-telephone text-muted px-1"></i>
+                        </span>
+                        <input type="tel" id="buyerPhone"
+                            class="form-control bg-light border-0 py-3"
+                            placeholder="024 XXX XXXX"
+                            style="border-radius: 0 50px 50px 0;">
+                    </div>
+                </div>
+
+                <!-- WhatsApp -->
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-1 ms-1">
+                        <label class="small fw-bold text-muted">WHATSAPP NUMBER</label>
+                        <button class="btn btn-link btn-sm text-decoration-none p-0 small" onclick="copyPhone()">
+                            Same as phone?
+                        </button>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-0" style="border-radius: 50px 0 0 50px;">
+                            <i class="bi bi-whatsapp text-muted px-1"></i>
+                        </span>
+                        <input type="tel" id="buyerWhatsapp"
+                            class="form-control bg-light border-0 py-3"
+                            placeholder="055 XXX XXXX"
+                            style="border-radius: 0 50px 50px 0;">
+                    </div>
+                </div>
+
+                <div class="d-grid">
+                    <button id="payBtn" onclick="payWithPaystack()"
+                        class="btn btn-primary rounded-pill fw-bold py-3 shadow-sm">
+                        Pay GHS {{ request.args.get('price') }}
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- EXTERNAL ENGINES -->
+<script src="https://js.paystack.co/v1/inline.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+<script>
+    const __app_id = '{{ __app_id }}';
+    const __firebase_config = '{{ __firebase_config | safe }}';
+    const PAYSTACK_PUB_KEY = '{{ paystack_pub_key }}';
+
+    const config = JSON.parse(__firebase_config);
+    if (!firebase.apps.length) firebase.initializeApp(config);
+    const db = firebase.firestore();
+
+    const SecurityProtocol = {
+        async generateSecurityStamp() {
+            let deviceToken = localStorage.getItem('ledgehold_device_token');
+            if (!deviceToken) {
+                deviceToken = crypto.randomUUID();
+                localStorage.setItem('ledgehold_device_token', deviceToken);
+            }
+            let clientIp = 'unknown';
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                clientIp = data.ip;
+            } catch (e) {
+                console.warn("Ledgehold Protocol: Network signature bypassed (Local/VPN).");
+            }
+            return {
+                ip: clientIp,
+                token: deviceToken,
+                timestamp: Date.now(),
+                userAgent: navigator.userAgent
+            };
+        }
+    };
+
+    window.copyPhone = function() {
+        document.getElementById('buyerWhatsapp').value = document.getElementById('buyerPhone').value;
+    };
+
+    window.payWithPaystack = async function() {
+        const phone = document.getElementById('buyerPhone').value;
+        const whatsapp = document.getElementById('buyerWhatsapp').value;
+        const price = "{{ request.args.get('price') }}";
+        const item = "{{ request.args.get('item') }}";
+        const sellerPhone = "{{ request.args.get('seller_phone') }}";
+
+        if (!phone || !whatsapp) {
+            alert("Please provide contact details for the escrow exchange.");
+            return;
+        }
+
+        const btn = document.getElementById('payBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
+
+        try {
+            const stamp = await SecurityProtocol.generateSecurityStamp();
+
+            const handler = PaystackPop.setup({
+                key: PAYSTACK_PUB_KEY,
+                email: 'escrow-node@prolyfiq.me',
+                amount: parseFloat(price) * 100,
+                currency: "GHS",
+                metadata: {
+                    custom_fields: [
+                        { display_name: "Phone", variable_name: "phone", value: phone },
+                        { display_name: "WhatsApp", variable_name: "whatsapp", value: whatsapp },
+                        { display_name: "Item", variable_name: "item_name", value: item },
+                        { display_name: "SellerPhone", variable_name: "seller_phone", value: sellerPhone },
+                        { display_name: "DeviceToken", variable_name: "device_token", value: stamp.token }
+                    ]
+                },
+                callback: function(response) {
+                    window.location.href = "/success?ref=" + response.reference + "&item=" + encodeURIComponent(item) + "&price=" + price;
+                },
+                onClose: function() {
+                    btn.disabled = false;
+                    btn.innerText = 'Pay GHS ' + price;
+                }
+            });
+            handler.openIframe();
+        } catch (err) {
+            console.error("Ledgehold Vault Error:", err);
+            btn.disabled = false;
+            btn.innerText = 'System Error - Retry';
+        }
+    };
+</script>
+
+{% endblock %}

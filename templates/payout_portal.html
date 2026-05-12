@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+
+{% block title %}Seller Payout Portal | ProlyfiQ{% endblock %}
+
+{% block content %}
+<!-- EXTERNAL ENGINES -->
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+<script>
+    var __app_id = '{{ __app_id if __app_id else "ledgehold-ghana1" }}';
+    var __firebase_config = '{{ __firebase_config | safe if __firebase_config else "{}" }}';
+    
+    // CLOUDINARY CONFIG (Replaces ImgBB for Stability)
+    const CLOUD_NAME = 'dze9o4ymx'; 
+    const UPLOAD_PRESET = 'ledgehold_uploads';
+
+    // Initialize Firebase
+    var config = JSON.parse(__firebase_config);
+    if (!firebase.apps.length) firebase.initializeApp(config);
+    var db = firebase.firestore();
+</script>
+
+<div class="container py-4" style="min-height: 80vh;">
+    <!-- INITIAL LOADING STATE -->
+    <div id="loadingView" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-3 text-muted small">Verifying...</p>
+    </div>
+
+    <!-- MAIN CONTENT (Hidden until Auth Check) -->
+    <div id="mainContent" class="d-none animate-in fade-in duration-500">
+        <div class="mb-5">
+            <a href="/merchant_dashboard" class="text-decoration-none small fw-bold text-muted d-inline-flex align-items-center gap-2">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <div class="row justify-content-center pb-5">
+            <div class="col-lg-6">
+                <div id="portalErrorBox" class="alert alert-danger d-none rounded-4 border-0 shadow-sm mb-4" role="alert"></div>
+
+                <div class="text-center mb-5">
+                    <div class="d-inline-flex align-items-center gap-2 mb-3 px-3 py-1 rounded-pill bg-primary-subtle text-primary" style="font-size: 0.7rem; font-weight: 800;">
+                        <i class="bi bi-wallet2"></i> LEDGEHOLD VAULT ACCESS
+                    </div>
+                    <h2 class="fw-bold text-dark">Merchant Payouts</h2>
+                    <p class="text-muted small">Authenticated as: <span id="activeMerchantName" class="fw-bold text-primary" style="text-transform: capitalize;"></span></p>
+                </div>
+
+                <!-- VAULT SECURITY NOTICE -->
+                <div class="card border-0 bg-warning-subtle p-3 rounded-4 mb-4 border-start border-warning border-4">
+                    <div class="d-flex gap-3 align-items-center">
+                        <i class="bi bi-shield-exclamation text-warning fs-3"></i>
+                        <div>
+                            <h6 class="fw-bold text-dark mb-1" style="font-size: 0.85rem;">Gatekeeper Compliance</h6>
+                            <p class="mb-0 text-dark opacity-75" style="font-size: 0.75rem;">
+                                Funds are only released after we verify your <strong>Proof of Delivery (POD)</strong> against the buyer's confirmation log.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="payoutForm" onsubmit="submitPayoutRequest(event)" class="space-y-4">
+                    <!-- Item Reference -->
+                    <div class="card border-0 shadow-sm p-4 mb-4 bg-white" style="border-radius: 20px;">
+                        <h6 class="fw-bold mb-3 text-dark"><i class="bi bi-upc-scan me-2 text-primary"></i>Transaction ID</h6>
+                        <div class="mb-0">
+                            <input type="text" id="listingRefId" class="form-control rounded-pill border-light bg-light py-2 px-3" placeholder="e.g. The unique ID from your Dashboard" required>
+                        </div>
+                    </div>
+
+                    <!-- Financials -->
+                    <div class="card border-0 shadow-sm p-4 mb-4 bg-white" style="border-radius: 20px;">
+                        <h6 class="fw-bold mb-3 text-dark"><i class="bi bi-receipt me-2 text-primary"></i>Sale Details</h6>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">Final Sale Price (GHS)</label>
+                            <input type="number" id="itemSoldPrice" class="form-control rounded-pill border-light bg-light" placeholder="0.00" step="0.01" oninput="calculateNetPayout()" required>
+                        </div>
+                        <div id="payoutDisplay" class="bg-light p-3 rounded-4 border border-white">
+                            <p class="text-muted small mb-0 text-center">Enter price to see payout calculation.</p>
+                        </div>
+                    </div>
+
+                    <!-- POD Upload -->
+                    <div class="card border-0 shadow-sm p-4 mb-4 bg-white" style="border-radius: 20px; border-left: 5px solid #198754 !important;">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-camera-fill me-2 text-success"></i>Proof of Delivery</h6>
+                        </div>
+                        <p class="text-muted small mb-3">Upload visual evidence (e.g., item handoff or receipt) to authorize release.</p>
+                        
+                        <!-- PREVIEW CONTAINER -->
+                        <div id="podPreviewContainer" class="text-center mb-3 position-relative d-none">
+                            <img id="podImageDisplay" src="#" alt="Proof" class="rounded-3 border shadow-sm w-100" style="max-height: 250px; object-fit: cover;">
+                            <button type="button" onclick="resetPod()" class="btn btn-dark btn-sm rounded-pill position-absolute top-0 end-0 m-2 shadow">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+
+                        <!-- BUTTONS -->
+                        <div id="podButtons" class="row g-2 mb-3">
+                            <div class="col-6">
+                                <input type="file" id="podGallery" accept="image/*" class="d-none" onchange="handlePodSelection(this)">
+                                <button type="button" onclick="document.getElementById('podGallery').click()" class="btn btn-outline-secondary w-100 rounded-pill py-3 fw-bold border-2">
+                                    <i class="bi bi-images me-2"></i> Gallery
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <input type="file" id="podCamera" accept="image/*" capture="environment" class="d-none" onchange="handlePodSelection(this)">
+                                <button type="button" onclick="document.getElementById('podCamera').click()" class="btn btn-outline-secondary w-100 rounded-pill py-3 fw-bold border-2">
+                                    <i class="bi bi-camera-fill me-2"></i> Camera
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" id="payoutSubmitBtn" class="btn btn-dark btn-lg rounded-pill fw-bold shadow-lg py-3">
+                            <span id="payoutLoadingSpinner" class="spinner-border spinner-border-sm d-none me-2"></span>
+                            <span id="btnText">Request Payout</span>
+                        </button>
+                    </div>
+                </form>
+
+                <div class="text-center mt-5">
+                    <p class="small text-muted mb-3">Issues with verification?</p>
+                    <a href="https://wa.me/233551681706?text=I%20need%20help%20with%20my%20payout%20request" class="btn btn-outline-primary btn-sm rounded-pill px-4 fw-bold py-2 shadow-sm">
+                        <i class="bi bi-chat-dots-fill me-2"></i> Support Channel
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SUCCESS MODAL -->
+<div class="modal fade" id="payoutSuccessModal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg p-5 text-center" style="border-radius: 25px;">
+            <div class="bg-success-subtle text-success rounded-circle d-inline-flex align-items-center justify-content-center mb-4 mx-auto" style="width: 70px; height: 70px;">
+                <i class="bi bi-check-circle-fill fs-1"></i>
+            </div>
+            <h4 class="fw-bold">Request Prepared</h4>
+            <p class="text-secondary small mb-4">Verification secured. Send this to our compliance team to release your funds.</p>
+            <a id="finalWhatsappLink" href="#" class="btn btn-success rounded-pill fw-bold py-3 w-100 shadow-sm">
+                <i class="bi bi-whatsapp me-2"></i> Send to Team
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentMerchant = null;
+    let selectedPodFile = null;
+
+    // 1. AUTHENTICATION CHECK (Redirect if not logged in)
+    function checkSession() {
+        const merchantName = localStorage.getItem('ledgehold_merchant_name');
+        
+        if (!merchantName) {
+            // Not authenticated, redirect to dashboard login
+            window.location.replace('/merchant_dashboard');
+            return;
+        }
+
+        currentMerchant = merchantName;
+        document.getElementById('activeMerchantName').innerText = merchantName;
+        
+        // Show Content
+        document.getElementById('loadingView').classList.add('d-none');
+        document.getElementById('mainContent').classList.remove('d-none');
+    }
+
+    // 2. IMAGE COMPRESSION (Same engine as Onboarding)
+    async function compressImage(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const MAX_DIM = 1200;
+
+                    if (width > height) {
+                        if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; }
+                    } else {
+                        if (height > MAX_DIM) { width *= MAX_DIM / height; height = MAX_DIM; }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob((blob) => { resolve(blob); }, 'image/jpeg', 0.7);
+                };
+                img.onerror = reject;
+            };
+            reader.onerror = reject;
+        });
+    }
+
+    // 3. UI HANDLERS
+    window.handlePodSelection = function(input) {
+        if (input.files && input.files[0]) {
+            selectedPodFile = input.files[0];
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('podImageDisplay').src = e.target.result;
+                document.getElementById('podPreviewContainer').classList.remove('d-none');
+                document.getElementById('podButtons').classList.add('d-none');
+            };
+            reader.readAsDataURL(selectedPodFile);
+            document.getElementById('portalErrorBox').classList.add('d-none');
+        }
+    };
+
+    window.resetPod = function() {
+        selectedPodFile = null;
+        document.getElementById('podGallery').value = "";
+        document.getElementById('podCamera').value = "";
+        document.getElementById('podPreviewContainer').classList.add('d-none');
+        document.getElementById('podButtons').classList.remove('d-none');
+    };
+
+    window.calculateNetPayout = function() {
+        const priceInput = document.getElementById('itemSoldPrice');
+        const display = document.getElementById('payoutDisplay');
+        const price = parseFloat(priceInput.value);
+
+        if (!isNaN(price) && price > 0) {
+            const fee = price * 0.05;
+            const net = price - fee;
+            display.innerHTML = `
+                <div class="d-flex justify-content-between mb-1 small text-muted"><span>Gross Sale:</span><span class="fw-bold text-dark">GHS ${price.toFixed(2)}</span></div>
+                <div class="d-flex justify-content-between mb-1 text-danger small"><span>Service Fee (5%):</span><span>- GHS ${fee.toFixed(2)}</span></div>
+                <hr class="my-2">
+                <div class="d-flex justify-content-between text-primary fw-bold"><span>Net Payout:</span><span class="fs-5">GHS ${net.toFixed(2)}</span></div>`;
+        } else {
+            display.innerHTML = '<p class="text-muted small mb-0 text-center">Enter price to see payout calculation.</p>';
+        }
+    };
+
+    // 4. SUBMISSION LOGIC
+    window.submitPayoutRequest = async function(event) {
+        event.preventDefault();
+        const submitBtn = document.getElementById('payoutSubmitBtn');
+        const spinner = document.getElementById('payoutLoadingSpinner');
+        const btnText = document.getElementById('btnText');
+        
+        if (!selectedPodFile) {
+            showError("Proof of Delivery is mandatory for audit.");
+            return;
+        }
+
+        submitBtn.disabled = true;
+        spinner.classList.remove('d-none');
+        btnText.innerText = "Securing Proof...";
+
+        try {
+            // Compress
+            const compressedFile = await compressImage(selectedPodFile);
+            
+            // Upload to Cloudinary
+            const formData = new FormData();
+            formData.append("file", compressedFile);
+            formData.append("upload_preset", UPLOAD_PRESET);
+            
+            const imgResp = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: "POST", body: formData });
+            const imgData = await imgResp.json();
+            
+            if (!imgData.secure_url) throw new Error("Evidence upload failed. Please retry.");
+
+            // Prepare WhatsApp Link
+            const refId = document.getElementById('listingRefId').value.trim();
+            const price = parseFloat(document.getElementById('itemSoldPrice').value).toFixed(2);
+            const net = (price * 0.95).toFixed(2);
+
+            const message = `Hello ProlyfiQ Team! %0A%0A` +
+                            `*PAYOUT REQUEST CERTIFICATE*%0A` + 
+                            `*Merchant:* ${currentMerchant}%0A` +
+                            `*Ref ID:* ${refId}%0A` +
+                            `*Net Payout:* GHS ${net}%0A` +
+                            `--------------------------%0A` +
+                            `*Digital POD:* ${imgData.secure_url}%0A%0A` +
+                            `I certify this delivery is complete according to the Gatekeeper Policy.`;
+
+            document.getElementById('finalWhatsappLink').href = `https://wa.me/233551681706?text=${message}`;
+            
+            // Log to Database (Optional Audit Trail)
+            await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('payout_logs').add({
+                merchantId: currentMerchant,
+                refId: refId,
+                amount: parseFloat(net),
+                podUrl: imgData.secure_url,
+                timestamp: Date.now(),
+                status: 'pending'
+            });
+
+            new bootstrap.Modal(document.getElementById('payoutSuccessModal')).show();
+
+        } catch (e) {
+            showError(e.message);
+        } finally {
+            submitBtn.disabled = false;
+            spinner.classList.add('d-none');
+            btnText.innerText = "Request Payout";
+        }
+    };
+
+    function showError(msg) {
+        const box = document.getElementById('portalErrorBox');
+        box.innerText = msg;
+        box.classList.remove('d-none');
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+
+    document.addEventListener('DOMContentLoaded', checkSession);
+</script>
+
+<style>
+    body { background-color: #f8fafc; }
+    .bg-primary-subtle { background-color: #e0e7ff !important; }
+    .bg-warning-subtle { background-color: #fffbeb !important; }
+    .form-control:focus { border-color: #fbbf24; box-shadow: 0 0 0 0.25rem rgba(251, 191, 36, 0.1); }
+</style>
+{% endblock %}

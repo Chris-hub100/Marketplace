@@ -1,0 +1,894 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Command Center | Ledgehold{% endblock %}
+
+{% block content %}
+<!-- EXTERNAL ENGINES -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+<script>
+    var __app_id = '{{ __app_id }}';
+    var __firebase_config = '{{ __firebase_config | safe }}';
+    
+    // CLOUDINARY CONFIG - ADDED FROM SECOND FILE
+    const CLOUD_NAME = 'dze9o4ymx'; 
+    const UPLOAD_PRESET = 'ledgehold_uploads';
+</script>
+
+<div class="container py-4" style="min-height: 80vh;">
+    <!-- INITIAL LOADING STATE -->
+    <div id="loadingView" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-3 text-muted small">Synchronizing...</p>
+    </div>
+
+    <!-- SECTION 1: SECURE LOGIN GATEWAY -->
+    <div id="loginSection" class="row justify-content-center d-none">
+        <div class="col-md-5 text-center py-5">
+            <div class="mb-4">
+                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3 shadow-lg" style="width: 80px; height: 80px; border: 4px solid #fff;">
+                    <i class="bi bi-shield-lock-fill fs-1"></i>
+                </div>
+                <h4 class="fw-bold text-dark">Ledgehold Command</h4>
+                <p class="text-muted small">Root access for Infrastructure Management.</p>
+            </div>
+            <div id="loginError" class="alert alert-danger d-none rounded-4 border-0 small mb-3 text-start">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> <span id="errorMsg">Invalid Credentials.</span>
+            </div>
+            <div class="card border-0 shadow-lg p-4 rounded-4 bg-white">
+                <div class="mb-3 text-start">
+                    <label class="form-label small fw-bold text-muted text-uppercase">Admin Identifier</label>
+                    <input type="text" id="adminIdInput" class="form-control rounded-pill border-light bg-light py-2 px-4" placeholder="Enter ID">
+                </div>
+                <div class="mb-4 text-start">
+                    <label class="form-label small fw-bold text-muted text-uppercase">Secure PIN</label>
+                    <input type="password" id="adminPinInput" maxlength="6" class="form-control rounded-pill border-light bg-light py-2 px-4 text-center fw-bold" style="letter-spacing: 8px;" placeholder="••••••" inputmode="numeric">
+                </div>
+                <button onclick="handleAdminLogin()" class="btn btn-primary w-100 rounded-pill py-3 fw-bold shadow-sm">Unlock Command Center</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 2: COMMAND CENTER (AUTHENTICATED) -->
+    <div id="commandSection" class="d-none">
+        <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+            <div>
+                <h4 class="fw-bold text-dark mb-0">Command Center</h4>
+                <p class="text-muted small mb-0"><i class="bi bi-person-badge-fill me-1 text-primary"></i> Root: <span id="activeAdminDisplay" class="fw-bold"></span></p>
+            </div>
+            <button onclick="handleLogout()" class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold">Logout</button>
+        </div>
+
+        <!-- TAB NAVIGATION -->
+        <div class="overflow-auto no-scrollbar mb-4">
+            <ul class="nav nav-pills bg-light p-1 rounded-pill d-inline-flex border flex-nowrap" id="adminTabs" style="white-space: nowrap;">
+                <li class="nav-item"><button class="nav-link active rounded-pill fw-bold px-3" id="btn-requests" onclick="switchTab('requests')">Requests <span id="pendingBadge" class="badge rounded-pill bg-danger d-none">0</span></button></li>
+                <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-listings" onclick="switchTab('listings')">Mod-Listings</button></li>
+                <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-waitlist" onclick="switchTab('waitlist')">Wait-List</button></li>
+                <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-receipt" onclick="switchTab('receipt')">D-Trail</button></li>
+                <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-cms" onclick="switchTab('cms')">CMS Invites</button></li>
+                <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-channel" onclick="switchTab('channel')">Intel Hub</button></li>
+                <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-broadcast" onclick="switchTab('broadcast')">Messaging</button></li>
+                <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-revoke" onclick="switchTab('revoke')">Registry</button></li>
+            </ul>
+        </div>
+
+        <!-- TAB: KYC REQUESTS -->
+        <div id="requestsTab" class="admin-tab">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white border mb-4">
+                <h6 class="fw-bold mb-4 text-primary"><i class="bi bi-person-plus-fill me-2"></i>Merchant Onboarding Queue</h6>
+                <div id="requestsList" class="row g-3">
+                    <div class="col-12 text-center py-5 text-muted small">No pending verification requests.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: MARKETPLACE MODERATION -->
+        <div id="listingsTab" class="admin-tab d-none">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white border mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h6 class="fw-bold mb-0 text-primary"><i class="bi bi-shop me-2"></i>Active Marketplace Listings</h6>
+                    <span id="listingsCount" class="badge bg-secondary rounded-pill px-3">0 Active</span>
+                </div>
+                <div id="listingsList" class="row g-3 overflow-auto" style="max-height: 700px; padding-bottom: 20px;">
+                    <div class="col-12 text-center py-5 text-muted small">Loading marketplace node...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: ENDORSEMENT WAITLIST -->
+        <div id="waitlistTab" class="admin-tab d-none">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white border mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+                    <h6 class="fw-bold mb-0 text-primary"><i class="bi bi-stars me-2"></i>Endorsement Waitlist</h6>
+                    <span id="waitlistCount" class="badge bg-dark rounded-pill px-3">0 Pending Audit</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border-0">
+                        <thead class="bg-light text-muted x-small text-uppercase fw-bold">
+                            <tr>
+                                <th class="ps-3 border-0">Merchant Identifier</th>
+                                <th class="border-0">Joined Date</th>
+                                <th class="border-0">Audit Status</th>
+                                <th class="text-end pe-3 border-0">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="waitlistEntries">
+                            <tr>
+                                <td colspan="4" class="text-center py-5 text-muted small">Synchronizing waitlist registry...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: RECEIPT GENERATOR -->
+        <div id="receiptTab" class="admin-tab d-none">
+            <div class="row g-4">
+                <div class="col-lg-5">
+                    <div class="card border-0 shadow-sm rounded-4 p-4 bg-white border">
+                        <h6 class="fw-bold mb-4 text-primary"><i class="bi bi-pencil-square me-2"></i>Issue Verified Receipt</h6>
+                        <form onsubmit="prepareReceipt(event)">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">MERCHANT NAME</label>
+                                <input type="text" id="merchantName" class="form-control rounded-pill border-light bg-light" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">ITEM SOLD</label>
+                                <input type="text" id="itemName" class="form-control rounded-pill border-light bg-light" required>
+                            </div>
+                            <div class="row g-3 mb-3">
+                                <div class="col-6"><label class="form-label small fw-bold text-muted">REF ID</label><input type="text" id="refId" class="form-control rounded-pill border-light bg-light" placeholder="DE-XXXXX" required></div>
+                                <div class="col-6"><label class="form-label small fw-bold text-muted">DATE</label><input type="date" id="saleDate" class="form-control rounded-pill border-light bg-light" required></div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label small fw-bold text-muted">GROSS PRICE (GHS)</label>
+                                <input type="number" id="grossPrice" step="0.01" class="form-control rounded-pill border-light bg-light" required>
+                            </div>
+                            <button type="submit" class="btn btn-dark w-100 rounded-pill py-3 fw-bold shadow-sm">Preview Receipt</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="col-lg-7">
+                    <div class="card border-0 shadow-lg rounded-4 overflow-hidden bg-white h-100" style="min-height: 450px;">
+                        <div class="card-header bg-dark text-white p-3 border-0 d-flex justify-content-between align-items-center">
+                            <span class="small fw-bold">PREVIEW</span>
+                            <button id="downloadBtn" onclick="downloadPDF()" class="btn btn-warning btn-sm rounded-pill fw-bold px-3 d-none text-dark">Download PDF</button>
+                        </div>
+                        <div class="card-body p-0 bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center overflow-hidden">
+                            <div id="previewContainer" style="transform: scale(0.55); transform-origin: center;"><div class="p-5 text-center text-muted"><p>Enter Details for Preview</p></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: CMS INVITES -->
+        <div id="cmsTab" class="admin-tab d-none">
+            <div class="row g-4">
+                <div class="col-lg-5">
+                    <div class="card border-0 shadow-sm p-4 rounded-4 border bg-white">
+                        <div class="text-center mb-4">
+                            <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                                <i class="bi bi-key-fill fs-2"></i>
+                            </div>
+                            <h5 class="fw-bold">Generate Onboarding Link</h5>
+                            <p class="text-muted small">Share this secure token for Approved Merchants to activate their Vault.</p>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted">TOKEN EXPIRY (HOURS)</label>
+                            <select id="tokenExpiry" class="form-select rounded-pill border-light bg-light">
+                                <option value="24" selected>24 Hours</option>
+                                <option value="168">1 Week</option>
+                            </select>
+                        </div>
+                        <button id="genTokenBtn" onclick="generateOnboardingToken()" class="btn btn-primary w-100 rounded-pill py-3 fw-bold shadow-sm mb-3">Generate Secure Invite</button>
+                        <div id="newTokenDisplay" class="d-none">
+                            <div class="alert alert-success border-0 rounded-4 small">
+                                <p class="mb-2 fw-bold text-success"><i class="bi bi-check2-circle me-1"></i> New Invitation Link:</p>
+                                <code id="generatedLink" class="d-block bg-white p-2 rounded border mb-3 text-break x-small"></code>
+                                <button onclick="copyGeneratedLink()" class="btn btn-sm btn-dark w-100 rounded-pill fw-bold">Copy Link</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-7">
+                    <div class="card border-0 shadow-sm p-4 rounded-4 border bg-white h-100">
+                        <h6 class="fw-bold mb-3 text-muted">Active Access Tokens</h6>
+                        <div id="tokenRegistry" class="overflow-auto" style="max-height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: INTEL HUB -->
+        <div id="channelTab" class="admin-tab d-none">
+            <div class="row g-4">
+                <div class="col-lg-5">
+                    <div class="card border-0 shadow-sm p-4 rounded-4 border bg-white">
+                        <h6 id="intelFormTitle" class="fw-bold mb-4 text-primary"><i class="bi bi-megaphone-fill me-2"></i>Publish Intelligence Update</h6>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Title</label>
+                            <input type="text" id="intelHeader" class="form-control rounded-pill border-light bg-light px-3">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Message</label>
+                            <textarea id="intelMsg" class="form-control rounded-4 border-light bg-light p-3" rows="4"></textarea>
+                        </div>
+                        <!-- UPDATED: Image Input from Second File -->
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Visual Asset (Optional)</label>
+                            <input type="file" id="intelImage" class="form-control rounded-pill border-light bg-light" accept="image/*">
+                        </div>
+                        <button id="publishIntelBtn" onclick="publishIntelligence()" class="btn btn-dark w-100 rounded-pill py-3 fw-bold shadow-sm">Push to Feed</button>
+                    </div>
+                </div>
+                <div class="col-lg-7">
+                    <h6 class="fw-bold mb-3 text-muted px-2">Published Updates</h6>
+                    <div id="adminChannelList" class="d-flex flex-column gap-3 overflow-auto" style="max-height: 600px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: BROADCAST -->
+        <div id="broadcastTab" class="admin-tab d-none">
+            <div class="row g-4">
+                <div class="col-lg-5">
+                    <div class="card border-0 shadow-sm p-4 rounded-4 border">
+                        <h6 class="fw-bold mb-4 text-primary"><i class="bi bi-broadcast me-2"></i>Send Direct Notification</h6>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Target ID</label>
+                            <input type="text" id="notifyTarget" class="form-control rounded-pill border-light bg-light px-3" placeholder="e.g. Kwadwo Nkansah">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Content</label>
+                            <textarea id="notifyMsg" class="form-control rounded-4 border-light bg-light p-3" rows="3"></textarea>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Priority Level</label>
+                            <select id="notifyType" class="form-select rounded-pill border-light bg-light">
+                                <option value="primary">Informational -Blue</option>
+                                <option value="warning">Compliance Flag -Yellow</option>
+                                <option value="success">Payout Alert -Green</option>
+                                <option value="danger">Urgent Alert -Red</option>
+                            </select>
+                        </div>
+                        <button onclick="sendNotification()" class="btn btn-primary w-100 rounded-pill py-2 fw-bold shadow-sm">Deliver Notification</button>
+                    </div>
+                </div>
+                <div class="col-lg-7">
+                    <h6 class="fw-bold mb-3 text-muted px-2">Notification History</h6>
+                    <div id="notificationLog" class="d-flex flex-column gap-3 overflow-auto" style="max-height: 550px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: REGISTRY (REVOKE & RESET) -->
+        <div id="revokeTab" class="admin-tab d-none">
+            <div class="row g-4">
+                <div class="col-lg-12">
+                    <div class="card border-0 shadow-sm rounded-4 p-4 border bg-white h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+                            <h6 class="fw-bold mb-0 text-muted text-uppercase small" style="letter-spacing: 1px;">Verified Merchant Registry</h6>
+                            <span id="merchantCount" class="badge bg-dark rounded-pill px-3">0 Merchants</span>
+                        </div>
+                        <div id="merchantRegistry" class="row g-3 overflow-auto" style="max-height: 600px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- UPGRADED OFFICIAL RECEIPT MASTER (HIDDEN) -->
+<div style="position: absolute; left: -9999px;">
+    <div id="receiptMaster" style="padding: 50px 50px 100px 50px; font-family: 'Inter', sans-serif; background: white; width: 720px; color: #0f172a; position: relative; min-height: 900px;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 70px; color: rgba(0,0,0,0.03); font-weight: 900; pointer-events: none; z-index: 0; white-space: nowrap;">CERTIFIED TRUE COPY</div>
+        <div style="position: relative; z-index: 1;">
+            <div style="border-bottom: 2px solid #0f172a; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 style="margin: 0; font-size: 24px; font-weight: 900; letter-spacing: -1px;">Ledgehold Enterprise</h1>
+                    <p style="margin: 2px 0 0 0; font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px;">Compliance Division</p>
+                </div>
+                <div style="text-align: right;">
+                    <div style="background: #0f172a; color: white; padding: 6px 12px; border-radius: 6px; font-weight: 800; font-size: 11px; letter-spacing: 1px;">OFFICIAL RECEIPT</div>
+                    <p id="pdf_ref" style="margin: 8px 0 0 0; font-family: monospace; font-size: 13px; font-weight: bold; color: #3b82f6;"></p>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 40px; font-size: 11px;">
+                <div>
+                    <p style="margin: 0 0 5px 0; color: #64748b; font-weight: 700; text-transform: uppercase;">Verified Merchant</p>
+                    <p id="pdf_merchant" style="margin: 0; font-size: 15px; font-weight: 800;"></p>
+                </div>
+                <div style="text-align: right;">
+                    <p style="margin: 0 0 5px 0; color: #64748b; font-weight: 700; text-transform: uppercase;">Issuance Date</p>
+                    <p id="pdf_date" style="margin: 0; font-size: 15px; font-weight: 800;"></p>
+                </div>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                <thead>
+                    <tr style="background: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;">
+                        <th style="text-align: left; padding: 12px; font-size: 10px; color: #64748b;">ASSET DESCRIPTION</th>
+                        <th style="text-align: right; padding: 12px; font-size: 10px; color: #64748b;">GROSS VALUE (GHS)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 20px 12px;">
+                            <p id="pdf_item" style="margin: 0; font-size: 14px; font-weight: 700; color: #0f172a;"></p>
+                            <p style="margin: 5px 0 0 0; font-size: 10px; color: #94a3b8;">Verified Marketplace Listing</p>
+                        </td>
+                        <td id="pdf_gross" style="text-align: right; padding: 20px 12px; font-size: 15px; font-weight: 700; vertical-align: top;"></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div style="display: flex; justify-content: flex-end;">
+                <div style="width: 280px;">
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid #e2e8f0; font-size: 12px;">
+                        <span style="color: #64748b;">Subtotal Gross</span>
+                        <span id="pdf_subtotal" style="font-weight: 700;"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 10px 0; font-size: 12px; color: #ef4444;">
+                        <span>Service Fee (5%)</span>
+                        <span id="pdf_fee"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 12px 12px; background: #0f172a; color: white; border-radius: 8px; margin-top: 10px;">
+                        <span style="font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center;">Total Net Payout</span>
+                        <span id="pdf_net" style="font-size: 20px; font-weight: 900;"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    const config = JSON.parse(__firebase_config);
+    if (!firebase.apps.length) firebase.initializeApp(config);
+    const db = firebase.firestore();
+
+    let currentAdmin = localStorage.getItem('ledgehold_admin_id');
+
+    function refreshUI() {
+        document.getElementById('loadingView').classList.add('d-none');
+        if (currentAdmin) {
+            document.getElementById('loginSection').classList.add('d-none');
+            document.getElementById('commandSection').classList.remove('d-none');
+            document.getElementById('activeAdminDisplay').innerText = currentAdmin;
+
+            loadPendingRequests();
+            loadMarketListings();
+            loadEndorsementWaitlist();
+            loadMerchantRegistry();
+            loadChannelLog();
+            loadNotificationLog();
+            loadTokenRegistry();
+            loadSecuritySettings();
+        } else {
+            document.getElementById('loginSection').classList.remove('d-none');
+        }
+    }
+
+    /**
+     * SHARED COMPRESSION UTILITY - ADDED FROM SECOND FILE
+     */
+    async function compressImage(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const MAX_DIM = 1200; 
+
+                    if (width > height) {
+                        if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; }
+                    } else {
+                        if (height > MAX_DIM) { width *= MAX_DIM / height; height = MAX_DIM; }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob((blob) => {
+                        resolve(blob);
+                    }, 'image/jpeg', 0.7);
+                };
+                img.onerror = reject;
+            };
+            reader.onerror = reject;
+        });
+    }
+
+    /**
+     * KYC & APPROVAL
+     */
+    function loadPendingRequests() {
+        db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('pending_merchants')
+            .onSnapshot(snap => {
+                const list = document.getElementById('requestsList');
+                const badge = document.getElementById('pendingBadge');
+                const items = [];
+                snap.forEach(d => items.push({id: d.id, ...d.data()}));
+                
+                badge.innerText = items.length;
+                items.length > 0 ? badge.classList.remove('d-none') : badge.classList.add('d-none');
+
+                list.innerHTML = items.length === 0 ? '<div class="col-12 text-center py-5 text-muted small">No pending verification requests.</div>' :
+                items.map(m => `
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm rounded-4 overflow-hidden border">
+                            <div class="bg-dark text-white p-3 d-flex justify-content-between align-items-center">
+                                <span class="small fw-bold text-truncate pe-2">${m.fullName}</span>
+                                <span class="x-small opacity-75">${new Date(m.timestamp).toLocaleDateString()}</span>
+                            </div>
+                            <div class="p-3 bg-light border-bottom text-center">
+                                <div class="d-flex gap-2">
+                                    <a href="${m.idUrl}" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill flex-grow-1 x-small fw-bold">Student ID</a>
+                                    <a href="${m.selfieUrl}" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill flex-grow-1 x-small fw-bold">Selfie</a>
+                                </div>
+                            </div>
+                            <div class="p-3 bg-white">
+                                <p class="x-small text-muted mb-2"><b>University:</b> ${m.university} | <b>Course:</b> ${m.course}</p>
+                                <!-- FINANCIAL DATA DISPLAY -->
+                                <div class="bg-warning bg-opacity-10 p-2 rounded-3 mb-3 border border-warning border-opacity-25">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <i class="bi bi-phone text-dark"></i>
+                                        <span class="x-small fw-bold text-dark">${m.momo || 'N/A'}</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-whatsapp text-success"></i>
+                                        <span class="x-small fw-bold text-dark">${m.whatsapp || 'N/A'}</span>
+                                    </div>
+                                </div>
+                                <div class="d-grid">
+                                    <button onclick="approveMerchant('${m.id}', \`${m.merchantId}\`, '${m.whatsapp}')" class="btn btn-success btn-sm rounded-pill fw-bold shadow-sm">Approve & Start Chat</button>
+                                    <button onclick="denyMerchant('${m.id}')" class="btn btn-link text-danger btn-sm mt-1 fw-bold text-decoration-none">Deny</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            });
+    }
+
+    window.approveMerchant = async (docId, merchantId, phone) => {
+        if (!confirm(`Officially activate merchant: ${merchantId}? This triggers a WhatsApp chat for token delivery.`)) return;
+        try {
+            const reqRef = db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('pending_merchants').doc(docId);
+            const snap = await reqRef.get();
+            const data = snap.data();
+
+            // USE UNIQUE ID AS DOC KEY
+            await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('verified_merchants').doc(merchantId).set({
+                ...data, isApproved: true, approvedAt: Date.now(), status: 'active'
+            });
+
+            await reqRef.delete();
+            
+            const cleanPhone = phone.replace(/\D/g, '');
+            const formattedPhone = cleanPhone.startsWith('0') ? '233' + cleanPhone.substring(1) : cleanPhone;
+            
+            // UNIQUE ID IN MESSAGE
+            const message = `Hello ${data.fullName}! Your Ledgehold Merchant Account has been approved. %0A%0A` +
+                            `*Your Approved Merchant ID:* ${merchantId} %0A` +
+                            `*(Use this exact ID to get your pin using the link below)*%0A%0A` +
+                            `Set up your Merchant Dashboard PIN here: [PASTE_TOKEN_LINK_HERE]`;
+            
+            window.open(`https://wa.me/${formattedPhone}?text=${message}`, '_blank');
+            alert(`${merchantId} Activated.`);
+        } catch (e) { alert("Approval failed: " + e.message); }
+    };
+
+    window.denyMerchant = async (docId) => {
+        if (!confirm("Wipe this sign-up request?")) return;
+        await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('pending_merchants').doc(docId).delete();
+    };
+
+    /**
+     * MARKETPLACE MODERATION
+     */
+    function loadMarketListings() {
+        db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('market_listings')
+            .onSnapshot(snap => {
+                const list = document.getElementById('listingsList');
+                document.getElementById('listingsCount').innerText = snap.size + " Active";
+                
+                if (snap.empty) {
+                    list.innerHTML = '<div class="col-12 text-center py-5 text-muted small">No items currently listed in marketplace.</div>';
+                    return;
+                }
+
+                list.innerHTML = snap.docs.map(doc => {
+                    const item = doc.data();
+                    return `
+                    <div class="col-md-3">
+                        <div class="card border-0 shadow-sm rounded-4 overflow-hidden border h-100">
+                            <div class="ratio ratio-1x1 bg-light">
+                                <img src="${item.imgUrl}" class="object-fit-cover" alt="${item.itemName}" onerror="this.src='https://placehold.co/400x400?text=Image+Missing'">
+                            </div>
+                            <div class="p-3">
+                                <p class="fw-bold text-dark small mb-1 text-truncate">${item.itemName}</p>
+                                <p class="x-small text-muted mb-2">
+                                    <i class="bi bi-person-fill text-primary"></i> ${item.merchantId || item.seller}<br>
+                                    <i class="bi bi-geo-alt-fill text-danger"></i> ${item.university}
+                                </p>
+                                <div class="d-grid">
+                                    <button onclick="takedownListing('${doc.id}', '${item.itemName}')" class="btn btn-outline-danger btn-xs rounded-pill fw-bold py-1">
+                                        <i class="bi bi-shield-slash me-1"></i> Take Down
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+            });
+    }
+
+    window.takedownListing = async (id, name) => {
+        if (!confirm(`ADMIN TAKEDOWN: Permanently remove "${name}" from the marketplace? This action is logged.`)) return;
+        try {
+            await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('market_listings').doc(id).delete();
+            alert("Listing neutralized.");
+        } catch (e) { alert("Takedown failed: " + e.message); }
+    };
+
+    /**
+     * ENDORSEMENT WAITLIST
+     */
+    function loadEndorsementWaitlist() {
+        db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('endorsement_waitlist')
+            .onSnapshot(snap => {
+                const list = document.getElementById('waitlistEntries');
+                document.getElementById('waitlistCount').innerText = snap.size + " Pending Audit";
+
+                if (snap.empty) {
+                    list.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted small">No merchants have joined the waitlist yet.</td></tr>';
+                    return;
+                }
+
+                list.innerHTML = snap.docs.map(doc => {
+                    const entry = doc.data();
+                    const date = entry.timestamp ? new Date(entry.timestamp).toLocaleDateString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : "N/A";
+                    return `
+                    <tr class="x-small">
+                        <td class="ps-3 fw-bold">${entry.merchantId}</td>
+                        <td>${date}</td>
+                        <td><span class="badge bg-warning-subtle text-warning border border-warning rounded-pill px-2">PENDING AUDIT</span></td>
+                        <td class="text-end pe-3">
+                            <button onclick="removeWaitlistEntry('${doc.id}')" class="btn btn-link text-danger p-0 fw-bold text-decoration-none">
+                                <i class="bi bi-x-circle me-1"></i> Remove
+                            </button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            });
+    }
+
+    window.removeWaitlistEntry = async (id) => {
+        if (!confirm(`Remove ${id} from waitlist?`)) return;
+        await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('endorsement_waitlist').doc(id).delete();
+    };
+
+    /**
+     * REGISTRY: RESET & REVOKE - UPDATED WITH ENHANCED WIPE LOGIC
+     */
+    function loadMerchantRegistry() {
+        db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('verified_merchants')
+            .onSnapshot(snap => {
+                const list = document.getElementById('merchantRegistry');
+                document.getElementById('merchantCount').innerText = snap.size + " Merchants";
+                list.innerHTML = snap.docs.map(doc => {
+                    const m = doc.data();
+                    const statusClass = m.setup_complete ? 'success' : 'warning';
+                    const statusText = m.setup_complete ? 'Active' : 'Awaiting PIN';
+                    
+                    return `
+                    <div class="col-md-4">
+                        <div class="p-3 border rounded-4 bg-light shadow-sm position-relative">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <p class="fw-bold small mb-0 text-truncate pe-2">${doc.id}</p>
+                                <span class="badge bg-${statusClass}-subtle text-${statusClass} x-small border border-${statusClass}">${statusText}</span>
+                            </div>
+                            
+                            <!-- COLLAPSIBLE DETAILS TOGGLE -->
+                            <button class="btn btn-link p-0 x-small text-decoration-none mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#details-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}">
+                                <i class="bi bi-eye me-1"></i> View Payout Info
+                            </button>
+                            
+                            <div class="collapse mb-3" id="details-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}">
+                                <div class="bg-white p-2 rounded border x-small">
+                                    <div class="mb-1"><span class="text-muted">MoMo:</span> <span class="fw-bold select-all">${m.momo || 'N/A'}</span></div>
+                                    <div class="mb-1"><span class="text-muted">WhatsApp:</span> <span class="fw-bold select-all">${m.whatsapp || 'N/A'}</span></div>
+                                    <div class="mb-0"><span class="text-muted">Uni:</span> ${m.university}</div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button onclick="resetSecurity('${doc.id}')" class="btn btn-warning btn-xs px-2 py-1 rounded-pill x-small fw-bold text-dark">Reset PIN</button>
+                                <button onclick="revokeMerchant('${doc.id}')" class="btn btn-outline-danger btn-xs px-2 py-1 rounded-pill x-small fw-bold">Wipe</button>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+            });
+    }
+
+    window.resetSecurity = async (id) => {
+        if (!confirm(`Security Reset for ${id}? Their current PIN will be deleted.`)) return;
+        await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('verified_merchants').doc(id).update({
+            pin: firebase.firestore.FieldValue.delete(),
+            setup_complete: firebase.firestore.FieldValue.delete(),
+            last_reset: Date.now()
+        });
+        alert("PIN cleared. Merchant can now use /cms again.");
+    };
+
+    // UPDATED: Enhanced wipe functionality from second file
+    window.revokeMerchant = async (id) => {
+        if (!confirm(`PERMANENT WIPE: Delete ${id} and ALL their listings? All verified data will be lost.`)) return;
+        try {
+            // Delete all listings by this merchant
+            const listingsRef = db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('market_listings');
+            const listingsSnap = await listingsRef.where('merchantId', '==', id).get();
+            const batch = db.batch();
+            listingsSnap.forEach(doc => batch.delete(doc.ref));
+            
+            // Delete the merchant
+            const merchantRef = db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('verified_merchants').doc(id);
+            batch.delete(merchantRef);
+            
+            await batch.commit();
+            alert("Merchant and all listings wiped.");
+        } catch(e) { 
+            alert("Wipe failed: " + e.message); 
+        }
+    };
+
+    /**
+     * TOKENS / SECURE INVITES
+     */
+    window.generateOnboardingToken = async () => {
+        const btn = document.getElementById('genTokenBtn'); btn.disabled = true;
+        try {
+            const token = Math.random().toString(16).slice(2, 10);
+            const expiresAt = Date.now() + (parseInt(document.getElementById('tokenExpiry').value) * 3600000);
+            await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('onboarding_tokens').doc(token).set({
+                token, expiresAt, status: 'active', used: false, createdAt: Date.now(), createdBy: currentAdmin
+            });
+            document.getElementById('generatedLink').innerText = window.location.origin + '/cms?token=' + token;
+            document.getElementById('newTokenDisplay').classList.remove('d-none');
+        } catch (e) { alert("Token failed."); }
+        finally { btn.disabled = false; }
+    };
+
+    function loadTokenRegistry() {
+        db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('onboarding_tokens')
+            .onSnapshot(snap => {
+                const list = document.getElementById('tokenRegistry');
+                let tokens = []; snap.forEach(d => tokens.push({id: d.id, ...d.data()}));
+                const active = tokens.filter(t => t.status === 'active' && t.expiresAt > Date.now() && !t.used);
+                list.innerHTML = active.length === 0 ? '<p class="text-center py-4 text-muted small">No active invitations.</p>' :
+                active.map(t => `<div class="p-2 border rounded mb-2 x-small d-flex justify-content-between bg-light"><code>...${t.id.slice(-4)}</code> <button class="btn btn-link text-danger p-0 fw-bold x-small text-decoration-none" onclick="revokeToken('${t.id}')">Revoke</button></div>`).join('');
+            });
+    }
+
+    window.revokeToken = async (id) => { await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('onboarding_tokens').doc(id).delete(); };
+
+    /**
+     * INTEL / BROADCAST / RECEIPT - UPDATED WITH CLOUDINARY
+     */
+    window.publishIntelligence = async () => {
+        const header = document.getElementById('intelHeader').value.trim();
+        const msg = document.getElementById('intelMsg').value.trim();
+        const imgInput = document.getElementById('intelImage');
+        const btn = document.getElementById('publishIntelBtn');
+        
+        if(!header || !msg) return;
+        btn.disabled = true;
+        btn.innerHTML = 'Publishing...';
+        
+        let imgUrl = null;
+        try {
+            // Upload to Cloudinary if image exists
+            if (imgInput.files.length > 0) {
+                const compressed = await compressImage(imgInput.files[0]);
+                const formData = new FormData();
+                formData.append("file", compressed);
+                formData.append("upload_preset", UPLOAD_PRESET);
+                const resp = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { 
+                    method: "POST", 
+                    body: formData 
+                });
+                const data = await resp.json();
+                if (data.secure_url) imgUrl = data.secure_url;
+            }
+            
+            // Save to Firestore
+            await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('intelligence_channel').add({ 
+                header, 
+                message: msg, 
+                imgUrl, 
+                timestamp: Date.now(), 
+                adminId: currentAdmin 
+            });
+            
+            // Clear form
+            document.getElementById('intelHeader').value = ""; 
+            document.getElementById('intelMsg').value = ""; 
+            imgInput.value = "";
+            alert("Published successfully.");
+        } catch (e) { 
+            alert("Error: " + e.message); 
+        }
+        finally { 
+            btn.disabled = false; 
+            btn.innerText = "Push to Feed"; 
+        }
+    };
+
+    function loadChannelLog() {
+        db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('intelligence_channel')
+            .onSnapshot(snap => {
+                const list = document.getElementById('adminChannelList');
+                const items = []; snap.forEach(d => items.push({id: d.id, ...d.data()}));
+                items.sort((a,b) => b.timestamp - a.timestamp);
+                list.innerHTML = items.map(i => `
+                    <div class="card p-3 rounded-4 mb-2 small border-0 bg-light shadow-sm position-relative">
+                        <button onclick="deleteIntel('${i.id}')" class="btn btn-link text-danger p-0 position-absolute top-0 end-0 m-3" title="Take Down"><i class="bi bi-trash3-fill"></i></button>
+                        <p class="fw-bold mb-1 pe-4">${i.header}</p>
+                        ${i.imgUrl ? `<img src="${i.imgUrl}" class="img-fluid rounded-3 mb-2" style="max-height: 100px; object-fit: cover;">` : ''}
+                        <p class="text-muted mb-0">${i.message}</p>
+                    </div>
+                `).join('');
+            });
+    }
+
+    window.deleteIntel = async (id) => {
+        if (!confirm("Remove this intelligence update from the public feed?")) return;
+        try {
+            await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('intelligence_channel').doc(id).delete();
+        } catch (e) { alert("Take down failed: " + e.message); }
+    };
+
+    window.sendNotification = async () => {
+        const target = document.getElementById('notifyTarget').value.trim();
+        const msg = document.getElementById('notifyMsg').value.trim();
+        const type = document.getElementById('notifyType').value;
+        if(!target || !msg) return;
+        await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('merchant_notifications').doc(target).set({ message: msg, type, timestamp: Date.now() });
+        alert("Broadcast Delivered.");
+        document.getElementById('notifyTarget').value = ""; document.getElementById('notifyMsg').value = "";
+    };
+
+    function loadNotificationLog() {
+        db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('merchant_notifications')
+            .onSnapshot(snap => {
+                const list = document.getElementById('notificationLog');
+                const items = []; snap.forEach(d => items.push({id: d.id, ...d.data()}));
+                list.innerHTML = items.map(i => `
+                    <div class="card p-2 mb-2 x-small border-start border-4 border-${i.type} position-relative">
+                        <button onclick="deleteNotification('${i.id}')" class="btn btn-link text-danger p-0 position-absolute top-0 end-0 m-2" title="Clear Notification"><i class="bi bi-x-circle-fill"></i></button>
+                        <div class="pe-4">
+                            <b class="text-uppercase">${i.id}</b>: ${i.message}
+                        </div>
+                    </div>
+                `).join('');
+            });
+    }
+
+    window.deleteNotification = async (id) => {
+        if (!confirm(`Clear active notification for ${id}?`)) return;
+        try {
+            await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('merchant_notifications').doc(id).delete();
+        } catch (e) { alert("Clear failed: " + e.message); }
+    };
+
+    async function loadSecuritySettings() {
+        try {
+            const doc = await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('security_config').doc('onboarding').get();
+            if (doc.exists) document.getElementById('enforceTokenToggle').checked = doc.data().enforceTokens || false;
+        } catch (e) {}
+    }
+
+    window.toggleTokenEnforcement = async (isEnabled) => {
+        await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('security_config').doc('onboarding').set({ enforceTokens: isEnabled, lastModified: Date.now(), modifiedBy: currentAdmin });
+    };
+
+    /**
+     * RECEIPT LOGIC
+     */
+    window.prepareReceipt = (e) => {
+        e.preventDefault();
+        const gross = parseFloat(document.getElementById('grossPrice').value);
+        const fee = gross * 0.05;
+        const net = gross - fee;
+
+        // Map to Upgraded Template IDs
+        document.getElementById('pdf_ref').innerText = document.getElementById('refId').value;
+        document.getElementById('pdf_merchant').innerText = document.getElementById('merchantName').value;
+        document.getElementById('pdf_item').innerText = document.getElementById('itemName').value;
+        document.getElementById('pdf_date').innerText = new Date(document.getElementById('saleDate').value).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+        
+        document.getElementById('pdf_gross').innerText = gross.toFixed(2);
+        document.getElementById('pdf_subtotal').innerText = gross.toFixed(2);
+        document.getElementById('pdf_fee').innerText = `- ${fee.toFixed(2)}`;
+        document.getElementById('pdf_net').innerText = net.toFixed(2);
+
+        // Inject clone into preview
+        const container = document.getElementById('previewContainer');
+        container.innerHTML = ''; 
+        container.appendChild(document.getElementById('receiptMaster').cloneNode(true));
+        document.getElementById('downloadBtn').classList.remove('d-none');
+    };
+
+    window.downloadPDF = () => {
+        const element = document.getElementById('receiptMaster');
+        const opt = {
+            margin: [0.5, 0.5, 0.5, 0.5],
+            filename: `Ledgehold_Receipt_${document.getElementById('refId').value}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { 
+                scale: 3, 
+                useCORS: true, 
+                letterRendering: true,
+                scrollY: 0,
+                width: 720
+            },
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        };
+        html2pdf().set(opt).from(element).save();
+    };
+
+
+
+    /**
+     * ADMIN SYSTEM
+     */
+    window.handleAdminLogin = () => { 
+        const id = document.getElementById('adminIdInput').value.trim();
+        const pin = document.getElementById('adminPinInput').value.trim();
+        if (id && pin) { currentAdmin = id; localStorage.setItem('ledgehold_admin_id', id); refreshUI(); }
+    };
+    window.handleLogout = () => { localStorage.removeItem('ledgehold_admin_id'); location.reload(); };
+    window.switchTab = (tab) => { 
+        document.querySelectorAll('.admin-tab').forEach(t => t.classList.add('d-none')); 
+        document.getElementById(tab + 'Tab').classList.remove('d-none'); 
+        document.querySelectorAll('#adminTabs .nav-link').forEach(l => l.classList.remove('active')); 
+        document.getElementById('btn-' + tab).classList.add('active'); 
+    };
+    window.copyGeneratedLink = () => {
+        const link = document.getElementById('generatedLink').innerText;
+        const el = document.createElement('textarea'); el.value = link; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
+        alert("Link Copied.");
+    };
+
+    window.onload = refreshUI;
+</script>
+
+<style>
+    .nav-pills .nav-link.active { background-color: #0f172a; }
+    .nav-pills .nav-link { color: #64748b; font-size: 0.8rem; }
+    .x-small { font-size: 0.65rem; }
+    .btn-xs { padding: 1px 5px; }
+    #notificationLog::-webkit-scrollbar, #merchantRegistry::-webkit-scrollbar, #listingsList::-webkit-scrollbar { width: 4px; }
+    #notificationLog::-webkit-scrollbar-thumb, #merchantRegistry::-webkit-scrollbar-thumb, #listingsList::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .btn-outline-primary:hover { color: #fff !important; }
+    .object-fit-cover { object-fit: cover; }
+    .ratio-1x1 { aspect-ratio: 1 / 1; }
+    .select-all { user-select: all; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none;  scrollbar-width: none; }
+</style>
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Merchant Playbook | ProlyfiQ{% endblock %}
+
+{% block content %}
+<style>
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+    
+    .timeline-card {
+        border-left: 4px solid #e2e8f0;
+        margin-left: 20px;
+        padding-left: 30px;
+        padding-bottom: 40px;
+        position: relative;
+    }
+    
+    .timeline-card:last-child {
+        border-left: 4px solid transparent;
+        padding-bottom: 0;
+    }
+    
+    .timeline-dot {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: white;
+        border: 2px solid #0f172a;
+        position: absolute;
+        left: -22px;
+        top: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: #0f172a;
+        z-index: 2;
+    }
+    
+    .timeline-dot.active {
+        background: #0f172a;
+        color: white;
+        box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.2);
+    }
+
+    .step-title { font-weight: 800; color: #0f172a; font-size: 1.1rem; }
+    .step-desc { font-size: 0.9rem; color: #64748b; line-height: 1.6; }
+    
+    .pro-tip {
+        background: #f0f9ff;
+        border: 1px dashed #0ea5e9;
+        border-radius: 12px;
+        padding: 15px;
+        font-size: 0.8rem;
+        color: #0369a1;
+        margin-top: 15px;
+    }
+
+    .gatekeeper-alert {
+        background: #fff1f2;
+        border: 1px solid #fda4af;
+        color: #9f1239;
+        border-radius: 12px;
+        padding: 15px;
+        font-size: 0.8rem;
+        margin-top: 15px;
+    }
+</style>
+
+<div class="container py-5" style="min-height: 80vh;">
+    <!-- HEADER -->
+    <div class="mb-5">
+        <a href="/merchant_dashboard" class="text-decoration-none small fw-bold text-muted d-inline-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-arrow-left"></i> Dashboard
+        </a>
+        <h3 class="fw-bold text-dark">Operational Blueprint</h3>
+        <p class="text-muted">The 4-Step Standard Operating Procedure (SOP) for verified ProlyfiQ Merchants.</p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="bg-white p-4 p-md-5 rounded-5 shadow-sm border">
+                
+                <!-- STEP 1 -->
+                <div class="timeline-card">
+                    <div class="timeline-dot active">1</div>
+                    <h5 class="step-title">The Listing</h5>
+                    <p class="step-desc">
+                        Your progress starts by listing your inventory in the 'List New Item' on your Dashboard. Ensure your pricing includes your margin, as the 5% Service Fee is deducted automatically at payout.
+                    </p>
+                    <div class="pro-tip">
+                        <i class="bi bi-lightbulb-fill me-1"></i> <strong>Marketing:</strong> Once listed, use your <strong>Marketing Toolkit</strong> on your Dashboard to promote your "Official Storefront" link on WhatsApp.
+                    </div>
+                </div>
+
+                <!-- STEP 2 -->
+                <div class="timeline-card">
+                    <div class="timeline-dot active">2</div>
+                    <h5 class="step-title">Order Notification (Escrow Lock)</h5>
+                    <p class="step-desc">
+                        When a student buys, you will receive a message on Whatsapp. At that point, Paystack is holding the money safe until you deliver.
+                    </p>
+                    <div class="bg-light p-3 rounded-3 mt-3 border">
+                        <small class="fw-bold text-dark d-block mb-1">YOUR ACTION:</small>
+                        <small class="text-muted">Pack the item. Contact the buyer (via the number provided in the order details in the received Whatsapp message) to confirm the meeting time at your set Campus Landmark.</small>
+                    </div>
+                </div>
+
+                <!-- STEP 3 -->
+                <div class="timeline-card">
+                    <div class="timeline-dot active">3</div>
+                    <h5 class="step-title">The Physical Handshake</h5>
+                    <p class="step-desc">
+                        Meet the buyer at the designated delivery locaton (e.g., Unity Hall Gate). Hand over the item for inspection.
+                    </p>
+                    <div class="gatekeeper-alert">
+                        <i class="bi bi-shield-lock-fill me-1"></i> <strong>CRITICAL STEP:</strong><br>
+                        When the buyer is satisfied with the item, you <strong>MUST</strong> present your <strong>Transaction QR Code</strong> (found on your dashboard "P.O.D./Withdrawals") for the buyer to scan.
+                    </div>
+                </div>
+
+                <!-- STEP 4 -->
+                <div class="timeline-card">
+                    <div class="timeline-dot active">4</div>
+                    <h5 class="step-title">Automated Settlement</h5>
+                    <p class="step-desc">
+                        The moment the buyer scans your code, our system marks the order as "Delivered."
+                    </p>
+                    <div class="pro-tip" style="background: #f0fdf4; border-color: #22c55e; color: #15803d;">
+                        <i class="bi bi-wallet2 me-1"></i> <strong>Payout:</strong> Funds are automatically released to your registered MoMo number within an hour of the scan.
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FOOTER CTA -->
+            <div class="text-center mt-5">
+                <a href="/merchant_dashboard" class="btn btn-dark rounded-pill px-5 fw-bold py-3 shadow-lg">Go to Dashboard</a>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
