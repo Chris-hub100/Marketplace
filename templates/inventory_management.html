@@ -234,7 +234,7 @@
     };
 
     window.removeItem = async function(id) {
-        if (!confirm("Remove this item from the active marketplace? All negotiation threads will be archived.")) return;
+        if (!confirm("Remove this item from the active marketplace?")) return;
         try {
             await db.collection('artifacts').doc(__app_id)
                     .collection('public').doc('data')
@@ -335,7 +335,7 @@
         <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
             <span class="visually-hidden">Loading...</span>
         </div>
-        <p class="text-muted mt-3 fw-bold">Synchronizing with Market Silo...</p>
+        <p class="text-muted mt-3 fw-bold">Loading...</p>
     </div>
 </div>
 

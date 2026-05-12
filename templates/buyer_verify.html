@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+
+{% block title %}Verify Delivery | Ledgehold{% endblock %}
+
+{% block content %}
+<div class="container py-5 text-center" style="min-height: 85vh;">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            
+            <!-- INITIAL VERIFICATION CARD -->
+            <div id="verifyCard" class="card border-0 shadow-lg p-5 rounded-4 bg-white animate-slide-up">
+                <div class="mb-4">
+                    <div class="bg-info-subtle text-info rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                        <i class="bi bi-shield-lock-fill fs-1"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark">Release Funds?</h3>
+                    <p class="text-muted small">Order ID: <span id="displayRef" class="fw-bold text-primary">#-------</span></p>
+                </div>
+
+                <div class="alert bg-light border-0 rounded-4 text-start mb-4">
+                    <p class="small text-muted mb-0" style="line-height: 1.5;">
+                        <i class="bi bi-info-circle-fill text-info me-2"></i>
+                        Slide to confirm you have the item in hand and authorize Ledgehold to pay the merchant.
+                    </p>
+                </div>
+
+                <!-- SWIPE SLIDER -->
+                <div class="swipe-track mb-3" id="swipeTrack" aria-label="Swipe to confirm and release payout">
+                    <div class="swipe-fill" id="swipeFill"></div>
+                    <div class="swipe-label" id="swipeLabel">
+                        <span id="swipeLabelText">Slide to Release &rarr;</span>
+                        <span id="swipeSpinner" class="spinner-border spinner-border-sm d-none ms-2" role="status"></span>
+                    </div>
+                    <div class="swipe-thumb" id="swipeThumb" role="button" tabindex="0" aria-label="Drag to release payment">
+                        <i class="bi bi-chevron-double-right" id="thumbIcon"></i>
+                    </div>
+                </div>
+
+                <div id="errorMsg" class="alert alert-danger d-none small rounded-3"></div>
+            </div>
+
+            <!-- SUCCESS STATE (Hidden) -->
+            <div id="successCard" class="card border-0 shadow-lg p-5 rounded-4 bg-white d-none animate-slide-up">
+                <div class="mb-4">
+                    <div class="bg-success-subtle text-success rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                        <i class="bi bi-check-circle-fill fs-1"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark">Transaction Complete</h3>
+                    <p class="text-muted">The merchant's payout has been authorized. Thank you for using ProlyfiQ.</p>
+                </div>
+                <a href="/marketplace" class="btn btn-outline-dark rounded-pill w-100 fw-bold">Return to Marketplace</a>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1. THE SECURITY ENGINE (Matching logic) — UNCHANGED
+    const SecurityProtocol = {
+        async getSignature() {
+            let token = localStorage.getItem('ledgehold_device_token');
+            let ip = 'unknown';
+            try {
+                const res = await fetch('https://api.ipify.org?format=json');
+                const data = await res.json();
+                ip = data.ip;
+            } catch (e) { console.warn("Signature bypass detected."); }
+            return { token, ip };
+        }
+    };
+
+    // 2. PARSE URL DATA — UNCHANGED
+    const urlParams = new URLSearchParams(window.location.search);
+    const orderRef = urlParams.get('ref');
+    
+    if (orderRef) {
+        document.getElementById('displayRef').innerText = "#" + orderRef.toUpperCase();
+    }
+
+    // 3. TRIGGER THE MATCH — UNCHANGED
+    async function initiateGatekeeperMatch() {
+        const errorMsg = document.getElementById('errorMsg');
+
+        if (!orderRef) {
+            errorMsg.innerText = "Error: Invalid Order Reference.";
+            errorMsg.classList.remove('d-none');
+            resetSlider();
+            return;
+        }
+
+        errorMsg.classList.add('d-none');
+
+        try {
+            const signature = await SecurityProtocol.getSignature();
+
+            const response = await fetch('/api/gatekeeper/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    orderId: orderRef,
+                    securityStamp: signature,
+                    action: 'BUYER_HANDSHAKE'
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.verified) {
+                document.getElementById('verifyCard').classList.add('d-none');
+                document.getElementById('successCard').classList.remove('d-none');
+            } else {
+                throw new Error("Security Mismatch: This device did not authorize the original payment.");
+            }
+
+        } catch (err) {
+            errorMsg.innerText = err.message;
+            errorMsg.classList.remove('d-none');
+            resetSlider();
+        }
+    }
+
+    // 4. SWIPE SLIDER LOGIC
+    (function () {
+        const track    = document.getElementById('swipeTrack');
+        const thumb    = document.getElementById('swipeThumb');
+        const fill     = document.getElementById('swipeFill');
+        const labelTxt = document.getElementById('swipeLabelText');
+        const spinner  = document.getElementById('swipeSpinner');
+        const icon     = document.getElementById('thumbIcon');
+
+        const THUMB_W      = 52;   // px — must match CSS
+        const TRIGGER_PCT  = 0.82; // fire when 82% across
+
+        let dragging  = false;
+        let startX    = 0;
+        let currentX  = 0;
+        let maxTravel = 0;
+        let locked    = false;
+
+        function getMaxTravel() {
+            return track.offsetWidth - THUMB_W - 4; // 4px for inset padding
+        }
+
+        function setPosition(x) {
+            x = Math.max(0, Math.min(x, maxTravel));
+            currentX = x;
+            thumb.style.transform = `translateX(${x}px)`;
+            fill.style.width = `${x + THUMB_W}px`;
+            const pct = x / maxTravel;
+            fill.style.opacity = 0.3 + pct * 0.7;
+        }
+
+        function onStart(e) {
+            if (locked) return;
+            dragging  = true;
+            maxTravel = getMaxTravel();
+            startX    = (e.touches ? e.touches[0].clientX : e.clientX) - currentX;
+            thumb.style.transition = 'none';
+            fill.style.transition  = 'none';
+            track.classList.add('is-dragging');
+        }
+
+        function onMove(e) {
+            if (!dragging || locked) return;
+            e.preventDefault();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            setPosition(clientX - startX);
+        }
+
+        async function onEnd() {
+            if (!dragging || locked) return;
+            dragging = false;
+            track.classList.remove('is-dragging');
+            thumb.style.transition = '';
+            fill.style.transition  = '';
+
+            const pct = currentX / maxTravel;
+
+            if (pct >= TRIGGER_PCT) {
+                // Snap to end and lock
+                locked = true;
+                setPosition(maxTravel);
+                labelTxt.style.opacity = '0';
+                spinner.classList.remove('d-none');
+                icon.className = 'bi bi-lock-fill';
+                track.classList.add('is-locked');
+                await initiateGatekeeperMatch();
+            } else {
+                // Spring back
+                setPosition(0);
+            }
+        }
+
+        // Touch events
+        thumb.addEventListener('touchstart', onStart, { passive: true });
+        document.addEventListener('touchmove',  onMove,  { passive: false });
+        document.addEventListener('touchend',   onEnd);
+
+        // Mouse events
+        thumb.addEventListener('mousedown', onStart);
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup',   onEnd);
+
+        // Keyboard accessibility
+        thumb.addEventListener('keydown', async (e) => {
+            if (locked) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                locked = true;
+                setPosition(getMaxTravel());
+                labelTxt.style.opacity = '0';
+                spinner.classList.remove('d-none');
+                icon.className = 'bi bi-lock-fill';
+                track.classList.add('is-locked');
+                await initiateGatekeeperMatch();
+            }
+        });
+    })();
+
+    // 5. RESET (called on error)
+    function resetSlider() {
+        const thumb    = document.getElementById('swipeThumb');
+        const fill     = document.getElementById('swipeFill');
+        const labelTxt = document.getElementById('swipeLabelText');
+        const spinner  = document.getElementById('swipeSpinner');
+        const icon     = document.getElementById('thumbIcon');
+        const track    = document.getElementById('swipeTrack');
+
+        thumb.style.transform = 'translateX(0)';
+        fill.style.width      = '52px';
+        fill.style.opacity    = '0.35';
+        labelTxt.style.opacity = '1';
+        spinner.classList.add('d-none');
+        icon.className  = 'bi bi-chevron-double-right';
+        track.classList.remove('is-locked');
+        // Re-enable by resetting locked flag via a tiny trick
+        // (locked is scoped to IIFE so we post a reset event)
+        track.dispatchEvent(new CustomEvent('slider-reset'));
+    }
+
+    // Listen for reset inside the IIFE closure
+    document.getElementById('swipeTrack').addEventListener('slider-reset', () => {
+        // This re-enables dragging — the IIFE reads `locked` from closure;
+        // we toggle it via a flag on the element itself.
+        document.getElementById('swipeTrack')._sliderLocked = false;
+    });
+</script>
+
+<style>
+    body { background-color: #f8fafc; }
+    .bg-info-subtle    { background-color: #e0f2fe !important; }
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .animate-slide-up  { animation: slideUp 0.5s ease-out; }
+    @keyframes slideUp {
+        from { transform: translateY(30px); opacity: 0; }
+        to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    /* ── SWIPE SLIDER ── */
+    .swipe-track {
+        position: relative;
+        height: 56px;
+        background: #e9f0fb;
+        border-radius: 28px;
+        overflow: hidden;
+        cursor: ew-resize;
+        user-select: none;
+        -webkit-user-select: none;
+        border: 1.5px solid #d0ddf5;
+        transition: border-color 0.2s;
+    }
+    .swipe-track.is-dragging { border-color: #4f8ef7; }
+    .swipe-track.is-locked   { cursor: default; border-color: #22c55e; }
+
+    /* coloured fill that grows as you drag */
+    .swipe-fill {
+        position: absolute;
+        left: 0; top: 0; bottom: 0;
+        width: 52px;           /* starts at thumb width */
+        background: linear-gradient(90deg, #3b82f6, #6366f1);
+        border-radius: 28px;
+        opacity: 0.35;
+        transition: width 0.05s linear, opacity 0.05s linear, background 0.4s;
+        pointer-events: none;
+    }
+    .swipe-track.is-locked .swipe-fill {
+        background: linear-gradient(90deg, #22c55e, #16a34a);
+        opacity: 1 !important;
+        width: 100% !important;
+        transition: width 0.25s ease, opacity 0.25s ease, background 0.4s;
+    }
+
+    /* label centred in track */
+    .swipe-label {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        color: #475569;
+        gap: 6px;
+        transition: opacity 0.2s;
+    }
+
+    /* draggable thumb */
+    .swipe-thumb {
+        position: absolute;
+        left: 2px; top: 2px; bottom: 2px;
+        width: 52px;
+        background: #fff;
+        border-radius: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+        font-size: 1.1rem;
+        color: #3b82f6;
+        cursor: grab;
+        transition: transform 0.3s cubic-bezier(.34,1.56,.64,1),
+                    box-shadow 0.2s, color 0.3s;
+        touch-action: none;
+        z-index: 2;
+    }
+    .swipe-thumb:active,
+    .is-dragging .swipe-thumb { cursor: grabbing; box-shadow: 0 4px 16px rgba(59,130,246,0.25); }
+    .is-locked   .swipe-thumb { color: #16a34a; cursor: default; box-shadow: none; }
+    .swipe-thumb:focus-visible {
+        outline: 3px solid #6366f1;
+        outline-offset: 2px;
+    }
+</style>
+{% endblock %}

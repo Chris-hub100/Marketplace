@@ -261,6 +261,11 @@ def gatekeeper_verify():
         return jsonify({"success": True, "verified": is_match})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+    
+@app.route('/verify_order')
+def verify_order_landing():
+    # This renders the page the buyer scans into
+    return render_template('buyer_verify.html', **get_firebase_context())
 
 @app.route('/foodrun')
 def food_run_page():
