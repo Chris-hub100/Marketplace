@@ -13,6 +13,8 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv(override=True)
 
+resend.api_key = os.getenv("RESEND_API_KEY")
+
 app = Flask(__name__)
 
 # Hubtel SMS Auth
@@ -38,6 +40,49 @@ def send_professional_sms(to, message):
     headers = {"Authorization": f"Basic {HUB_AUTH}", "Content-Type": "application/json"}
     payload = {"From": os.getenv('HUBTEL_SENDER_ID'), "To": to, "Content": message}
     return requests.post(url, json=payload, headers=headers)
+
+def send_handoff_email(order_data, paystack_ref):
+    """Triggers an internal audit email via Resend once handoff is confirmed."""
+    try:
+        # Construct a professional HTML body
+        email_body = f"""
+        <div style="font-family: sans-serif; color: #333; max-width: 600px;">
+            <h2 style="color: #22c55e;">Vault Released: Handshake Successful</h2>
+            <p>The Gatekeeper has verified the device signature and authorized the payout for the following transaction:</p>
+            
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                <tr style="background: #f8fafc;">
+                    <td style="padding: 10px; border: 1px solid #e2e8f0;"><strong>Item</strong></td>
+                    <td style="padding: 10px; border: 1px solid #e2e8f0;">{order_data.get('item', 'N/A')}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #e2e8f0;"><strong>Amount</strong></td>
+                    <td style="padding: 10px; border: 1px solid #e2e8f0;">GHS {order_data.get('amount', 0)}</td>
+                </tr>
+                <tr style="background: #f8fafc;">
+                    <td style="padding: 10px; border: 1px solid #e2e8f0;"><strong>Reference</strong></td>
+                    <td style="padding: 10px; border: 1px solid #e2e8f0;"><code>{paystack_ref}</code></td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #e2e8f0;"><strong>Buyer Phone</strong></td>
+                    <td style="padding: 10px; border: 1px solid #e2e8f0;">{order_data.get('buyerPhone', 'N/A')}</td>
+                </tr>
+            </table>
+            
+            <p style="font-size: 12px; color: #64748b;">This is an automated audit log for Ledgehold Ghana Ltd.</p>
+        </div>
+        """
+
+        resend.Emails.send({
+            "from": "Handoff Alerts <onboarding@resend.dev>", # Use your verified Resend domain
+            "to": ["ledgehold.business@gmail.com"], # Where you want to receive the alerts
+            "subject": f"✅ Handoff Complete: {order_data.get('item')}",
+            "html": email_body
+        })
+        print(f"📧 Resend: Handoff alert dispatched for {paystack_ref}")
+        
+    except Exception as e:
+        print(f"⚠️ Resend Integration Error: {str(e)}")
 
 
 # --- FIREBASE INFRASTRUCTURE HANDSHAKE --- (PRESERVED)
@@ -260,7 +305,6 @@ def paystack_webhook():
 @app.route('/api/gatekeeper/verify', methods=['POST'])
 def gatekeeper_verify():
     data = request.json
-    # The Merchant's QR code now passes 'listingId'
     listing_id = data.get('listingId') 
     current_stamp = data.get('securityStamp')
 
@@ -268,46 +312,52 @@ def gatekeeper_verify():
         # 1. Reference the orders collection
         orders_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders')
 
-        # 2. Query for the specific escrow record
-        # We look for a document that matches the Item, is still in Escrow, and matches this Device Token
+        # 2. Query for the specific escrow record (Search & Match)
         query = orders_ref.where('listing_id', '==', listing_id) \
                           .where('status', '==', 'paid_in_escrow') \
                           .where('securityStamp.token', '==', current_stamp.get('token')) \
                           .limit(1).get()
 
-        # 3. Fallback: Search by IP if the Token doesn't match (e.g., cleared cache)
+        # 3. Fallback: Search by IP
         if not query:
             query = orders_ref.where('listing_id', '==', listing_id) \
                               .where('status', '==', 'paid_in_escrow') \
                               .where('securityStamp.ip', '==', current_stamp.get('ip')) \
                               .limit(1).get()
 
-        # 4. Final check: Did we find a matching payment?
+        # 4. Check results
         if not query:
             print(f"Verify Attempt Fail: No matching active escrow for Listing {listing_id}")
             return jsonify({"success": False, "error": "No matching active escrow found for this device."}), 404
 
-        # 5. Extract the specific order found
-        target_order_doc = query[0]
-        order_data = target_order_doc.to_dict()
-        order_ref = target_order_doc.reference # This is the specific Paystack-ref document
+        # 5. Extract data
+        target_doc = query[0]
+        order_data = target_doc.to_dict()
+        paystack_ref = target_doc.id # The unique ID we'll use for the audit email
+        order_ref = target_doc.reference
 
-        # 6. Secure the Database State First (Mark as Completed)
+        # 6. CRITICAL: Update Database State FIRST
         order_ref.update({"status": "completed"})
         
-        # 7. Attempt Hubtel SMS to Merchant
+        # 7. TRIGGER NOTIFICATIONS (Non-blocking)
+        
+        # A. Hubtel SMS to Merchant
         try:
-            merchant_msg = f"Ledgehold: Verification Successful. Your payout for {order_data.get('item', 'Item')} has been authorized."
-            # Ensure merchantPhone was saved in the webhook for this to work
+            merchant_msg = f"Ledgehold: Verification Successful. Payout for {order_data.get('item', 'Item')} authorized."
             send_professional_sms(order_data.get('merchantPhone'), merchant_msg)
-            print("Hubtel Handshake Notification Sent to Merchant.")
         except Exception as sms_err:
-            print(f"SMS Alert Failed (Handshake): {str(sms_err)}")
+            print(f"⚠️ SMS Notify Failed: {str(sms_err)}")
+
+        # B. Resend Email Audit
+        try:
+            send_handoff_email(order_data, paystack_ref)
+        except Exception as email_err:
+            print(f"⚠️ Resend Audit Failed: {str(email_err)}")
 
         return jsonify({"success": True, "verified": True})
 
     except Exception as e:
-        print(f"Gatekeeper Logic Error: {str(e)}")
+        print(f"System Error: {str(e)}")
         return jsonify({"success": False, "error": "Internal System Error"}), 500
     
 @app.route('/verify_order')
