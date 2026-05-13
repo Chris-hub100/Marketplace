@@ -214,22 +214,24 @@ def paystack_webhook():
         meta = payload.get('metadata', {}).get('custom_fields', [])
         
         try:
-            # 1. EXTRACT DATA (Including the Listing ID from Checkout)
-            # Make sure your checkout.html is sending 'listing_id' in the metadata!
+            # 1. EXTRACT DATA
             listing_id = next((f['value'] for f in meta if f['variable_name'] == 'listing_id'), None)
             buyer_phone = next((f['value'] for f in meta if f['variable_name'] == 'phone'), "Unknown")
             device_token = next((f['value'] for f in meta if f['variable_name'] == 'device_token'), "None")
             item_name = next((f['value'] for f in meta if f['variable_name'] == 'item_name'), "Item")
             
             if not listing_id:
-                print("❌ WEBHOOK ERROR: No listing_id found. Check checkout.html metadata.")
+                print("❌ WEBHOOK ERROR: No listing_id found in metadata.")
                 return "Missing ID", 400
 
-            # 2. SAVE TO FIRESTORE (Using listing_id as the Document ID)
-            order_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders').document(listing_id)
+            # 2. THE SCALABLE SHIFT: Use the Paystack Reference as the Document Name
+            # payload['reference'] is unique for every single transaction.
+            order_id = payload['reference'] 
+            order_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders').document(order_id)
             
             order_ref.set({
                 "status": "paid_in_escrow",
+                "listing_id": listing_id, # Now stored INSIDE the document
                 "securityStamp": {
                     "token": device_token,
                     "ip": payload.get('ip_address') 
@@ -237,15 +239,15 @@ def paystack_webhook():
                 "item": item_name,
                 "amount": payload['amount'] / 100,
                 "buyerPhone": buyer_phone,
-                "paystack_ref": payload['reference'], # Save this for accounting
+                "paystack_ref": order_id, 
                 "createdAt": firestore.SERVER_TIMESTAMP
             })
             
-            print(f"✅ SECURED: Order for {item_name} saved as {listing_id}")
+            print(f"✅ VAULT SECURED: Unique Order {order_id} created for Listing {listing_id}")
 
             # 3. ATTEMPT SMS (Safety Wrapped)
             try:
-                msg = f"Ledgehold: Payment for {item_name} secured in escrow. Scan merchant QR to release."
+                msg = f"Ledgehold: Payment for {item_name} secured. Scan merchant QR to release funds."
                 send_professional_sms(buyer_phone, msg)
             except Exception as sms_err:
                 print(f"⚠️ SMS Notification failed: {str(sms_err)}")
@@ -258,44 +260,51 @@ def paystack_webhook():
 @app.route('/api/gatekeeper/verify', methods=['POST'])
 def gatekeeper_verify():
     data = request.json
-    order_id = data.get('orderId')
+    # The Merchant's QR code now passes 'listingId'
+    listing_id = data.get('listingId') 
     current_stamp = data.get('securityStamp')
 
     try:
-        # 1. Fetch the order record
-        order_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders').document(order_id)
-        order_snapshot = order_ref.get()
+        # 1. Reference the orders collection
+        orders_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders')
 
-        # Safety Check: Prevent 500 crash if order doesn't exist yet
-        if not order_snapshot.exists:
-            print(f"Verify Attempt Fail: Order {order_id} not found.")
-            return jsonify({"success": False, "error": "Order record not found."}), 404
+        # 2. Query for the specific escrow record
+        # We look for a document that matches the Item, is still in Escrow, and matches this Device Token
+        query = orders_ref.where('listing_id', '==', listing_id) \
+                          .where('status', '==', 'paid_in_escrow') \
+                          .where('securityStamp.token', '==', current_stamp.get('token')) \
+                          .limit(1).get()
 
-        order_doc = order_snapshot.to_dict()
+        # 3. Fallback: Search by IP if the Token doesn't match (e.g., cleared cache)
+        if not query:
+            query = orders_ref.where('listing_id', '==', listing_id) \
+                              .where('status', '==', 'paid_in_escrow') \
+                              .where('securityStamp.ip', '==', current_stamp.get('ip')) \
+                              .limit(1).get()
 
-        # 2. Perform the Match logic (Token Comparison)
-        # Fallback to IP if Token is missing (fixes the 'New Browser' issue)
-        master_stamp = order_doc.get('securityStamp', {})
+        # 4. Final check: Did we find a matching payment?
+        if not query:
+            print(f"Verify Attempt Fail: No matching active escrow for Listing {listing_id}")
+            return jsonify({"success": False, "error": "No matching active escrow found for this device."}), 404
+
+        # 5. Extract the specific order found
+        target_order_doc = query[0]
+        order_data = target_order_doc.to_dict()
+        order_ref = target_order_doc.reference # This is the specific Paystack-ref document
+
+        # 6. Secure the Database State First (Mark as Completed)
+        order_ref.update({"status": "completed"})
         
-        token_match = current_stamp.get('token') == master_stamp.get('token')
-        ip_match = current_stamp.get('ip') == master_stamp.get('ip')
-        
-        is_match = token_match or ip_match
+        # 7. Attempt Hubtel SMS to Merchant
+        try:
+            merchant_msg = f"Ledgehold: Verification Successful. Your payout for {order_data.get('item', 'Item')} has been authorized."
+            # Ensure merchantPhone was saved in the webhook for this to work
+            send_professional_sms(order_data.get('merchantPhone'), merchant_msg)
+            print("Hubtel Handshake Notification Sent to Merchant.")
+        except Exception as sms_err:
+            print(f"SMS Alert Failed (Handshake): {str(sms_err)}")
 
-        if is_match:
-            # 3. Secure the Database State First
-            order_ref.update({"status": "completed"})
-            
-            # 4. Attempt Hubtel SMS (Wrapped to prevent crashing on DNS errors)
-            try:
-                merchant_msg = f"Ledgehold: Verification Successful. Your payout for {order_doc.get('item', 'Item')} has been authorized."
-                # Using your specific function name
-                send_professional_sms(order_doc.get('merchantPhone'), merchant_msg)
-                print("Hubtel Handshake Notification Sent.")
-            except Exception as sms_err:
-                print(f"SMS Alert Failed (Handshake): {str(sms_err)}")
-
-        return jsonify({"success": True, "verified": is_match})
+        return jsonify({"success": True, "verified": True})
 
     except Exception as e:
         print(f"Gatekeeper Logic Error: {str(e)}")
