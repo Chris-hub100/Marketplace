@@ -56,7 +56,7 @@
 </div>
 
 <script>
-    // 1. THE SECURITY ENGINE (Matching logic) — UNCHANGED
+    // 1. THE SECURITY ENGINE
     const SecurityProtocol = {
         async getSignature() {
             let token = localStorage.getItem('ledgehold_device_token');
@@ -70,20 +70,21 @@
         }
     };
 
-    // 2. PARSE URL DATA — UNCHANGED
+    // 2. PARSE URL DATA
     const urlParams = new URLSearchParams(window.location.search);
-    const orderRef = urlParams.get('ref');
+    // 'ref' in the URL contains the Listing ID (e.g., DsEBRLIT...)
+    const listingId = urlParams.get('ref'); 
     
-    if (orderRef) {
-        document.getElementById('displayRef').innerText = "#" + orderRef.toUpperCase();
+    if (listingId) {
+        document.getElementById('displayRef').innerText = "#" + listingId.toUpperCase();
     }
 
-    // 3. TRIGGER THE MATCH — UNCHANGED
+    // 3. TRIGGER THE MATCH (Updated for 1-to-Many Architecture)
     async function initiateGatekeeperMatch() {
         const errorMsg = document.getElementById('errorMsg');
 
-        if (!orderRef) {
-            errorMsg.innerText = "Error: Invalid Order Reference.";
+        if (!listingId) {
+            errorMsg.innerText = "Error: Invalid Merchant QR code.";
             errorMsg.classList.remove('d-none');
             resetSlider();
             return;
@@ -98,19 +99,20 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    orderId: orderRef,
-                    securityStamp: signature,
-                    action: 'BUYER_HANDSHAKE'
+                    // CRITICAL: We now send 'listingId' to match the search query in app.py
+                    listingId: listingId, 
+                    securityStamp: signature
                 })
             });
 
             const result = await response.json();
 
-            if (result.verified) {
+            if (response.ok && result.verified) {
                 document.getElementById('verifyCard').classList.add('d-none');
                 document.getElementById('successCard').classList.remove('d-none');
             } else {
-                throw new Error("Security Mismatch: This device did not authorize the original payment.");
+                // If the backend returns a 404 or False, it's a security mismatch
+                throw new Error(result.error || "Security Mismatch: This device did not authorize the original payment.");
             }
 
         } catch (err) {
@@ -129,17 +131,19 @@
         const spinner  = document.getElementById('swipeSpinner');
         const icon     = document.getElementById('thumbIcon');
 
-        const THUMB_W      = 52;   // px — must match CSS
-        const TRIGGER_PCT  = 0.82; // fire when 82% across
+        const THUMB_W      = 52;   
+        const TRIGGER_PCT  = 0.82; 
 
         let dragging  = false;
         let startX    = 0;
         let currentX  = 0;
         let maxTravel = 0;
-        let locked    = false;
+        
+        // Use a property on the element to track lock state
+        track._sliderLocked = false;
 
         function getMaxTravel() {
-            return track.offsetWidth - THUMB_W - 4; // 4px for inset padding
+            return track.offsetWidth - THUMB_W - 4; 
         }
 
         function setPosition(x) {
@@ -152,7 +156,7 @@
         }
 
         function onStart(e) {
-            if (locked) return;
+            if (track._sliderLocked) return;
             dragging  = true;
             maxTravel = getMaxTravel();
             startX    = (e.touches ? e.touches[0].clientX : e.clientX) - currentX;
@@ -162,14 +166,14 @@
         }
 
         function onMove(e) {
-            if (!dragging || locked) return;
+            if (!dragging || track._sliderLocked) return;
             e.preventDefault();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             setPosition(clientX - startX);
         }
 
         async function onEnd() {
-            if (!dragging || locked) return;
+            if (!dragging || track._sliderLocked) return;
             dragging = false;
             track.classList.remove('is-dragging');
             thumb.style.transition = '';
@@ -178,8 +182,7 @@
             const pct = currentX / maxTravel;
 
             if (pct >= TRIGGER_PCT) {
-                // Snap to end and lock
-                locked = true;
+                track._sliderLocked = true;
                 setPosition(maxTravel);
                 labelTxt.style.opacity = '0';
                 spinner.classList.remove('d-none');
@@ -187,27 +190,23 @@
                 track.classList.add('is-locked');
                 await initiateGatekeeperMatch();
             } else {
-                // Spring back
                 setPosition(0);
             }
         }
 
-        // Touch events
         thumb.addEventListener('touchstart', onStart, { passive: true });
         document.addEventListener('touchmove',  onMove,  { passive: false });
         document.addEventListener('touchend',   onEnd);
-
-        // Mouse events
         thumb.addEventListener('mousedown', onStart);
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup',   onEnd);
 
-        // Keyboard accessibility
+        // Accessibility
         thumb.addEventListener('keydown', async (e) => {
-            if (locked) return;
+            if (track._sliderLocked) return;
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                locked = true;
+                track._sliderLocked = true;
                 setPosition(getMaxTravel());
                 labelTxt.style.opacity = '0';
                 spinner.classList.remove('d-none');
@@ -216,9 +215,14 @@
                 await initiateGatekeeperMatch();
             }
         });
+
+        // Reset listener
+        track.addEventListener('slider-reset', () => {
+            track._sliderLocked = false;
+        });
     })();
 
-    // 5. RESET (called on error)
+    // 5. RESET
     function resetSlider() {
         const thumb    = document.getElementById('swipeThumb');
         const fill     = document.getElementById('swipeFill');
@@ -227,6 +231,7 @@
         const icon     = document.getElementById('thumbIcon');
         const track    = document.getElementById('swipeTrack');
 
+        thumb.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
         thumb.style.transform = 'translateX(0)';
         fill.style.width      = '52px';
         fill.style.opacity    = '0.35';
@@ -234,17 +239,9 @@
         spinner.classList.add('d-none');
         icon.className  = 'bi bi-chevron-double-right';
         track.classList.remove('is-locked');
-        // Re-enable by resetting locked flag via a tiny trick
-        // (locked is scoped to IIFE so we post a reset event)
+        
         track.dispatchEvent(new CustomEvent('slider-reset'));
     }
-
-    // Listen for reset inside the IIFE closure
-    document.getElementById('swipeTrack').addEventListener('slider-reset', () => {
-        // This re-enables dragging — the IIFE reads `locked` from closure;
-        // we toggle it via a flag on the element itself.
-        document.getElementById('swipeTrack')._sliderLocked = false;
-    });
 </script>
 
 <style>
