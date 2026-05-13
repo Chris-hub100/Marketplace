@@ -142,53 +142,60 @@
     };
 
     window.payWithPaystack = async function() {
-        const phone = document.getElementById('buyerPhone').value;
-        const whatsapp = document.getElementById('buyerWhatsapp').value;
-        const price = "{{ request.args.get('price') }}";
-        const item = "{{ request.args.get('item') }}";
-        const sellerPhone = "{{ request.args.get('seller_phone') }}";
+    // 1. ADD THIS: Grab the ID from the URL (?id=DsEBRLITyV9b...)
+    const urlParams = new URLSearchParams(window.location.search);
+    const listingId = urlParams.get('id'); 
 
-        if (!phone || !whatsapp) {
-            alert("Please provide contact details for the escrow exchange.");
-            return;
-        }
+    const phone = document.getElementById('buyerPhone').value;
+    const whatsapp = document.getElementById('buyerWhatsapp').value;
+    const price = "{{ request.args.get('price') }}";
+    const item = "{{ request.args.get('item') }}";
+    const sellerPhone = "{{ request.args.get('seller_phone') }}";
 
-        const btn = document.getElementById('payBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
+    if (!phone || !whatsapp) {
+        alert("Please provide contact details for the escrow exchange.");
+        return;
+    }
 
-        try {
-            const stamp = await SecurityProtocol.generateSecurityStamp();
+    const btn = document.getElementById('payBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
 
-            const handler = PaystackPop.setup({
-                key: PAYSTACK_PUB_KEY,
-                email: 'escrow-node@prolyfiq.me',
-                amount: parseFloat(price) * 100,
-                currency: "GHS",
-                metadata: {
-                    custom_fields: [
-                        { display_name: "Phone", variable_name: "phone", value: phone },
-                        { display_name: "WhatsApp", variable_name: "whatsapp", value: whatsapp },
-                        { display_name: "Item", variable_name: "item_name", value: item },
-                        { display_name: "SellerPhone", variable_name: "seller_phone", value: sellerPhone },
-                        { display_name: "DeviceToken", variable_name: "device_token", value: stamp.token }
-                    ]
-                },
-                callback: function(response) {
-                    window.location.href = "/success?ref=" + response.reference + "&item=" + encodeURIComponent(item) + "&price=" + price;
-                },
-                onClose: function() {
-                    btn.disabled = false;
-                    btn.innerText = 'Pay GHS ' + price;
-                }
-            });
-            handler.openIframe();
-        } catch (err) {
-            console.error("Ledgehold Vault Error:", err);
-            btn.disabled = false;
-            btn.innerText = 'System Error - Retry';
-        }
-    };
+    try {
+        const stamp = await SecurityProtocol.generateSecurityStamp();
+
+        const handler = PaystackPop.setup({
+            key: PAYSTACK_PUB_KEY,
+            email: 'escrow-node@prolyfiq.me',
+            amount: parseFloat(price) * 100,
+            currency: "GHS",
+            metadata: {
+                custom_fields: [
+                    // 2. ADD THE LISTING ID HERE
+                    { display_name: "Listing ID", variable_name: "listing_id", value: listingId },
+                    { display_name: "Phone", variable_name: "phone", value: phone },
+                    { display_name: "WhatsApp", variable_name: "whatsapp", value: whatsapp },
+                    { display_name: "Item", variable_name: "item_name", value: item },
+                    { display_name: "SellerPhone", variable_name: "seller_phone", value: sellerPhone },
+                    { display_name: "DeviceToken", variable_name: "device_token", value: stamp.token }
+                ]
+            },
+            callback: function(response) {
+                // 3. UPDATED REDIRECT: Pass the listingId to success page as well
+                window.location.href = "/success?ref=" + response.reference + "&item=" + encodeURIComponent(item) + "&price=" + price + "&id=" + listingId;
+            },
+            onClose: function() {
+                btn.disabled = false;
+                btn.innerText = 'Pay GHS ' + price;
+            }
+        });
+        handler.openIframe();
+    } catch (err) {
+        console.error("Ledgehold Vault Error:", err);
+        btn.disabled = false;
+        btn.innerText = 'System Error - Retry';
+    }
+};
 </script>
 
 {% endblock %}
