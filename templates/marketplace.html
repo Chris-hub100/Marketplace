@@ -288,7 +288,7 @@
                     <!-- VARIETIES SECTION -->
                     <div id="varietiesSection" class="mb-4" style="display: none;">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <p class="small fw-bold text-dark mb-0">Select Variety:</p>
+                            <p class="small fw-bold text-dark mb-0">Select Option:</p>
                             <span class="text-primary fw-bold" style="font-size: 0.65rem;">REQUIRED</span>
                         </div>
                         <div class="d-flex flex-nowrap gap-2 overflow-auto pb-2 no-scrollbar" id="varietiesContainer" style="scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;">
@@ -848,7 +848,9 @@ function showItemDetail() {
     buyBtn.onclick = () => {
         const v = document.getElementById('selectedVariety').value;
         if (hasVarieties && !v) return;
-        window.location.href = `/checkout?item=${encodeURIComponent(d.itemName)}&price=${d.price}&id=${d.id}${v ? '&variety='+v : ''}`;
+    
+        // We add &seller_phone=${d.momo} to the end of the string
+        window.location.href = `/checkout?item=${encodeURIComponent(d.itemName)}&price=${d.price}&id=${d.id}${v ? '&variety='+v : ''}&seller_phone=${d.momo}`;
     };
 
     new bootstrap.Modal(document.getElementById('itemDetailModal')).show();
