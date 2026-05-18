@@ -34,12 +34,28 @@ ADMIN_PIN = os.environ.get("ADMIN_PIN")
 COMPLIANCE_MODE = False
 APP_ID = os.getenv('__app_id', 'ledgehold-ghana1')
 
-def send_professional_sms(to, message):
-    """Internal: Hubtel SMS Engine"""
-    url = "https://api-v2.hubtel.com/sms/send"
-    headers = {"Authorization": f"Basic {HUB_AUTH}", "Content-Type": "application/json"}
-    payload = {"From": os.getenv('HUBTEL_SENDER_ID'), "To": to, "Content": message}
-    return requests.post(url, json=payload, headers=headers)
+def send_professional_sms(destination, message):
+    # Use the standard Hubtel SMSC endpoint
+    url = "https://smsc.hubtel.com/v1/messages/send" 
+    
+    # Use your Hubtel Credentials
+    auth = ('your_client_id', 'your_client_secret')
+    
+    payload = {
+        "From": "Ledgehold",
+        "To": destination,
+        "Content": message,
+        "RegisteredDelivery": True
+    }
+    
+    try:
+        # 5-second timeout prevents Render from hanging if the DNS fails
+        response = requests.post(url, json=payload, auth=auth, timeout=5)
+        response.raise_for_status() 
+        return response.json()
+    except Exception as e:
+        print(f"SMS Helper Error: {e}")
+        return None
 
 def send_handoff_email(order_data, paystack_ref):
     """Triggers an internal audit email via Resend once handoff is confirmed."""
@@ -69,7 +85,7 @@ def send_handoff_email(order_data, paystack_ref):
                 </tr>
             </table>
             
-            <p style="font-size: 12px; color: #64748b;">This is an automated audit log for Ledgehold Ghana Ltd.</p>
+            <p style="font-size: 12px; color: #64748b;">This is an automated audit log for Ledgehold.</p>
         </div>
         """
 
@@ -265,18 +281,20 @@ def paystack_webhook():
             device_token = next((f['value'] for f in meta if f['variable_name'] == 'device_token'), "None")
             item_name = next((f['value'] for f in meta if f['variable_name'] == 'item_name'), "Item")
             
+            # --- THE BATON: Extract the Seller's Phone Number ---
+            seller_momo = next((f['value'] for f in meta if f['variable_name'] == 'seller_phone'), None)
+            
             if not listing_id:
                 print("❌ WEBHOOK ERROR: No listing_id found in metadata.")
                 return "Missing ID", 400
 
-            # 2. THE SCALABLE SHIFT: Use the Paystack Reference as the Document Name
-            # payload['reference'] is unique for every single transaction.
+            # 2. SAVE TO FIRESTORE (Using Paystack Reference as Doc Name)
             order_id = payload['reference'] 
             order_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders').document(order_id)
             
             order_ref.set({
                 "status": "paid_in_escrow",
-                "listing_id": listing_id, # Now stored INSIDE the document
+                "listing_id": listing_id,
                 "securityStamp": {
                     "token": device_token,
                     "ip": payload.get('ip_address') 
@@ -284,13 +302,14 @@ def paystack_webhook():
                 "item": item_name,
                 "amount": payload['amount'] / 100,
                 "buyerPhone": buyer_phone,
+                "momo": seller_momo,  # <--- Storing the seller's number as 'momo'
                 "paystack_ref": order_id, 
                 "createdAt": firestore.SERVER_TIMESTAMP
             })
             
-            print(f"✅ VAULT SECURED: Unique Order {order_id} created for Listing {listing_id}")
+            print(f"✅ VAULT SECURED: Order {order_id} created. Merchant {seller_momo} linked.")
 
-            # 3. ATTEMPT SMS (Safety Wrapped)
+            # 3. ATTEMPT SMS TO BUYER
             try:
                 msg = f"Ledgehold: Payment for {item_name} secured. Scan merchant QR to release funds."
                 send_professional_sms(buyer_phone, msg)
@@ -306,45 +325,54 @@ def paystack_webhook():
 def gatekeeper_verify():
     data = request.json
     listing_id = data.get('listingId') 
-    current_stamp = data.get('securityStamp')
+    current_stamp = data.get('securityStamp') or {}
+    token = current_stamp.get('token')
+
+    # Guard clause: Fail fast if vital verification parameters are missing
+    if not listing_id or not token:
+        print("Verify Attempt Fail: Missing listingId or security token")
+        return jsonify({"success": False, "error": "Missing listing ID or device token."}), 400
 
     try:
         # 1. Reference the orders collection
         orders_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders')
 
-        # 2. Query for the specific escrow record (Search & Match)
+        # 2. Query for the specific escrow record (Strict Token Match Only)
         query = orders_ref.where('listing_id', '==', listing_id) \
                           .where('status', '==', 'paid_in_escrow') \
-                          .where('securityStamp.token', '==', current_stamp.get('token')) \
+                          .where('securityStamp.token', '==', token) \
                           .limit(1).get()
 
-        # 3. Fallback: Search by IP
+        # 3. Check results (IP Fallback has been removed entirely to secure campus Wi-Fi use)
         if not query:
-            query = orders_ref.where('listing_id', '==', listing_id) \
-                              .where('status', '==', 'paid_in_escrow') \
-                              .where('securityStamp.ip', '==', current_stamp.get('ip')) \
-                              .limit(1).get()
+            print(f"Verify Attempt Fail: No matching active escrow for Listing {listing_id} with this token.")
+            return jsonify({
+                "success": False, 
+                "error": "Authentication Failed"
+            }), 404
 
-        # 4. Check results
-        if not query:
-            print(f"Verify Attempt Fail: No matching active escrow for Listing {listing_id}")
-            return jsonify({"success": False, "error": "No matching active escrow found for this device."}), 404
-
-        # 5. Extract data
+        # 4. Extract data
         target_doc = query[0]
         order_data = target_doc.to_dict()
-        paystack_ref = target_doc.id # The unique ID we'll use for the audit email
+        paystack_ref = target_doc.id # The unique ID used for the audit email
         order_ref = target_doc.reference
 
-        # 6. CRITICAL: Update Database State FIRST
+        # 5. CRITICAL: Update Database State FIRST
         order_ref.update({"status": "completed"})
+        print(f"✅ HANDSHAKE SUCCESSFUL: Order {paystack_ref} locked and marked completed.")
         
-        # 7. TRIGGER NOTIFICATIONS (Non-blocking)
+        # 6. TRIGGER NOTIFICATIONS (Non-blocking)
         
         # A. Hubtel SMS to Merchant
         try:
-            merchant_msg = f"Ledgehold: Verification Successful. Payout for {order_data.get('item', 'Item')} authorized."
-            send_professional_sms(order_data.get('merchantPhone'), merchant_msg)
+            # Check for 'momo' field first, fallback to 'merchantPhone' if using legacy schema
+            recipient_phone = order_data.get('momo') or order_data.get('merchantPhone')
+            
+            if recipient_phone:
+                merchant_msg = f"Ledgehold: Verification Successful. Payout for {order_data.get('item', 'Item')} authorized."
+                send_professional_sms(recipient_phone, merchant_msg)
+            else:
+                print("⚠️ SMS Notify Skipped: No merchant phone details found in document.")
         except Exception as sms_err:
             print(f"⚠️ SMS Notify Failed: {str(sms_err)}")
 
