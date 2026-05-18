@@ -161,7 +161,7 @@
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
 
         try {
-            // 1. SECURE FIRESTORE LOOKUP: Fetch the real merchant momo number using the listingId
+            // 1. FIRST LOOKUP: Fetch the item details from market_listings
             const listingDoc = await db.collection('artifacts').doc(__app_id)
                                         .collection('public').doc('data')
                                         .collection('market_listings').doc(listingId).get();
@@ -174,19 +174,41 @@
             }
 
             const listingData = listingDoc.data();
-            const sellerMomo = listingData.momo; // Pulls the target "momo" field securely 
+            const targetMerchantId = listingData.merchantId; // Matched exactly to your database key!
 
-            if (!sellerMomo) {
-                alert("Error: Merchant payment profile is incomplete.");
+            if (!targetMerchantId) {
+                alert("Error: This listing is not linked to a valid merchant.");
                 btn.disabled = false;
                 btn.innerText = 'Pay GHS ' + price;
                 return;
             }
 
-            // 2. Generate the device security stamp
+            // 2. SECOND LOOKUP: Hop over to verified_merchants using that ID
+            const merchantDoc = await db.collection('artifacts').doc(__app_id)
+                                        .collection('public').doc('data')
+                                        .collection('verified_merchants').doc(targetMerchantId).get();
+
+            if (!merchantDoc.exists) {
+                alert("Error: Merchant profile could not be located.");
+                btn.disabled = false;
+                btn.innerText = 'Pay GHS ' + price;
+                return;
+            }
+
+            const merchantData = merchantDoc.data();
+            const sellerMomo = merchantData.momo; // 
+
+            if (!sellerMomo) {
+                alert("Error: Merchant has not completed their Mobile Money registration.");
+                btn.disabled = false;
+                btn.innerText = 'Pay GHS ' + price;
+                return;
+            }
+
+            // 3. Generate the device security stamp
             const stamp = await SecurityProtocol.generateSecurityStamp();
 
-            // 3. Launch Paystack with perfectly aligned variables
+            // 4. Launch Paystack with perfectly aligned variables
             const handler = PaystackPop.setup({
                 key: PAYSTACK_PUB_KEY,
                 email: 'escrow-node@prolyfiq.me',
@@ -198,7 +220,7 @@
                         { display_name: "Phone", variable_name: "phone", value: phone },
                         { display_name: "WhatsApp", variable_name: "whatsapp", value: whatsapp },
                         { display_name: "Item", variable_name: "item_name", value: item },
-                        { display_name: "SellerPhone", variable_name: "seller_phone", value: sellerMomo }, // Sent cleanly
+                        { display_name: "SellerPhone", variable_name: "seller_phone", value: sellerMomo }, 
                         { display_name: "DeviceToken", variable_name: "device_token", value: stamp.token }
                     ]
                 },
