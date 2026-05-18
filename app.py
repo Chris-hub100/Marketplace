@@ -394,18 +394,21 @@ def gatekeeper_verify():
                           .where('securityStamp.token', '==', token) \
                           .limit(1).get()
 
-        # 3. Check results (IP Fallback has been removed entirely to secure campus Wi-Fi use)
-        if not query:
+        # 👇 ADD THIS LINE: Convert the custom QueryResultsList into a plain Python list
+        docs = list(query)
+
+        # 3. Check results using the plain python list
+        if not docs:
             print(f"Verify Attempt Fail: No matching active escrow for Listing {listing_id} with this token.")
             return jsonify({
                 "success": False, 
                 "error": "Authentication Failed"
             }), 404
 
-        # 4. Extract data
-        target_doc = query
-        order_data = target_doc.to_dict()
-        paystack_ref = target_doc.id # The unique ID used for the audit email
+        # 4. Extract data cleanly from the plain list element
+        target_doc = docs
+        order_data = target_doc.to_dict() # Now guaranteed to execute on the DocumentSnapshot
+        paystack_ref = target_doc.id 
         order_ref = target_doc.reference
         item_name = order_data.get('item', 'Item')
 
