@@ -62,17 +62,19 @@
         <!-- QR DISPLAY STATE -->
         <div id="qrState" class="d-none text-center">
             <div class="card border-0 shadow-lg rounded-5 p-5 bg-white mb-4 position-relative overflow-hidden">
-                <div class="position-absolute top-0 start-0 w-100 h-100 opacity-5" style="background: radial-gradient(circle at 50% 50%, #0d6efd 0%, transparent 70%);"></div>
+                <!-- Glow overlay — color controlled by JS -->
+                <div id="qrGlowOverlay" class="position-absolute top-0 start-0 w-100 h-100" style="background: radial-gradient(circle at 50% 50%, #FFEB3B 0%, transparent 70%); transition: background 0.4s ease; pointer-events: none; z-index: 1"></div>
                 
-                <h6 class="fw-bold text-muted text-uppercase small mb-4" style="letter-spacing: 2px;">Scan to Release Funds</h6>
+                <h6 id="statusHeaderLabel" class="fw-bold text-muted text-uppercase small mb-4 position-relative" style="letter-spacing: 2px;">Scan to Release Funds</h6>
                 
-                <div id="qrContainer" class="d-inline-block p-3 bg-white rounded-4 border shadow-sm mb-4">
-                    <div id="qrcode"></div> <!-- QR Code Library will inject here -->
+                <!-- qrContainer uses flex to truly center the injected canvas/img -->
+                <div id="qrContainer" class="d-flex align-items-center justify-content-center p-3 bg-white rounded-4 border shadow-sm mb-4 position-relative mx-auto" style="width: fit-content; z-index: 0">
+                    <div id="qrcode"></div>
                 </div>
 
-                <div class="mb-2">
+                <div class="mb-2 position-relative">
                     <h5 id="displayItem" class="fw-bold text-dark mb-1">---</h5>
-                    <p class="text-primary small fw-bold mb-0 opacity-75 animate-pulse">WAITING FOR BUYER SCAN</p>
+                    <p id="statusPulseText" class="small fw-bold mb-0 opacity-75 animate-pulse" style="color: #92400e;">Awaiting Scan</p>
                 </div>
             </div>
 
@@ -99,13 +101,29 @@
     </div>
 </div>
 
+<!-- HANDSHAKE SUCCESS MODAL -->
+<div class="modal fade" id="handshakeSuccessModal" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4 p-4 text-center bg-white">
+            <div class="bg-success-subtle text-success rounded-circle d-inline-flex align-items-center justify-content-center mb-3 mx-auto" style="width: 70px; height: 70px;">
+                <i class="bi bi-check-all fs-1"></i>
+            </div>
+            <h5 class="fw-bold text-dark mb-2">Payment Confirmed</h5>
+            <p class="text-muted small mb-4">The buyer has approved the handover. Your payment has been authorized and is on its way to your wallet.</p>
+            <div class="d-grid">
+                <button type="button" onclick="window.location.href='/merchant_dashboard'" class="btn btn-success rounded-pill fw-bold btn-sm py-2">Back to Dashboard</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- QR GENERATOR LIBRARY -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
     const config = JSON.parse(__firebase_config);
     const app = initializeApp(config);
@@ -202,7 +220,7 @@
         document.getElementById('listingDropdown').classList.add('d-none');
     };
 
-    // --- QR GENERATION ---
+    // --- QR GENERATION (WITH DYNAMIC STATE STREAM & TOOLTIP STRIPPING) ---
     window.generateHandshakeQR = function() {
         const refId = document.getElementById('selectedRefId').value;
         const itemName = document.getElementById('itemSearch').value;
@@ -228,12 +246,99 @@
             correctLevel : QRCode.CorrectLevel.H
         });
 
+        // ========================================================
+        // 🛠️ TOOLTIP REMOVAL LAYER
+        // ========================================================
+        // Instantly target the parent element and clear the text title attribute
+        const qrContainerElement = document.getElementById("qrcode");
+        qrContainerElement.removeAttribute("title");
+        
+        // Give the DOM a tiny fraction of a millisecond to finish rendering elements, then strip sub-tags
+        setTimeout(() => {
+            if (qrContainerElement.hasAttribute("title")) {
+                qrContainerElement.removeAttribute("title");
+            }
+            // Strip tooltip attributes from hidden canvas or images injected by the library
+            const targetImg = qrContainerElement.querySelector("img");
+            if (targetImg) targetImg.removeAttribute("title");
+            
+            const targetCanvas = qrContainerElement.querySelector("canvas");
+            if (targetCanvas) targetCanvas.removeAttribute("title");
+        }, 10);
+
         document.getElementById('displayItem').innerText = itemName;
         document.getElementById('setupState').classList.add('d-none');
         document.getElementById('qrState').classList.remove('d-none');
+
+        // ========================================================
+        // MULTI-ORDER CONCURRENCY-PROOF REAL-TIME HANDSHAKE STREAM
+        // ========================================================
+        const targetCollection = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
+        const liveQuery = query(targetCollection, where('listing_id', '==', refId));
+        
+        // Keeps the session open until an active buyer physically scans and claims it
+        let activeOrderId = null;
+        
+        const unsubscribe = onSnapshot(liveQuery, (snapshot) => {
+            snapshot.forEach((doc) => {
+                const orderData = doc.data();
+                const currentStatus = orderData.status;
+
+                const glowOverlay = document.getElementById('qrGlowOverlay');
+                const pulseLabel  = document.getElementById('statusPulseText');
+                const headerLabel = document.getElementById('statusHeaderLabel');
+
+                // 1. DYNAMIC SESSION LOCK: Only anchor to a document when a buyer actively scans it
+                if (!activeOrderId && currentStatus === 'buyer_reviewing') {
+                    activeOrderId = doc.id;
+                    console.log(`🔒 Session dynamically locked onto active buyer order: ${activeOrderId}`);
+                }
+
+                // 2. STATE MANAGER
+                // If no buyer has scanned this session yet, maintain the default yellow waiting view
+                if (!activeOrderId) {
+                    glowOverlay.style.background = 'radial-gradient(circle at 50% 50%, #FFEB3B 0%, transparent 70%)';
+                    headerLabel.style.color = '';
+                    pulseLabel.style.color = '#92400e';
+                    pulseLabel.innerText = 'Awaiting Scan';
+                }
+                
+                // If we are locked onto this specific document, track its visual states precisely
+                else if (doc.id === activeOrderId) {
+                    
+                    // State B: This specific buyer scanned the code and is reviewing the physical item
+                    if (currentStatus === 'buyer_reviewing') {
+                        glowOverlay.style.background = 'radial-gradient(circle at 50% 50%, #60a5fa 0%, transparent 70%)';
+                        headerLabel.style.color = '';
+                        pulseLabel.style.color = '#1d4ed8';
+                        pulseLabel.innerText = 'Pending Swipe';
+                    }
+                    
+                    // State C: This specific buyer approved the transfer
+                    else if (currentStatus === 'completed') {
+                        glowOverlay.style.background = 'radial-gradient(circle at 50% 50%, #4ade80 0%, transparent 70%)';
+                        headerLabel.style.color = '';
+                        pulseLabel.style.color = '#15803d';
+                        pulseLabel.innerText = 'Confirmed - Payment Pending';
+                        
+                        // Disconnect background listeners safely to wrap up execution
+                        unsubscribe();
+                        
+                        // Display the clean success notification overlay panel
+                        const completionModal = new bootstrap.Modal(document.getElementById('handshakeSuccessModal'));
+                        completionModal.show();
+                    }
+                }
+            });
+        });
+
+        document.getElementById('qrState')._killStream = unsubscribe;
     };
 
     window.resetHandshake = () => {
+        if (document.getElementById('qrState')._killStream) {
+            document.getElementById('qrState')._killStream();
+        }
         document.getElementById('setupState').classList.remove('d-none');
         document.getElementById('qrState').classList.add('d-none');
         document.getElementById('itemSearch').value = "";
@@ -262,6 +367,7 @@
     body { background-color: #f8fafc; }
     .bg-primary-subtle { background-color: #e0e7ff !important; }
     .bg-warning-subtle { background-color: #fffbeb !important; }
+    .bg-success-subtle { background-color: #dcfce7 !important; }
     .x-small { font-size: 0.65rem; }
     .cursor-pointer { cursor: pointer; }
     .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }

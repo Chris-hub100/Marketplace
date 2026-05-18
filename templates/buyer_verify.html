@@ -70,13 +70,19 @@
         }
     };
 
-    // 2. PARSE URL DATA
+    // 2. PARSE URL DATA & TRIGGER REAL-TIME STATE
     const urlParams = new URLSearchParams(window.location.search);
-    // 'ref' in the URL contains the Listing ID (e.g., DsEBRLIT...)
     const listingId = urlParams.get('ref'); 
     
     if (listingId) {
         document.getElementById('displayRef').innerText = "#" + listingId.toUpperCase();
+
+        // Signal the backend that the buyer has successfully scanned the QR code
+        fetch('/api/gatekeeper/review', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ listingId: listingId })
+        }).catch(err => console.warn("Review state tracking skipped."));
     }
 
     // 3. TRIGGER THE MATCH (Updated for 1-to-Many Architecture)

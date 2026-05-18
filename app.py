@@ -6,6 +6,8 @@ import datetime
 import resend
 import firebase_admin
 import requests
+import hmac
+import hashlib
 from base64 import b64encode
 from firebase_admin import credentials, firestore, initialize_app
 from dotenv import load_dotenv
@@ -24,7 +26,7 @@ HUB_AUTH = b64encode(f"{HUB_ID}:{HUB_SECRET}".encode()).decode()
 
 
 # --- SECURE TEST CREDENTIALS & CONFIGURATION 
-PAYSTACK_SECRET_KEY = "sk_test_205609e95584b8704c90e2c8c72b6f1dbcee60db"
+PAYSTACK_SECRET_KEY = os.getenv('PAYSTACK_SECRET_KEY')
 
 # Admin Access
 ADMIN_ID = os.environ.get("ADMIN_ID")
@@ -275,6 +277,30 @@ def execute_takedown():
     
 @app.route('/paystack/webhook', methods=['POST'])
 def paystack_webhook():
+    # ========================================================
+    # 1. CRYPTOGRAPHIC SIGNATURE VALIDATION (ANTI-SPOOFING)
+    # ========================================================
+    paystack_signature = request.headers.get('x-paystack-signature')
+    
+    if not paystack_signature:
+        print("🛡️ SECURITY ALERT: Missing Paystack signature header! Request dropped.")
+        return "Unauthorized", 401
+
+    # Compute expected signature using local secret key and incoming raw request bytes
+    computed_signature = hmac.new(
+        bytes(PAYSTACK_SECRET_KEY, 'utf-8'),
+        request.data,  # Essential: Use raw bytes to preserve original serialization
+        hashlib.sha512
+    ).hexdigest()
+
+    # Time-constant comparison protects the server from targeted timing analysis
+    if not hmac.compare_digest(computed_signature, paystack_signature):
+        print("🛡️ SECURITY ALERT: Invalid Webhook Signature! Verification handshake failed.")
+        return "Unauthorized", 401
+
+    # ========================================================
+    # 2. SIGNATURE SECURED: SAFE TO UNPACK THE ENVELOPE
+    # ========================================================
     data = request.json
     print(f"WEBHOOK RECEIVED: {data.get('event')}")
 
@@ -388,32 +414,62 @@ def gatekeeper_verify():
         # 1. Reference the orders collection
         orders_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders')
 
-        # 2. Query for the specific escrow record (Strict Token Match Only)
+        # 2. Query for active escrow by Listing ID ONLY (Essential for tracking failed attempts)
         query = orders_ref.where('listing_id', '==', listing_id) \
                           .where('status', '==', 'paid_in_escrow') \
-                          .where('securityStamp.token', '==', token) \
                           .limit(1).get()
 
-        # 👇 ADD THIS LINE: Convert the custom QueryResultsList into a plain Python list
+        # Convert the custom QueryResultsList into a plain Python list
         docs = list(query)
 
         # 3. Check results using the plain python list
         if not docs:
-            print(f"Verify Attempt Fail: No matching active escrow for Listing {listing_id} with this token.")
+            print(f"Verify Attempt Fail: No matching active escrow for Listing {listing_id}.")
             return jsonify({
                 "success": False, 
                 "error": "Authentication Failed"
             }), 404
 
         # 4. Extract data cleanly from the plain list element
-        target_doc = docs[0]  # <--- Added here to grab the first item out of the list
+        target_doc = docs  
         order_data = target_doc.to_dict() 
         paystack_ref = target_doc.id 
         order_ref = target_doc.reference
         item_name = order_data.get('item', 'Item')
 
-        # 5. CRITICAL: Update Database State FIRST
-        order_ref.update({"status": "completed"})
+        # ========================================================
+        # ANTI-HACKING CIRCUIT BREAKER (MAX 5 ATTEMPTS)
+        # ========================================================
+        failed_attempts = order_data.get('failed_attempts', 0)
+        
+        if failed_attempts >= 5:
+            print(f"🛡️ BRUTE-FORCE BLOCKED: Listing {listing_id} locked down due to {failed_attempts} failed attempts.")
+            return jsonify({
+                "success": False, 
+                "error": "Authentication Failed"
+            }), 404
+
+        # ========================================================
+        # MANUAL TOKEN VALIDATION
+        # ========================================================
+        actual_token = order_data.get('securityStamp', {}).get('token')
+        
+        if actual_token != token:
+            new_failures = failed_attempts + 1
+            order_ref.update({"failed_attempts": new_failures})
+            print(f"⚠️ SECURITY: Invalid token attempt for Listing {listing_id}. Total failures: {new_failures}/5")
+            return jsonify({
+                "success": False, 
+                "error": "Authentication Failed"
+            }), 404
+
+        # ========================================================
+        # 5. CRITICAL: Update Database State FIRST (Token Validated)
+        # ========================================================
+        order_ref.update({
+            "status": "completed",
+            "failed_attempts": 0  # Clear counter on genuine completion
+        })
         print(f"✅ HANDSHAKE SUCCESSFUL: Order {paystack_ref} locked and marked completed.")
         
         # 6. TRIGGER NOTIFICATIONS (Non-blocking)
@@ -439,7 +495,7 @@ def gatekeeper_verify():
         try:
             # --- SMS #1: TO THE MERCHANT ---
             if clean_merchant_phone != "Unknown":
-                merchant_success_msg = f"Handover complete! Your payment for {item_name} is being processed and will be sent to your MoMo wallet shortly. Thank you for working with Ledgehold!"
+                merchant_success_msg = f"Handover complete! Your payment for {item_name} is being processed and will be sent to your MoMo wallet shortly. Thank you for working with Ledgehold."
                 send_professional_sms(clean_merchant_phone, merchant_success_msg)
                 print(f"✅ Handover success SMS dispatched to Merchant: {clean_merchant_phone}")
             else:
@@ -447,7 +503,7 @@ def gatekeeper_verify():
 
             # --- SMS #2: TO THE BUYER ---
             if clean_buyer_phone != "Unknown":
-                buyer_success_msg = f"Handover confirmed! Your payment has been safely delivered to the seller. Thank you for choosing Ledgehold"
+                buyer_success_msg = f"Handover confirmed! Your payment has been safely delivered to the seller. Thank you for choosing Ledgehold."
                 send_professional_sms(clean_buyer_phone, buyer_success_msg)
                 print(f"✅ Handover success SMS dispatched to Buyer: {clean_buyer_phone}")
             else:
