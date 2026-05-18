@@ -406,7 +406,7 @@ def gatekeeper_verify():
             }), 404
 
         # 4. Extract data cleanly from the plain list element
-        target_doc = docs  # <--- Added here to grab the first item out of the list
+        target_doc = docs[0]  # <--- Added here to grab the first item out of the list
         order_data = target_doc.to_dict() 
         paystack_ref = target_doc.id 
         order_ref = target_doc.reference
