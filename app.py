@@ -34,28 +34,36 @@ ADMIN_PIN = os.environ.get("ADMIN_PIN")
 COMPLIANCE_MODE = False
 APP_ID = os.getenv('__app_id', 'ledgehold-ghana1')
 
-def send_professional_sms(destination, message):
-    # Use the standard Hubtel SMSC endpoint
-    url = "https://smsc.hubtel.com/v1/messages/send" 
+def send_professional_sms(to_number, message_content):
+    url = "https://smsc.hubtel.com/v1/messages/send"
     
-    # Use your Hubtel Credentials
-    auth = ('your_client_id', 'your_client_secret')
+    # Utilizing your exact pre-calculated Base64 authentication token
+    headers = {
+        "Authorization": f"Basic {HUB_AUTH}",
+        "Content-Type": "application/json"
+    }
     
+    # Hubtel's strict JSON payload specifications (Must be TitleCase)
     payload = {
         "From": "Ledgehold",
-        "To": destination,
-        "Content": message,
-        "RegisteredDelivery": True
+        "To": to_number,
+        "Content": message_content
     }
     
     try:
-        # 5-second timeout prevents Render from hanging if the DNS fails
-        response = requests.post(url, json=payload, auth=auth, timeout=5)
-        response.raise_for_status() 
-        return response.json()
+        # Firing as a JSON POST request with your headers
+        response = requests.post(url, json=payload, headers=headers, timeout=5)
+        
+        # Hubtel returns 200 or 201 when header-based JSON messages are accepted
+        if response.status_code == 200 or response.status_code == 201:
+            return True
+        else:
+            print(f"❌ Hubtel API Rejected Payload ({response.status_code}): {response.text}")
+            return False
+            
     except Exception as e:
-        print(f"SMS Helper Error: {e}")
-        return None
+        print(f"❌ Hubtel Connection Exception: {str(e)}")
+        return False
 
 def send_handoff_email(order_data, paystack_ref):
     """Triggers an internal audit email via Resend once handoff is confirmed."""
@@ -331,17 +339,28 @@ def paystack_webhook():
 
                 # --- SMS #1: TO THE BUYER ---
                 if clean_buyer_phone != "Unknown":
-                    buyer_msg = f"Ledgehold: Payment for {item_name} secured! Call the seller at 0{clean_seller_phone[3:]} to meet up on campus. Scan their QR code only after you have the item in hand and inspected it to release their cash."
-                    send_professional_sms(clean_buyer_phone, buyer_msg)
-                    print("✅ Buyer SMS dispatched.")
+                    buyer_msg = f"Ledgehold: Payment for {item_name} secured! Call the seller at 0{clean_seller_phone[3:]} to meet up on campus. Scan their QR code only after you have the item in hand to release their cash."
+                    
+                    # Capture the true status of the API call
+                    buyer_sms_sent = send_professional_sms(clean_buyer_phone, buyer_msg)
+                    
+                    if buyer_sms_sent:
+                        print("✅ Buyer SMS successfully accepted by Hubtel gateway.")
+                    else:
+                        print("❌ Buyer SMS failed to dispatch.")
                 else:
                     print("⚠️ Buyer SMS skipped: Phone number is Unknown.")
 
                 # --- SMS #2: TO THE MERCHANT ---
                 if clean_seller_phone not in ["Unknown", "None"]:
-                    merchant_msg = f"Ledgehold: Great news! Your {item_name} has been paid for. Call the buyer at 0{clean_buyer_phone[3:]} to arrange the handover. Let them scan your QR code when you meet so you get your money."
-                    send_professional_sms(clean_seller_phone, merchant_msg)
-                    print("✅ Merchant SMS dispatched.")
+                    merchant_msg = f"Ledgehold: Great news! Your {item_name} has been paid for. Call the buyer at 0{clean_buyer_phone[3:]} to arrange the handover. Let them scan your QR code when you meet so you get your money instantly."
+                    
+                    merchant_sms_sent = send_professional_sms(clean_seller_phone, merchant_msg)
+                    
+                    if merchant_sms_sent:
+                        print("✅ Merchant SMS successfully accepted by Hubtel gateway.")
+                    else:
+                        print("❌ Merchant SMS failed to dispatch.")
                 else:
                     print("⚠️ Merchant SMS skipped: Seller phone number is missing.")
 
