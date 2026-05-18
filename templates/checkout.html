@@ -164,7 +164,7 @@
             // 1. SECURE FIRESTORE LOOKUP: Fetch the real merchant momo number using the listingId
             const listingDoc = await db.collection('artifacts').doc(__app_id)
                                         .collection('public').doc('data')
-                                        .collection('listings').doc(listingId).get();
+                                        .collection('market_listings').doc(listingId).get();
 
             if (!listingDoc.exists) {
                 alert("Error: This listing no longer exists.");

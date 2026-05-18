@@ -850,7 +850,7 @@ function showItemDetail() {
         if (hasVarieties && !v) return;
     
         // We add &seller_phone=${d.momo} to the end of the string
-        window.location.href = `/checkout?item=${encodeURIComponent(d.itemName)}&price=${d.price}&id=${d.id}${v ? '&variety='+v : ''}&seller_phone=${d.momo}`;
+        window.location.href = `/checkout?item=${encodeURIComponent(d.itemName)}&price=${d.price}&id=${d.id}${v ? '&variety='+v : ''}`;
     };
 
     new bootstrap.Modal(document.getElementById('itemDetailModal')).show();
