@@ -339,7 +339,7 @@ def paystack_webhook():
 
                 # --- SMS #1: TO THE BUYER ---
                 if clean_buyer_phone != "Unknown":
-                    buyer_msg = f"Ledgehold: Payment for {item_name} secured! Call the seller at 0{clean_seller_phone[3:]} to confirm the meetup on campus. Scan their QR code only after you have the item in hand and have inspected it."
+                    buyer_msg = f"Payment for {item_name} secured! Call the seller at 0{clean_seller_phone[3:]} to confirm the meetup on campus. Scan their QR code only after you have the item in hand and have inspected it."
                     
                     # Capture the true status of the API call
                     buyer_sms_sent = send_professional_sms(clean_buyer_phone, buyer_msg)
@@ -406,8 +406,8 @@ def gatekeeper_verify():
             }), 404
 
         # 4. Extract data cleanly from the plain list element
-        target_doc = docs
-        order_data = target_doc.to_dict() # Now guaranteed to execute on the DocumentSnapshot
+        target_doc = docs  # <--- Added here to grab the first item out of the list
+        order_data = target_doc.to_dict() 
         paystack_ref = target_doc.id 
         order_ref = target_doc.reference
         item_name = order_data.get('item', 'Item')
