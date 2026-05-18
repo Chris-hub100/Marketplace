@@ -529,6 +529,41 @@ def verify_order_landing():
     # This renders the page the buyer scans into
     return render_template('buyer_verify.html', **get_firebase_context())
 
+@app.route('/api/gatekeeper/review', methods=['POST'])
+def gatekeeper_set_review():
+    data = request.json
+    listing_id = data.get('listingId')
+    
+    if not listing_id:
+        print("Review Attempt Fail: Missing listingId")
+        return jsonify({"success": False, "error": "Missing listing ID."}), 400
+        
+    try:
+        orders_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders')
+        
+        # 1. Query for the active record
+        query = orders_ref.where('listing_id', '==', listing_id)\
+                          .where('status', '==', 'paid_in_escrow')\
+                          .limit(1).get()
+        docs = list(query)
+        
+        if not docs:
+            print(f"Review Sync: No active paid escrow found for Listing {listing_id}")
+            return jsonify({"success": False, "error": "No active escrow trace found"}), 404
+            
+        # 2. FIXED: Explicitly extract the single DocumentSnapshot using
+        target_doc = docs[0]
+        
+        # 3. Advance the order state to flip the merchant's UI screen to blue
+        target_doc.reference.update({"status": "buyer_reviewing"})
+        print(f"🔒 STATE UPDATE: Order {target_doc.id} shifted to buyer_reviewing state.")
+        
+        return jsonify({"success": True}), 200
+        
+    except Exception as e:
+        print(f"🛡️ Security Pipeline Exception inside Review Route: {str(e)}")
+        return jsonify({"success": False, "error": "Internal Processing Error"}), 500
+
 @app.route('/foodrun')
 def food_run_page():
     # Logic: Open Friday (4), Saturday (5), Sunday (6)
