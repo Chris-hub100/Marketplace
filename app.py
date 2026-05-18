@@ -339,7 +339,7 @@ def paystack_webhook():
 
                 # --- SMS #1: TO THE BUYER ---
                 if clean_buyer_phone != "Unknown":
-                    buyer_msg = f"Ledgehold: Payment for {item_name} secured! Call the seller at 0{clean_seller_phone[3:]} to meet up on campus. Scan their QR code only after you have the item in hand to release their cash."
+                    buyer_msg = f"Ledgehold: Payment for {item_name} secured! Call the seller at 0{clean_seller_phone[3:]} to confirm the meetup on campus. Scan their QR code only after you have the item in hand and have inspected it."
                     
                     # Capture the true status of the API call
                     buyer_sms_sent = send_professional_sms(clean_buyer_phone, buyer_msg)
@@ -353,7 +353,7 @@ def paystack_webhook():
 
                 # --- SMS #2: TO THE MERCHANT ---
                 if clean_seller_phone not in ["Unknown", "None"]:
-                    merchant_msg = f"Ledgehold: Great news! Your {item_name} has been paid for. Call the buyer at 0{clean_buyer_phone[3:]} to arrange the handover. Let them scan your QR code when you meet so you get your money instantly."
+                    merchant_msg = f"Great news! Your {item_name} has been paid for. Call the buyer at 0{clean_buyer_phone[3:]} to arrange the handover. Let them scan your QR code when you meet so you get your money."
                     
                     merchant_sms_sent = send_professional_sms(clean_seller_phone, merchant_msg)
                     
@@ -403,10 +403,11 @@ def gatekeeper_verify():
             }), 404
 
         # 4. Extract data
-        target_doc = query[0]
+        target_doc = query
         order_data = target_doc.to_dict()
         paystack_ref = target_doc.id # The unique ID used for the audit email
         order_ref = target_doc.reference
+        item_name = order_data.get('item', 'Item')
 
         # 5. CRITICAL: Update Database State FIRST
         order_ref.update({"status": "completed"})
@@ -414,18 +415,43 @@ def gatekeeper_verify():
         
         # 6. TRIGGER NOTIFICATIONS (Non-blocking)
         
-        # A. Hubtel SMS to Merchant
+        # Internal helper to clean and format strings for Hubtel (054... -> 23354...)
+        def format_gh_phone(raw_phone):
+            phone_str = str(raw_phone).strip() if raw_phone else ""
+            if not phone_str or phone_str in ["Unknown", "None"]:
+                return "Unknown"
+            if phone_str.startswith('0'):
+                return '233' + phone_str[1:]
+            elif not phone_str.startswith('233'):
+                return '233' + phone_str
+            return phone_str
+
+        raw_buyer_phone = order_data.get('buyerPhone')
+        raw_merchant_phone = order_data.get('momo') or order_data.get('merchantPhone')
+
+        clean_buyer_phone = format_gh_phone(raw_buyer_phone)
+        clean_merchant_phone = format_gh_phone(raw_merchant_phone)
+
+        # A. Dual Hubtel SMS Notifications
         try:
-            # Check for 'momo' field first, fallback to 'merchantPhone' if using legacy schema
-            recipient_phone = order_data.get('momo') or order_data.get('merchantPhone')
-            
-            if recipient_phone:
-                merchant_msg = f"Ledgehold: Verification Successful. Payout for {order_data.get('item', 'Item')} authorized."
-                send_professional_sms(recipient_phone, merchant_msg)
+            # --- SMS #1: TO THE MERCHANT ---
+            if clean_merchant_phone != "Unknown":
+                merchant_success_msg = f"Handover complete! Your payment for {item_name} is being processed and will be sent to your MoMo wallet shortly. Thank you for working with Ledgehold!"
+                send_professional_sms(clean_merchant_phone, merchant_success_msg)
+                print(f"✅ Handover success SMS dispatched to Merchant: {clean_merchant_phone}")
             else:
-                print("⚠️ SMS Notify Skipped: No merchant phone details found in document.")
+                print("⚠️ Merchant SMS Skipped: No merchant phone details found in document.")
+
+            # --- SMS #2: TO THE BUYER ---
+            if clean_buyer_phone != "Unknown":
+                buyer_success_msg = f"Handover confirmed! Your payment has been safely delivered to the seller. Thank you for choosing Ledgehold"
+                send_professional_sms(clean_buyer_phone, buyer_success_msg)
+                print(f"✅ Handover success SMS dispatched to Buyer: {clean_buyer_phone}")
+            else:
+                print("⚠️ Buyer SMS Skipped: No buyer phone details found in document.")
+
         except Exception as sms_err:
-            print(f"⚠️ SMS Notify Failed: {str(sms_err)}")
+            print(f"⚠️ Dual-SMS Notification Segment Failed: {str(sms_err)}")
 
         # B. Resend Email Audit
         try:
