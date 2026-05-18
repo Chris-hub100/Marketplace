@@ -233,7 +233,7 @@ def get_all_listings():
         print(f"Firestore Client Error: {e}")
         return jsonify({
             "success": False, 
-            "error": "The Marketplace Node is currently re-syncing.",
+            "error": "The Marketplace is currently re-syncing.",
             "listings": []
         }), 500
 
@@ -307,14 +307,46 @@ def paystack_webhook():
                 "createdAt": firestore.SERVER_TIMESTAMP
             })
             
-            print(f"✅ VAULT SECURED: Order {order_id} created. Merchant {seller_momo} linked.")
+            print(f"✅ SECURED: Order {order_id} created. Merchant {seller_momo} linked.")
 
-            # 3. ATTEMPT SMS TO BUYER
+            # ========================================================
+            # 3. SANITIZE & SEND DUAL SMS NOTIFICATIONS
+            # ========================================================
             try:
-                msg = f"Ledgehold: Payment for {item_name} secured. Scan merchant QR to release funds."
-                send_professional_sms(buyer_phone, msg)
+                # --- Helper function to format numbers for Hubtel (054... -> 23354...) ---
+                def format_gh_phone(raw_phone):
+                    phone_str = str(raw_phone).strip()
+                    if phone_str.startswith('0'):
+                        return '233' + phone_str[1:]
+                    elif not phone_str.startswith('233') and phone_str not in ["Unknown", "None"]:
+                        return '233' + phone_str
+                    return phone_str
+
+                clean_buyer_phone = format_gh_phone(buyer_phone)
+                clean_seller_phone = format_gh_phone(seller_momo)
+
+                print(f"📱 SMS ROUTING LOG:")
+                print(f"   Buyer: {clean_buyer_phone}")
+                print(f"   Seller: {clean_seller_phone}")
+
+                # --- SMS #1: TO THE BUYER ---
+                if clean_buyer_phone != "Unknown":
+                    buyer_msg = f"Ledgehold: Payment for {item_name} secured! Call the seller at 0{clean_seller_phone[3:]} to meet up on campus. Scan their QR code only after you have the item in hand and inspected it to release their cash."
+                    send_professional_sms(clean_buyer_phone, buyer_msg)
+                    print("✅ Buyer SMS dispatched.")
+                else:
+                    print("⚠️ Buyer SMS skipped: Phone number is Unknown.")
+
+                # --- SMS #2: TO THE MERCHANT ---
+                if clean_seller_phone not in ["Unknown", "None"]:
+                    merchant_msg = f"Ledgehold: Great news! Your {item_name} has been paid for. Call the buyer at 0{clean_buyer_phone[3:]} to arrange the handover. Let them scan your QR code when you meet so you get your money."
+                    send_professional_sms(clean_seller_phone, merchant_msg)
+                    print("✅ Merchant SMS dispatched.")
+                else:
+                    print("⚠️ Merchant SMS skipped: Seller phone number is missing.")
+
             except Exception as sms_err:
-                print(f"⚠️ SMS Notification failed: {str(sms_err)}")
+                print(f"⚠️ Dual-SMS Pipeline failed: {str(sms_err)}")
             
         except Exception as e:
             print(f"❌ WEBHOOK PROCESSING ERROR: {str(e)}")
