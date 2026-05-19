@@ -434,7 +434,7 @@ def gatekeeper_verify():
 
         # 4. Extract data cleanly from the plain list element
         # FIXED: Added index to isolate the true DocumentSnapshot and prevent list type errors
-        target_doc = docs  
+        target_doc = docs[0]  
         order_data = target_doc.to_dict() 
         paystack_ref = target_doc.id 
         order_ref = target_doc.reference
@@ -558,7 +558,7 @@ def gatekeeper_set_review():
             return jsonify({"success": False, "error": "Authentication Failed"}), 404
             
         # 2. FIXED: Explicitly extract the single DocumentSnapshot using index
-        target_doc = docs
+        target_doc = docs[0]
         
         # 3. Advance the order state to flip the merchant's UI screen to blue
         target_doc.reference.update({"status": "buyer_reviewing"})
