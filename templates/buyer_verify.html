@@ -70,18 +70,24 @@
         }
     };
 
-    // 2. PARSE URL DATA & TRIGGER REAL-TIME STATE
+    // 2. PARSE URL DATA & TRIGGER REAL-TIME STATE (TOKEN SECURED)
     const urlParams = new URLSearchParams(window.location.search);
     const listingId = urlParams.get('ref'); 
     
     if (listingId) {
         document.getElementById('displayRef').innerText = "#" + listingId.toUpperCase();
 
-        // Signal the backend that the buyer has successfully scanned the QR code
+        // Pull the unique device token out of the site's cache/local storage
+        const deviceToken = localStorage.getItem('ledgehold_device_token');
+
+        // Pass the token along so the backend knows exactly WHO is scanning
         fetch('/api/gatekeeper/review', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ listingId: listingId })
+            body: JSON.stringify({ 
+                listingId: listingId,
+                token: deviceToken
+            })
         }).catch(err => console.warn("Review state tracking skipped."));
     }
 

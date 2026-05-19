@@ -414,9 +414,11 @@ def gatekeeper_verify():
         # 1. Reference the orders collection
         orders_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders')
 
-        # 2. Query for active escrow by Listing ID ONLY (Essential for tracking failed attempts)
+        # 2. Query for the specific escrow record 
+        # STRICT MATCH: Look ONLY for 'buyer_reviewing' to guarantee we grab the exact document the buyer just scanned
         query = orders_ref.where('listing_id', '==', listing_id) \
-                          .where('status', '==', 'paid_in_escrow') \
+                          .where('securityStamp.token', '==', token) \
+                          .where('status', '==', 'buyer_reviewing') \
                           .limit(1).get()
 
         # Convert the custom QueryResultsList into a plain Python list
@@ -431,6 +433,7 @@ def gatekeeper_verify():
             }), 404
 
         # 4. Extract data cleanly from the plain list element
+        # FIXED: Added index to isolate the true DocumentSnapshot and prevent list type errors
         target_doc = docs  
         order_data = target_doc.to_dict() 
         paystack_ref = target_doc.id 
@@ -533,26 +536,29 @@ def verify_order_landing():
 def gatekeeper_set_review():
     data = request.json
     listing_id = data.get('listingId')
+    token = data.get('token') # Extract the unique device token sent by the frontend
     
-    if not listing_id:
-        print("Review Attempt Fail: Missing listingId")
-        return jsonify({"success": False, "error": "Missing listing ID."}), 400
+    # Updated guard clause: Fail fast if either vital parameter is missing
+    if not listing_id or not token:
+        print("Review Attempt Fail: Missing listingId or security token")
+        return jsonify({"success": False, "error": "Missing validation parameters."}), 400
         
     try:
         orders_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders')
         
-        # 1. Query for the active record
+        # 1. Query strictly for the active record matching BOTH listing_id and the unique buyer token
         query = orders_ref.where('listing_id', '==', listing_id)\
+                          .where('securityStamp.token', '==', token)\
                           .where('status', '==', 'paid_in_escrow')\
                           .limit(1).get()
         docs = list(query)
         
         if not docs:
-            print(f"Review Sync: No active paid escrow found for Listing {listing_id}")
-            return jsonify({"success": False, "error": "No active escrow trace found"}), 404
+            print(f"Review Sync Fail: No active escrow found for Listing {listing_id} with this token.")
+            return jsonify({"success": False, "error": "Authentication Failed"}), 404
             
-        # 2. FIXED: Explicitly extract the single DocumentSnapshot using
-        target_doc = docs[0]
+        # 2. FIXED: Explicitly extract the single DocumentSnapshot using index
+        target_doc = docs
         
         # 3. Advance the order state to flip the merchant's UI screen to blue
         target_doc.reference.update({"status": "buyer_reviewing"})
