@@ -129,11 +129,7 @@
         if (!listingId) return;
         document.getElementById('displayRef').innerText = "#" + listingId.toUpperCase();
         
-        const preferredPin = localStorage.getItem('ledgehold_preferred_pin');
-        if (preferredPin) {
-            document.getElementById('quickPin').value = preferredPin;
-            document.getElementById('verifyPin').value = preferredPin;
-        }
+        // The buyer must type it from memory to prove physical possession.
 
         // Intelligently show the correct initial card based on browser state
         if (activeDeviceToken) {
