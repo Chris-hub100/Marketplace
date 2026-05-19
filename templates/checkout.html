@@ -5,10 +5,8 @@
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
 
-            <!-- PRODUCT CONTEXT CARD (image-driven) -->
             <div class="card border-0 shadow-lg rounded-4 overflow-hidden mb-3">
                 <div class="position-relative">
-                    <!-- Item image pulled from marketplace card -->
                     <div class="ratio ratio-16x9 bg-light overflow-hidden">
                         <img 
                             id="checkoutItemImage"
@@ -19,14 +17,12 @@
                         >
                     </div>
 
-                    <!-- Price pill overlaid on image -->
                     <div class="position-absolute bottom-0 end-0 m-3">
                         <span class="badge bg-dark text-white rounded-pill px-3 py-2 shadow fw-bold fs-6">
                             GHS {{ request.args.get('price') }}
                         </span>
                     </div>
 
-                    <!-- Campus badge top-left -->
                     {% if request.args.get('campus') %}
                     <div class="position-absolute top-0 start-0 m-3">
                         <span class="badge bg-primary rounded-pill" style="font-size: 0.65rem;">
@@ -36,7 +32,6 @@
                     {% endif %}
                 </div>
 
-                <!-- Item name + variety strip -->
                 <div class="px-4 py-3 border-top d-flex align-items-center justify-content-between">
                     <div>
                         <p class="fw-bold mb-0 text-dark">{{ request.args.get('item') }}</p>
@@ -49,12 +44,10 @@
                 </div>
             </div>
 
-            <!-- CHECKOUT FORM CARD -->
             <div class="card border-0 shadow-lg rounded-4 p-4 p-md-5">
                 <h5 class="fw-bold mb-1">Checkout</h5>
-                <p class="text-muted small mb-4">The Merchant will reach out to you using these numbers.</p>
+                <p class="text-muted small mb-4">Create a PIN to authorize your payment at handoff.</p>
 
-                <!-- Phone -->
                 <div class="mb-3">
                     <label class="small fw-bold text-muted mb-1 ms-1">PHONE NUMBER</label>
                     <div class="input-group">
@@ -68,28 +61,37 @@
                     </div>
                 </div>
 
-                <!-- WhatsApp -->
-                <div class="mb-4">
-                    <div class="d-flex justify-content-between align-items-center mb-1 ms-1">
-                        <label class="small fw-bold text-muted">WHATSAPP NUMBER</label>
-                        <button class="btn btn-link btn-sm text-decoration-none p-0 small" onclick="copyPhone()">
-                            Same as phone?
-                        </button>
-                    </div>
+                <div class="mb-3">
+                    <label class="small fw-bold text-muted mb-1 ms-1">CREATE DELIVERY PIN</label>
+                    <p class="text-muted mb-2 ms-1" style="font-size: 0.7rem; line-height: 1.2;">Choose 4 digits. You will enter this on your phone when you collect the item.</p>
                     <div class="input-group">
                         <span class="input-group-text bg-light border-0" style="border-radius: 50px 0 0 50px;">
-                            <i class="bi bi-whatsapp text-muted px-1"></i>
+                            <i class="bi bi-lock-fill text-muted px-1"></i>
                         </span>
-                        <input type="tel" id="buyerWhatsapp"
+                        <input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" id="deliveryPin"
                             class="form-control bg-light border-0 py-3"
-                            placeholder="055 XXX XXXX"
+                            placeholder="e.g. 1234"
                             style="border-radius: 0 50px 50px 0;">
                     </div>
                 </div>
 
+                <div class="mb-4">
+                    <label class="small fw-bold text-muted mb-1 ms-1">CONFIRM PIN</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-0" style="border-radius: 50px 0 0 50px;">
+                            <i class="bi bi-check-circle-fill text-muted px-1"></i>
+                        </span>
+                        <input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" id="confirmPin"
+                            class="form-control bg-light border-0 py-3"
+                            placeholder="Re-enter PIN"
+                            style="border-radius: 0 50px 50px 0;">
+                    </div>
+                    <div id="pinError" class="text-danger fw-bold small ms-2 mt-2 d-none"></div>
+                </div>
+
                 <div class="d-grid">
                     <button id="payBtn" onclick="payWithPaystack()"
-                        class="btn btn-primary rounded-pill fw-bold py-3 shadow-sm">
+                        class="btn btn-dark rounded-pill fw-bold py-3 shadow-sm">
                         Pay GHS {{ request.args.get('price') }}
                     </button>
                 </div>
@@ -99,7 +101,6 @@
     </div>
 </div>
 
-<!-- EXTERNAL ENGINES -->
 <script src="https://js.paystack.co/v1/inline.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
@@ -137,22 +138,43 @@
         }
     };
 
-    window.copyPhone = function() {
-        document.getElementById('buyerWhatsapp').value = document.getElementById('buyerPhone').value;
-    };
+    // Auto-fill logic for returning anonymous buyers
+    document.addEventListener("DOMContentLoaded", () => {
+        const savedPin = localStorage.getItem('ledgehold_preferred_pin');
+        if (savedPin) {
+            document.getElementById('deliveryPin').value = savedPin;
+            document.getElementById('confirmPin').value = savedPin;
+        }
+    });
 
     window.payWithPaystack = async function() {
         const urlParams = new URLSearchParams(window.location.search);
         const listingId = urlParams.get('id'); 
 
         const phone = document.getElementById('buyerPhone').value.trim();
-        const whatsapp = document.getElementById('buyerWhatsapp').value.trim();
+        const pin = document.getElementById('deliveryPin').value.trim();
+        const confirmPin = document.getElementById('confirmPin').value.trim();
+        const pinError = document.getElementById('pinError');
         const price = "{{ request.args.get('price') }}";
         const item = "{{ request.args.get('item') }}";
 
-        // Validation guard clause
-        if (!phone || !whatsapp) {
-            alert("Please provide contact details for the escrow exchange.");
+        // Reset errors
+        pinError.classList.add('d-none');
+
+        // Validation gate
+        if (!phone || !pin || !confirmPin) {
+            pinError.innerText = "Please fill in all fields.";
+            pinError.classList.remove('d-none');
+            return;
+        }
+        if (pin.length !== 4 || !/^\d+$/.test(pin)) {
+            pinError.innerText = "PIN must be exactly 4 digits.";
+            pinError.classList.remove('d-none');
+            return;
+        }
+        if (pin !== confirmPin) {
+            pinError.innerText = "The PINs you entered do not match.";
+            pinError.classList.remove('d-none');
             return;
         }
 
@@ -161,7 +183,7 @@
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
 
         try {
-            // 1. FIRST LOOKUP: Fetch the item details from market_listings
+            // 1. FIRST LOOKUP: Fetch the item details
             const listingDoc = await db.collection('artifacts').doc(__app_id)
                                         .collection('public').doc('data')
                                         .collection('market_listings').doc(listingId).get();
@@ -174,7 +196,7 @@
             }
 
             const listingData = listingDoc.data();
-            const targetMerchantId = listingData.merchantId; // Matched exactly to your database key!
+            const targetMerchantId = listingData.merchantId;
 
             if (!targetMerchantId) {
                 alert("Error: This listing is not linked to a valid merchant.");
@@ -183,7 +205,7 @@
                 return;
             }
 
-            // 2. SECOND LOOKUP: Hop over to verified_merchants using that ID
+            // 2. SECOND LOOKUP: Fetch merchant mobile money details
             const merchantDoc = await db.collection('artifacts').doc(__app_id)
                                         .collection('public').doc('data')
                                         .collection('verified_merchants').doc(targetMerchantId).get();
@@ -196,7 +218,7 @@
             }
 
             const merchantData = merchantDoc.data();
-            const sellerMomo = merchantData.momo; // 
+            const sellerMomo = merchantData.momo; 
 
             if (!sellerMomo) {
                 alert("Error: Merchant has not completed their Mobile Money registration.");
@@ -205,10 +227,13 @@
                 return;
             }
 
+            // Save the PIN locally for future rapid checkouts
+            localStorage.setItem('ledgehold_preferred_pin', pin);
+
             // 3. Generate the device security stamp
             const stamp = await SecurityProtocol.generateSecurityStamp();
 
-            // 4. Launch Paystack with perfectly aligned variables
+            // 4. Launch Paystack with perfectly aligned variables (including the PIN)
             const handler = PaystackPop.setup({
                 key: PAYSTACK_PUB_KEY,
                 email: 'escrow-node@prolyfiq.me',
@@ -218,7 +243,7 @@
                     custom_fields: [
                         { display_name: "Listing ID", variable_name: "listing_id", value: listingId },
                         { display_name: "Phone", variable_name: "phone", value: phone },
-                        { display_name: "WhatsApp", variable_name: "whatsapp", value: whatsapp },
+                        { display_name: "Delivery PIN", variable_name: "delivery_pin", value: pin },
                         { display_name: "Item", variable_name: "item_name", value: item },
                         { display_name: "SellerPhone", variable_name: "seller_phone", value: sellerMomo }, 
                         { display_name: "DeviceToken", variable_name: "device_token", value: stamp.token }

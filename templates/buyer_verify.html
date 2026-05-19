@@ -7,8 +7,39 @@
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
             
-            <!-- INITIAL VERIFICATION CARD -->
-            <div id="verifyCard" class="card border-0 shadow-lg p-5 rounded-4 bg-white animate-slide-up">
+            <div id="loadingCard" class="card border-0 p-5 rounded-4 bg-transparent animate-slide-up">
+                <div class="spinner-border text-primary mx-auto mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
+                <h5 class="fw-bold text-dark">Securing Session...</h5>
+                <p class="text-muted small">Connecting to Ledgehold Gatekeeper</p>
+            </div>
+
+            <div id="identityCard" class="card border-0 shadow-lg p-4 p-md-5 rounded-4 bg-white d-none animate-slide-up">
+                <div class="mb-4 text-center">
+                    <div class="bg-warning-subtle text-warning rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
+                        <i class="bi bi-person-badge fs-2"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-1">Verify Identity</h4>
+                    <p class="text-muted small px-2">We couldn't detect your secure session. Enter your checkout details to continue.</p>
+                </div>
+                
+                <div class="mb-3 text-start">
+                    <label class="small fw-bold text-muted mb-1 ms-1">PHONE NUMBER</label>
+                    <input type="tel" id="verifyPhone" class="form-control bg-light border-0 py-3 rounded-pill px-4" placeholder="024 XXX XXXX">
+                </div>
+                
+                <div class="mb-4 text-start">
+                    <label class="small fw-bold text-muted mb-1 ms-1">DELIVERY PIN</label>
+                    <input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" id="verifyPin" class="form-control bg-light border-0 py-3 rounded-pill px-4" placeholder="Enter 4-digit PIN">
+                </div>
+                
+                <div id="identityErrorMsg" class="alert alert-danger d-none small rounded-3 mb-4 fw-bold"></div>
+                
+                <button id="verifyIdentityBtn" onclick="submitManualIdentity()" class="btn btn-dark w-100 rounded-pill fw-bold py-3 shadow-sm">
+                    Unlock Handoff
+                </button>
+            </div>
+
+            <div id="verifyCard" class="card border-0 shadow-lg p-5 rounded-4 bg-white d-none animate-slide-up">
                 <div class="mb-4">
                     <div class="bg-info-subtle text-info rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
                         <i class="bi bi-shield-lock-fill fs-1"></i>
@@ -24,7 +55,6 @@
                     </p>
                 </div>
 
-                <!-- SWIPE SLIDER -->
                 <div class="swipe-track mb-3" id="swipeTrack" aria-label="Swipe to confirm and release payout">
                     <div class="swipe-fill" id="swipeFill"></div>
                     <div class="swipe-label" id="swipeLabel">
@@ -39,14 +69,13 @@
                 <div id="errorMsg" class="alert alert-danger d-none small rounded-3"></div>
             </div>
 
-            <!-- SUCCESS STATE (Hidden) -->
             <div id="successCard" class="card border-0 shadow-lg p-5 rounded-4 bg-white d-none animate-slide-up">
                 <div class="mb-4">
                     <div class="bg-success-subtle text-success rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
                         <i class="bi bi-check-circle-fill fs-1"></i>
                     </div>
                     <h3 class="fw-bold text-dark">Transaction Complete</h3>
-                    <p class="text-muted">The merchant's payout has been authorized. Thank you for using ProlyfiQ.</p>
+                    <p class="text-muted">The merchant's payout has been authorized. Thank you for using Ledgehold.</p>
                 </div>
                 <a href="/marketplace" class="btn btn-outline-dark rounded-pill w-100 fw-bold">Return to Marketplace</a>
             </div>
@@ -70,51 +99,122 @@
         }
     };
 
-    // 2. PARSE URL DATA & TRIGGER REAL-TIME STATE (TOKEN SECURED)
+    // Global Identity State Cache (Used to pass fallback credentials to the swipe trigger if needed)
+    let activeDeviceToken = localStorage.getItem('ledgehold_device_token');
+    let fallbackPhone = null;
+    let fallbackPin = null;
+
     const urlParams = new URLSearchParams(window.location.search);
     const listingId = urlParams.get('ref'); 
-    
-    if (listingId) {
-        document.getElementById('displayRef').innerText = "#" + listingId.toUpperCase();
 
-        // Pull the unique device token out of the site's cache/local storage
-        const deviceToken = localStorage.getItem('ledgehold_device_token');
-
-        // Pass the token along so the backend knows exactly WHO is scanning
-        fetch('/api/gatekeeper/review', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                listingId: listingId,
-                token: deviceToken
-            })
-        }).catch(err => console.warn("Review state tracking skipped."));
-    }
-
-    // 3. TRIGGER THE MATCH (Updated for 1-to-Many Architecture)
-    async function initiateGatekeeperMatch() {
-        const errorMsg = document.getElementById('errorMsg');
-
+    // 2. BOOTSTRAP THE SESSION ON LOAD
+    document.addEventListener("DOMContentLoaded", async () => {
         if (!listingId) {
-            errorMsg.innerText = "Error: Invalid Merchant QR code.";
-            errorMsg.classList.remove('d-none');
-            resetSlider();
+            document.getElementById('loadingCard').innerHTML = "<h5 class='text-danger fw-bold'>Invalid Request</h5><p>No item reference provided.</p>";
             return;
         }
 
+        document.getElementById('displayRef').innerText = "#" + listingId.toUpperCase();
+        
+        // Auto-fill the PIN if returning user is hitting the manual screen
+        const preferredPin = localStorage.getItem('ledgehold_preferred_pin');
+        if (preferredPin) {
+            document.getElementById('verifyPin').value = preferredPin;
+        }
+
+        // Attempt the automatic seamless token pathway first
+        try {
+            const res = await fetch('/api/gatekeeper/review', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ listingId: listingId, token: activeDeviceToken })
+            });
+
+            document.getElementById('loadingCard').classList.add('d-none');
+
+            if (res.ok) {
+                // Token matches correctly, show the swipe tracker instantly
+                document.getElementById('verifyCard').classList.remove('d-none');
+            } else {
+                // Token is dead, missing, or belongs to another order. Throw to manual verification.
+                document.getElementById('identityCard').classList.remove('d-none');
+            }
+        } catch (err) {
+            // Network execution failure, fallback to manual entry
+            document.getElementById('loadingCard').classList.add('d-none');
+            document.getElementById('identityCard').classList.remove('d-none');
+        }
+    });
+
+    // 3. MANUAL IDENTITY BYPASS (Fires when they submit the fallback popup)
+    window.submitManualIdentity = async function() {
+        const btn = document.getElementById('verifyIdentityBtn');
+        const phone = document.getElementById('verifyPhone').value.trim();
+        const pin = document.getElementById('verifyPin').value.trim();
+        const errorBox = document.getElementById('identityErrorMsg');
+        
+        errorBox.classList.add('d-none');
+        
+        if (!phone || !pin) {
+            errorBox.innerText = "Please enter both Phone and PIN.";
+            errorBox.classList.remove('d-none');
+            return;
+        }
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Verifying...';
+        
+        try {
+            const res = await fetch('/api/gatekeeper/review', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    listingId: listingId, 
+                    buyerPhone: phone,
+                    handoffPin: pin
+                })
+            });
+            
+            const result = await res.json();
+
+            if (res.ok && result.success) {
+                // Save the credentials in local JS memory so the swipe function can use them
+                fallbackPhone = phone;
+                fallbackPin = pin;
+                
+                document.getElementById('identityCard').classList.add('d-none');
+                document.getElementById('verifyCard').classList.remove('d-none');
+            } else {
+                throw new Error("Authentication Failed. Check your details.");
+            }
+        } catch(e) {
+            errorBox.innerText = e.message;
+            errorBox.classList.remove('d-none');
+            btn.disabled = false;
+            btn.innerHTML = 'Unlock Handoff';
+        }
+    };
+
+    // 4. TRIGGER THE MATCH (Swipe Execution)
+    async function initiateGatekeeperMatch() {
+        const errorMsg = document.getElementById('errorMsg');
         errorMsg.classList.add('d-none');
 
         try {
             const signature = await SecurityProtocol.getSignature();
 
+            // The payload securely bundles whichever identity method unlocked the screen
+            const payload = {
+                listingId: listingId, 
+                securityStamp: signature,
+                buyerPhone: fallbackPhone,
+                handoffPin: fallbackPin
+            };
+
             const response = await fetch('/api/gatekeeper/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    // CRITICAL: We now send 'listingId' to match the search query in app.py
-                    listingId: listingId, 
-                    securityStamp: signature
-                })
+                body: JSON.stringify(payload)
             });
 
             const result = await response.json();
@@ -123,10 +223,8 @@
                 document.getElementById('verifyCard').classList.add('d-none');
                 document.getElementById('successCard').classList.remove('d-none');
             } else {
-                // If the backend returns a 404 or False, it's a security mismatch
                 throw new Error(result.error || "Security Mismatch: This device did not authorize the original payment.");
             }
-
         } catch (err) {
             errorMsg.innerText = err.message;
             errorMsg.classList.remove('d-none');
@@ -134,7 +232,7 @@
         }
     }
 
-    // 4. SWIPE SLIDER LOGIC
+    // 5. SWIPE SLIDER LOGIC
     (function () {
         const track    = document.getElementById('swipeTrack');
         const thumb    = document.getElementById('swipeThumb');
@@ -151,7 +249,6 @@
         let currentX  = 0;
         let maxTravel = 0;
         
-        // Use a property on the element to track lock state
         track._sliderLocked = false;
 
         function getMaxTravel() {
@@ -171,7 +268,7 @@
             if (track._sliderLocked) return;
             dragging  = true;
             maxTravel = getMaxTravel();
-            startX    = (e.touches ? e.touches[0].clientX : e.clientX) - currentX;
+            startX    = (e.touches ? e.touches.clientX : e.clientX) - currentX;
             thumb.style.transition = 'none';
             fill.style.transition  = 'none';
             track.classList.add('is-dragging');
@@ -180,7 +277,7 @@
         function onMove(e) {
             if (!dragging || track._sliderLocked) return;
             e.preventDefault();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientX = e.touches ? e.touches.clientX : e.clientX;
             setPosition(clientX - startX);
         }
 
@@ -213,7 +310,7 @@
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup',   onEnd);
 
-        // Accessibility
+        // Accessibility Support
         thumb.addEventListener('keydown', async (e) => {
             if (track._sliderLocked) return;
             if (e.key === 'Enter' || e.key === ' ') {
@@ -228,14 +325,14 @@
             }
         });
 
-        // Reset listener
+        // Reset listener link
         track.addEventListener('slider-reset', () => {
             track._sliderLocked = false;
         });
     })();
 
-    // 5. RESET
-    function resetSlider() {
+    // 6. RESET UTILITY
+    window.resetSlider = function() {
         const thumb    = document.getElementById('swipeThumb');
         const fill     = document.getElementById('swipeFill');
         const labelTxt = document.getElementById('swipeLabelText');
@@ -260,6 +357,7 @@
     body { background-color: #f8fafc; }
     .bg-info-subtle    { background-color: #e0f2fe !important; }
     .bg-success-subtle { background-color: #dcfce7 !important; }
+    .bg-warning-subtle { background-color: #fef3c7 !important; }
     .animate-slide-up  { animation: slideUp 0.5s ease-out; }
     @keyframes slideUp {
         from { transform: translateY(30px); opacity: 0; }
@@ -282,11 +380,10 @@
     .swipe-track.is-dragging { border-color: #4f8ef7; }
     .swipe-track.is-locked   { cursor: default; border-color: #22c55e; }
 
-    /* coloured fill that grows as you drag */
     .swipe-fill {
         position: absolute;
         left: 0; top: 0; bottom: 0;
-        width: 52px;           /* starts at thumb width */
+        width: 52px;
         background: linear-gradient(90deg, #3b82f6, #6366f1);
         border-radius: 28px;
         opacity: 0.35;
@@ -300,7 +397,6 @@
         transition: width 0.25s ease, opacity 0.25s ease, background 0.4s;
     }
 
-    /* label centred in track */
     .swipe-label {
         position: absolute;
         inset: 0;
@@ -316,7 +412,6 @@
         transition: opacity 0.2s;
     }
 
-    /* draggable thumb */
     .swipe-thumb {
         position: absolute;
         left: 2px; top: 2px; bottom: 2px;

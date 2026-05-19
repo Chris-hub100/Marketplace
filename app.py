@@ -8,9 +8,11 @@ import firebase_admin
 import requests
 import hmac
 import hashlib
+import json
 from base64 import b64encode
 from firebase_admin import credentials, firestore, initialize_app
 from dotenv import load_dotenv
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 # Load environment variables
 load_dotenv(override=True)
@@ -166,6 +168,37 @@ def normalize_app_id(app_id):
         return None
     return str(app_id).strip().lower()
 
+def run_expiry_sweep():
+    print(f"🧹 Starting 120-Hour Expiry Sweep at {datetime.datetime.now()}...")
+    
+    orders_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders')
+    
+    # Target all currently active escrow orders
+    query = orders_ref.where(filter=FieldFilter('status', '==', 'paid_in_escrow')).get()
+    
+    expired_count = 0
+    now = datetime.datetime.now(datetime.timezone.utc)
+    
+    for doc in query:
+        data = doc.to_dict()
+        created_at = data.get('createdAt')
+        
+        if created_at:
+            # Convert Firestore timestamp to standard datetime
+            order_time = created_at.replace(tzinfo=datetime.timezone.utc)
+            time_diff = now - order_time
+            
+            # If the order is older than 5 days (120 hours)
+            if time_diff.total_seconds() > (120 * 3600):
+                print(f"⚠️ Flagging Order {doc.id} for Administrative Review (Expired 120h).")
+                doc.reference.update({"status": "requires_review"})
+                expired_count += 1
+                
+    print(f"✅ Sweep Complete. Flagged {expired_count} dead transactions.")
+
+if __name__ == "__main__":
+    run_expiry_sweep()
+
 # --- ROUTES --- (PRESERVED)
 
 @app.route('/')
@@ -315,6 +348,9 @@ def paystack_webhook():
             device_token = next((f['value'] for f in meta if f['variable_name'] == 'device_token'), "None")
             item_name = next((f['value'] for f in meta if f['variable_name'] == 'item_name'), "Item")
             
+            # --- NEW: Extract the buyer's custom Delivery PIN ---
+            user_defined_pin = next((f['value'] for f in meta if f['variable_name'] == 'delivery_pin'), None)
+            
             # --- THE BATON: Extract the Seller's Phone Number ---
             seller_momo = next((f['value'] for f in meta if f['variable_name'] == 'seller_phone'), None)
             
@@ -331,17 +367,18 @@ def paystack_webhook():
                 "listing_id": listing_id,
                 "securityStamp": {
                     "token": device_token,
-                    "ip": payload.get('ip_address') 
+                    "ip": payload.get('ip_address'),
+                    "handoffPin": user_defined_pin  # <--- Pin natively bound to the transaction
                 },
                 "item": item_name,
                 "amount": payload['amount'] / 100,
                 "buyerPhone": buyer_phone,
-                "momo": seller_momo,  # <--- Storing the seller's number as 'momo'
+                "momo": seller_momo,  
                 "paystack_ref": order_id, 
                 "createdAt": firestore.SERVER_TIMESTAMP
             })
             
-            print(f"✅ SECURED: Order {order_id} created. Merchant {seller_momo} linked.")
+            print(f"✅ SECURED: Order {order_id} created. PIN saved. Merchant {seller_momo} linked.")
 
             # ========================================================
             # 3. SANITIZE & SEND DUAL SMS NOTIFICATIONS
@@ -402,29 +439,51 @@ def paystack_webhook():
 def gatekeeper_verify():
     data = request.json
     listing_id = data.get('listingId') 
+    
+    # Path A parameters (Seamless Token)
     current_stamp = data.get('securityStamp') or {}
-    token = current_stamp.get('token')
+    token = current_stamp.get('token') or data.get('token')
 
-    # Guard clause: Fail fast if vital verification parameters are missing
-    if not listing_id or not token:
-        print("Verify Attempt Fail: Missing listingId or security token")
-        return jsonify({"success": False, "error": "Missing listing ID or device token."}), 400
+    # Path B parameters (Manual popup fallback)
+    buyer_phone = data.get('buyerPhone')
+    incoming_pin = data.get('handoffPin')
+
+    # Guard clause: We only strictly require the listingId upfront
+    if not listing_id:
+        print("Verify Attempt Fail: Missing listingId")
+        return jsonify({"success": False, "error": "Missing listing ID."}), 400
 
     try:
         # 1. Reference the orders collection
         orders_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders')
+        docs = []
 
-        # 2. Query for the specific escrow record 
-        # STRICT MATCH: Look ONLY for 'buyer_reviewing' to guarantee we grab the exact document the buyer just scanned
-        query = orders_ref.where('listing_id', '==', listing_id) \
-                          .where('securityStamp.token', '==', token) \
-                          .where('status', '==', 'buyer_reviewing') \
-                          .limit(1).get()
+        # ========================================================
+        # PATH A: Seamless Token Match
+        # ========================================================
+        # STRICT MATCH: Look ONLY for 'buyer_reviewing' to grab the exact document the buyer just scanned
+        if token:
+            query = orders_ref.where(filter=FieldFilter('listing_id', '==', listing_id)) \
+                              .where(filter=FieldFilter('status', '==', 'buyer_reviewing')) \
+                              .where(filter=FieldFilter('securityStamp.token', '==', token)) \
+                              .limit(1).get()
+            docs = list(query)
 
-        # Convert the custom QueryResultsList into a plain Python list
-        docs = list(query)
+        # ========================================================
+        # PATH B: Manual Phone + PIN Bypass
+        # ========================================================
+        if not docs and buyer_phone and incoming_pin:
+            p = str(buyer_phone).strip()
+            phone_variants = [p, '233' + p[1:] if p.startswith('0') else p, '0' + p[3:] if p.startswith('233') else p]
+            
+            query = orders_ref.where(filter=FieldFilter('listing_id', '==', listing_id)) \
+                              .where(filter=FieldFilter('status', '==', 'buyer_reviewing')) \
+                              .where(filter=FieldFilter('buyerPhone', 'in', phone_variants)) \
+                              .where(filter=FieldFilter('securityStamp.handoffPin', '==', str(incoming_pin))) \
+                              .limit(1).get()
+            docs = list(query)
 
-        # 3. Check results using the plain python list
+        # 3. Check results
         if not docs:
             print(f"Verify Attempt Fail: No matching active escrow for Listing {listing_id}.")
             return jsonify({
@@ -432,8 +491,7 @@ def gatekeeper_verify():
                 "error": "Authentication Failed"
             }), 404
 
-        # 4. Extract data cleanly from the plain list element
-        # FIXED: Added index to isolate the true DocumentSnapshot and prevent list type errors
+        # 4. Extract data cleanly 
         target_doc = docs[0]  
         order_data = target_doc.to_dict() 
         paystack_ref = target_doc.id 
@@ -453,21 +511,29 @@ def gatekeeper_verify():
             }), 404
 
         # ========================================================
-        # MANUAL TOKEN VALIDATION
+        # MANUAL VALIDATION
         # ========================================================
         actual_token = order_data.get('securityStamp', {}).get('token')
+        actual_pin = order_data.get('securityStamp', {}).get('handoffPin')
         
-        if actual_token != token:
+        # Verify the exact credentials the user submitted during this request
+        is_valid = False
+        if token and actual_token == token:
+            is_valid = True
+        elif incoming_pin and str(actual_pin) == str(incoming_pin):
+            is_valid = True
+            
+        if not is_valid:
             new_failures = failed_attempts + 1
             order_ref.update({"failed_attempts": new_failures})
-            print(f"⚠️ SECURITY: Invalid token attempt for Listing {listing_id}. Total failures: {new_failures}/5")
+            print(f"⚠️ SECURITY: Invalid token/PIN attempt for Listing {listing_id}. Total failures: {new_failures}/5")
             return jsonify({
                 "success": False, 
                 "error": "Authentication Failed"
             }), 404
 
         # ========================================================
-        # 5. CRITICAL: Update Database State FIRST (Token Validated)
+        # 5. CRITICAL: Update Database State FIRST (Credentials Validated)
         # ========================================================
         order_ref.update({
             "status": "completed",
@@ -536,31 +602,61 @@ def verify_order_landing():
 def gatekeeper_set_review():
     data = request.json
     listing_id = data.get('listingId')
-    token = data.get('token') # Extract the unique device token sent by the frontend
     
-    # Updated guard clause: Fail fast if either vital parameter is missing
-    if not listing_id or not token:
-        print("Review Attempt Fail: Missing listingId or security token")
-        return jsonify({"success": False, "error": "Missing validation parameters."}), 400
+    # Path A parameters
+    token = data.get('token') 
+    
+    # Path B parameters (Manual popup fallback)
+    buyer_phone = data.get('buyerPhone')
+    handoff_pin = data.get('handoffPin')
+    
+    # Updated guard clause: We only strictly require the listingId upfront. 
+    # The identity is verified via either token OR phone+pin below.
+    if not listing_id:
+        print("Review Attempt Fail: Missing listingId")
+        return jsonify({"success": False, "error": "Missing listing ID."}), 400
         
     try:
         orders_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders')
         
-        # 1. Query strictly for the active record matching BOTH listing_id and the unique buyer token
-        query = orders_ref.where('listing_id', '==', listing_id)\
-                          .where('securityStamp.token', '==', token)\
-                          .where('status', '==', 'paid_in_escrow')\
-                          .limit(1).get()
-        docs = list(query)
-        
+        docs = []
+
+        # ========================================================
+        # PATH A: Seamless Token Match
+        # ========================================================
+        if token:
+            query = orders_ref.where(filter=FieldFilter('listing_id', '==', listing_id))\
+                              .where(filter=FieldFilter('status', '==', 'paid_in_escrow'))\
+                              .where(filter=FieldFilter('securityStamp.token', '==', token))\
+                              .limit(1).get()
+            docs = list(query)
+
+        # ========================================================
+        # PATH B: Manual Phone + PIN Bypass (If token is missing/cleared)
+        # ========================================================
+        if not docs and buyer_phone and handoff_pin:
+            print(f"🔄 Identity Bypass: Attempting manual verification for Phone: {buyer_phone}")
+            
+            # Format phone to handle '054...' vs '23354...' vs '+233...' safely
+            p = str(buyer_phone).strip()
+            phone_variants = [p, '233' + p[1:] if p.startswith('0') else p, '0' + p[3:] if p.startswith('233') else p]
+            
+            query = orders_ref.where(filter=FieldFilter('listing_id', '==', listing_id))\
+                              .where(filter=FieldFilter('status', '==', 'paid_in_escrow'))\
+                              .where(filter=FieldFilter('buyerPhone', 'in', phone_variants))\
+                              .where(filter=FieldFilter('securityStamp.handoffPin', '==', str(handoff_pin)))\
+                              .limit(1).get()
+            docs = list(query)
+
+        # Final Identity Gate
         if not docs:
-            print(f"Review Sync Fail: No active escrow found for Listing {listing_id} with this token.")
+            print(f"Review Sync Fail: No active escrow found for Listing {listing_id} with provided credentials.")
             return jsonify({"success": False, "error": "Authentication Failed"}), 404
             
-        # 2. FIXED: Explicitly extract the single DocumentSnapshot using index
+        # FIXED: Explicitly extract the single DocumentSnapshot using index
         target_doc = docs[0]
         
-        # 3. Advance the order state to flip the merchant's UI screen to blue
+        # Advance the order state to flip the merchant's UI screen to blue
         target_doc.reference.update({"status": "buyer_reviewing"})
         print(f"🔒 STATE UPDATE: Order {target_doc.id} shifted to buyer_reviewing state.")
         
