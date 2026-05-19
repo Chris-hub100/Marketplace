@@ -292,7 +292,7 @@
             if (track._sliderLocked) return;
             dragging  = true;
             maxTravel = getMaxTravel();
-            startX    = (e.touches ? e.touches.clientX : e.clientX) - currentX;
+            startX    = (e.touches ? e.touches[0].clientX : e.clientX) - currentX;
             thumb.style.transition = 'none';
             fill.style.transition  = 'none';
             track.classList.add('is-dragging');
@@ -301,7 +301,7 @@
         function onMove(e) {
             if (!dragging || track._sliderLocked) return;
             e.preventDefault();
-            const clientX = e.touches ? e.touches.clientX : e.clientX;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             setPosition(clientX - startX);
         }
 
