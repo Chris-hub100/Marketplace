@@ -464,7 +464,7 @@ def gatekeeper_verify():
         # STRICT MATCH: Look ONLY for 'buyer_reviewing' to grab the exact document the buyer just scanned
         if token:
             query = orders_ref.where(filter=FieldFilter('listing_id', '==', listing_id)) \
-                              .where(filter=FieldFilter('status', '==', 'buyer_reviewing')) \
+                              .where(filter=FieldFilter('status', 'in', ['paid_in_escrow', 'buyer_reviewing']))\
                               .where(filter=FieldFilter('securityStamp.token', '==', token)) \
                               .limit(1).get()
             docs = list(query)
@@ -477,7 +477,7 @@ def gatekeeper_verify():
             phone_variants = [p, '233' + p[1:] if p.startswith('0') else p, '0' + p[3:] if p.startswith('233') else p]
             
             query = orders_ref.where(filter=FieldFilter('listing_id', '==', listing_id)) \
-                              .where(filter=FieldFilter('status', '==', 'buyer_reviewing')) \
+                              .where(filter=FieldFilter('status', 'in', ['paid_in_escrow', 'buyer_reviewing']))\
                               .where(filter=FieldFilter('buyerPhone', 'in', phone_variants)) \
                               .where(filter=FieldFilter('securityStamp.handoffPin', '==', str(incoming_pin))) \
                               .limit(1).get()

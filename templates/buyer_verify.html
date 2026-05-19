@@ -7,10 +7,29 @@
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
             
-            <div id="loadingCard" class="card border-0 p-5 rounded-4 bg-transparent animate-slide-up">
-                <div class="spinner-border text-primary mx-auto mb-3" role="status" style="width: 3rem; height: 3rem;"></div>
-                <h5 class="fw-bold text-dark">Securing Session...</h5>
-                <p class="text-muted small">Connecting to Ledgehold Gatekeeper</p>
+            <div id="quickIdentityCard" class="card border-0 shadow-lg p-4 p-md-5 rounded-4 bg-white d-none animate-slide-up">
+                <div class="mb-4 text-center">
+                    <div class="bg-primary-subtle text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
+                        <i class="bi bi-lock-fill fs-2"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-1">Verify Handoff</h4>
+                    <p class="text-muted small px-2">Enter your 4-digit Delivery PIN to unlock the transaction.</p>
+                </div>
+                
+                <div class="mb-4 text-start">
+                    <label class="small fw-bold text-muted mb-1 ms-1">DELIVERY PIN</label>
+                    <input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" id="quickPin" class="form-control bg-light border-0 py-3 rounded-pill px-4" placeholder="Enter 4-digit PIN">
+                </div>
+                
+                <div id="quickErrorMsg" class="alert alert-danger d-none small rounded-3 mb-4 fw-bold"></div>
+                
+                <button id="quickVerifyBtn" onclick="submitQuickIdentity()" class="btn btn-primary w-100 rounded-pill fw-bold py-3 shadow-sm mb-3">
+                    Unlock Handoff
+                </button>
+
+                <button onclick="switchToManual()" class="btn btn-link text-muted small text-decoration-none shadow-none">
+                    Encountering a problem?
+                </button>
             </div>
 
             <div id="identityCard" class="card border-0 shadow-lg p-4 p-md-5 rounded-4 bg-white d-none animate-slide-up">
@@ -19,7 +38,7 @@
                         <i class="bi bi-person-badge fs-2"></i>
                     </div>
                     <h4 class="fw-bold text-dark mb-1">Verify Identity</h4>
-                    <p class="text-muted small px-2">We couldn't detect your secure session. Enter your checkout details to continue.</p>
+                    <p class="text-muted small px-2">We couldn't detect your secure session. Enter your checkout details.</p>
                 </div>
                 
                 <div class="mb-3 text-start">
@@ -61,7 +80,7 @@
                         <span id="swipeLabelText">Slide to Release &rarr;</span>
                         <span id="swipeSpinner" class="spinner-border spinner-border-sm d-none ms-2" role="status"></span>
                     </div>
-                    <div class="swipe-thumb" id="swipeThumb" role="button" tabindex="0" aria-label="Drag to release payment">
+                    <div class="swipe-thumb" id="swipeThumb" role="button" tabindex="0">
                         <i class="bi bi-chevron-double-right" id="thumbIcon"></i>
                     </div>
                 </div>
@@ -75,7 +94,7 @@
                         <i class="bi bi-check-circle-fill fs-1"></i>
                     </div>
                     <h3 class="fw-bold text-dark">Transaction Complete</h3>
-                    <p class="text-muted">The merchant's payout has been authorized. Thank you for using Ledgehold.</p>
+                    <p class="text-muted">The merchant's payout has been authorized.</p>
                 </div>
                 <a href="/marketplace" class="btn btn-outline-dark rounded-pill w-100 fw-bold">Return to Marketplace</a>
             </div>
@@ -85,7 +104,6 @@
 </div>
 
 <script>
-    // 1. THE SECURITY ENGINE
     const SecurityProtocol = {
         async getSignature() {
             let token = localStorage.getItem('ledgehold_device_token');
@@ -94,12 +112,11 @@
                 const res = await fetch('https://api.ipify.org?format=json');
                 const data = await res.json();
                 ip = data.ip;
-            } catch (e) { console.warn("Signature bypass detected."); }
+            } catch (e) { }
             return { token, ip };
         }
     };
 
-    // Global Identity State Cache (Used to pass fallback credentials to the swipe trigger if needed)
     let activeDeviceToken = localStorage.getItem('ledgehold_device_token');
     let fallbackPhone = null;
     let fallbackPin = null;
@@ -107,59 +124,38 @@
     const urlParams = new URLSearchParams(window.location.search);
     const listingId = urlParams.get('ref'); 
 
-    // 2. BOOTSTRAP THE SESSION ON LOAD
+    // BOOTSTRAP THE SESSION ON LOAD
     document.addEventListener("DOMContentLoaded", async () => {
-        if (!listingId) {
-            document.getElementById('loadingCard').innerHTML = "<h5 class='text-danger fw-bold'>Invalid Request</h5><p>No item reference provided.</p>";
-            return;
-        }
-
+        if (!listingId) return;
         document.getElementById('displayRef').innerText = "#" + listingId.toUpperCase();
         
-        // Auto-fill the PIN if returning user is hitting the manual screen
         const preferredPin = localStorage.getItem('ledgehold_preferred_pin');
         if (preferredPin) {
+            document.getElementById('quickPin').value = preferredPin;
             document.getElementById('verifyPin').value = preferredPin;
         }
 
-        // Attempt the automatic seamless token pathway first
-        try {
-            const res = await fetch('/api/gatekeeper/review', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ listingId: listingId, token: activeDeviceToken })
-            });
-
-            document.getElementById('loadingCard').classList.add('d-none');
-
-            if (res.ok) {
-                // Token matches correctly, show the swipe tracker instantly
-                document.getElementById('verifyCard').classList.remove('d-none');
-            } else {
-                // Token is dead, missing, or belongs to another order. Throw to manual verification.
-                document.getElementById('identityCard').classList.remove('d-none');
-            }
-        } catch (err) {
-            // Network execution failure, fallback to manual entry
-            document.getElementById('loadingCard').classList.add('d-none');
+        // Intelligently show the correct initial card based on browser state
+        if (activeDeviceToken) {
+            document.getElementById('quickIdentityCard').classList.remove('d-none');
+        } else {
             document.getElementById('identityCard').classList.remove('d-none');
         }
     });
 
-    // 3. MANUAL IDENTITY BYPASS (Fires when they submit the fallback popup)
-    window.submitManualIdentity = async function() {
-        const btn = document.getElementById('verifyIdentityBtn');
-        const phone = document.getElementById('verifyPhone').value.trim();
-        const pin = document.getElementById('verifyPin').value.trim();
-        const errorBox = document.getElementById('identityErrorMsg');
+    window.switchToManual = function() {
+        document.getElementById('quickIdentityCard').classList.add('d-none');
+        document.getElementById('identityCard').classList.remove('d-none');
+    };
+
+    // PROCESS PATH A: QUICK PIN (Token Exists)
+    window.submitQuickIdentity = async function() {
+        const btn = document.getElementById('quickVerifyBtn');
+        const pin = document.getElementById('quickPin').value.trim();
+        const errorBox = document.getElementById('quickErrorMsg');
         
         errorBox.classList.add('d-none');
-        
-        if (!phone || !pin) {
-            errorBox.innerText = "Please enter both Phone and PIN.";
-            errorBox.classList.remove('d-none');
-            return;
-        }
+        if (!pin) { errorBox.innerText = "Please enter your PIN."; errorBox.classList.remove('d-none'); return; }
         
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Verifying...';
@@ -168,22 +164,54 @@
             const res = await fetch('/api/gatekeeper/review', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    listingId: listingId, 
-                    buyerPhone: phone,
-                    handoffPin: pin
-                })
+                body: JSON.stringify({ listingId: listingId, token: activeDeviceToken, handoffPin: pin })
             });
-            
             const result = await res.json();
 
             if (res.ok && result.success) {
-                // Save the credentials in local JS memory so the swipe function can use them
+                fallbackPin = pin; // Store for the final swipe
+                document.getElementById('quickIdentityCard').classList.add('d-none');
+                document.getElementById('verifyCard').classList.remove('d-none');
+                // Auto-refresh swipe tracker bounds just in case
+                track.dispatchEvent(new CustomEvent('slider-reset'));
+            } else {
+                throw new Error("Invalid PIN or expired session.");
+            }
+        } catch(e) {
+            errorBox.innerText = e.message;
+            errorBox.classList.remove('d-none');
+            btn.disabled = false;
+            btn.innerHTML = 'Unlock Handoff';
+        }
+    };
+
+    // PROCESS PATH B: MANUAL (Phone + PIN)
+    window.submitManualIdentity = async function() {
+        const btn = document.getElementById('verifyIdentityBtn');
+        const phone = document.getElementById('verifyPhone').value.trim();
+        const pin = document.getElementById('verifyPin').value.trim();
+        const errorBox = document.getElementById('identityErrorMsg');
+        
+        errorBox.classList.add('d-none');
+        if (!phone || !pin) { errorBox.innerText = "Please enter both Phone and PIN."; errorBox.classList.remove('d-none'); return; }
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Verifying...';
+        
+        try {
+            const res = await fetch('/api/gatekeeper/review', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ listingId: listingId, buyerPhone: phone, handoffPin: pin })
+            });
+            const result = await res.json();
+
+            if (res.ok && result.success) {
                 fallbackPhone = phone;
                 fallbackPin = pin;
-                
                 document.getElementById('identityCard').classList.add('d-none');
                 document.getElementById('verifyCard').classList.remove('d-none');
+                track.dispatchEvent(new CustomEvent('slider-reset'));
             } else {
                 throw new Error("Authentication Failed. Check your details.");
             }
@@ -195,15 +223,13 @@
         }
     };
 
-    // 4. TRIGGER THE MATCH (Swipe Execution)
+    // TRIGGER FINAL MATCH ON SWIPE
     async function initiateGatekeeperMatch() {
         const errorMsg = document.getElementById('errorMsg');
         errorMsg.classList.add('d-none');
 
         try {
             const signature = await SecurityProtocol.getSignature();
-
-            // The payload securely bundles whichever identity method unlocked the screen
             const payload = {
                 listingId: listingId, 
                 securityStamp: signature,
@@ -216,14 +242,13 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-
             const result = await response.json();
 
             if (response.ok && result.verified) {
                 document.getElementById('verifyCard').classList.add('d-none');
                 document.getElementById('successCard').classList.remove('d-none');
             } else {
-                throw new Error(result.error || "Security Mismatch: This device did not authorize the original payment.");
+                throw new Error(result.error || "Security Mismatch.");
             }
         } catch (err) {
             errorMsg.innerText = err.message;
@@ -232,9 +257,9 @@
         }
     }
 
-    // 5. SWIPE SLIDER LOGIC
+    // SWIPE SLIDER LOGIC
+    const track = document.getElementById('swipeTrack');
     (function () {
-        const track    = document.getElementById('swipeTrack');
         const thumb    = document.getElementById('swipeThumb');
         const fill     = document.getElementById('swipeFill');
         const labelTxt = document.getElementById('swipeLabelText');
@@ -252,7 +277,10 @@
         track._sliderLocked = false;
 
         function getMaxTravel() {
-            return track.offsetWidth - THUMB_W - 4; 
+            // THE FIX: Forces true width calculation when unhidden
+            const realWidth = track.getBoundingClientRect().width || track.offsetWidth;
+            const safeWidth = realWidth > 0 ? realWidth : 300; 
+            return safeWidth - THUMB_W - 4; 
         }
 
         function setPosition(x) {
@@ -310,35 +338,17 @@
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup',   onEnd);
 
-        // Accessibility Support
-        thumb.addEventListener('keydown', async (e) => {
-            if (track._sliderLocked) return;
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                track._sliderLocked = true;
-                setPosition(getMaxTravel());
-                labelTxt.style.opacity = '0';
-                spinner.classList.remove('d-none');
-                icon.className = 'bi bi-lock-fill';
-                track.classList.add('is-locked');
-                await initiateGatekeeperMatch();
-            }
-        });
-
-        // Reset listener link
         track.addEventListener('slider-reset', () => {
             track._sliderLocked = false;
         });
     })();
 
-    // 6. RESET UTILITY
     window.resetSlider = function() {
         const thumb    = document.getElementById('swipeThumb');
         const fill     = document.getElementById('swipeFill');
         const labelTxt = document.getElementById('swipeLabelText');
         const spinner  = document.getElementById('swipeSpinner');
         const icon     = document.getElementById('thumbIcon');
-        const track    = document.getElementById('swipeTrack');
 
         thumb.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
         thumb.style.transform = 'translateX(0)';
@@ -358,6 +368,7 @@
     .bg-info-subtle    { background-color: #e0f2fe !important; }
     .bg-success-subtle { background-color: #dcfce7 !important; }
     .bg-warning-subtle { background-color: #fef3c7 !important; }
+    .bg-primary-subtle { background-color: #cce0ff !important; }
     .animate-slide-up  { animation: slideUp 0.5s ease-out; }
     @keyframes slideUp {
         from { transform: translateY(30px); opacity: 0; }
@@ -433,9 +444,5 @@
     .swipe-thumb:active,
     .is-dragging .swipe-thumb { cursor: grabbing; box-shadow: 0 4px 16px rgba(59,130,246,0.25); }
     .is-locked   .swipe-thumb { color: #16a34a; cursor: default; box-shadow: none; }
-    .swipe-thumb:focus-visible {
-        outline: 3px solid #6366f1;
-        outline-offset: 2px;
-    }
 </style>
 {% endblock %}
