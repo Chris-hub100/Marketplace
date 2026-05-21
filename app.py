@@ -554,8 +554,13 @@ def paystack_webhook():
             device_token = next((f['value'] for f in meta if f['variable_name'] == 'device_token'), "None")
             item_name = next((f['value'] for f in meta if f['variable_name'] == 'item_name'), "Item")
             
-            # --- NEW: Extract the buyer's custom Delivery PIN ---
+            # --- NEW: Extract and immediately hash the buyer's custom Delivery PIN ---
             user_defined_pin = next((f['value'] for f in meta if f['variable_name'] == 'delivery_pin'), None)
+            
+            hashed_handoff_pin = None
+            if user_defined_pin:
+                # Cryptographically hash the plain-text PIN before it is stored at rest
+                hashed_handoff_pin = hashlib.sha256(str(user_defined_pin).strip().encode('utf-8')).hexdigest()
             
             # --- THE BATON: Extract the Seller's Phone Number ---
             seller_momo = next((f['value'] for f in meta if f['variable_name'] == 'seller_phone'), None)
@@ -574,7 +579,7 @@ def paystack_webhook():
                 "securityStamp": {
                     "token": device_token,
                     "ip": payload.get('ip_address'),
-                    "handoffPin": user_defined_pin  # <--- Pin natively bound to the transaction
+                    "handoffPin": hashed_handoff_pin  # 🔒 FIXED: Stored as a secure SHA-256 signature
                 },
                 "item": item_name,
                 "amount": payload['amount'] / 100,
