@@ -15,12 +15,11 @@
   var __firebase_config = '{{ __firebase_config | safe if __firebase_config else "{}" }}';
   
   // CLOUDINARY CONFIG 
-  const CLOUD_NAME = 'dze9o4ymx'; // Verified Cloud Name
+  const CLOUD_NAME = 'dze9o4ymx';
   const UPLOAD_PRESET = 'ledgehold_uploads'; 
   
   let db = null;
 
-  // Initialize Firebase App
   const config = JSON.parse(__firebase_config);
   if (config && config.apiKey) { 
       try {
@@ -33,6 +32,59 @@
           console.error("Firebase Setup Failed:", initErr);
       }
   }
+
+  /**
+   * PHONE NUMBER VALIDATION
+   * Must be exactly 10 digits starting with 0
+   */
+  function validateGhanaPhone(number, fieldLabel) {
+    const cleaned = number.replace(/\s/g, '');
+    if (!/^\d+$/.test(cleaned)) {
+      return `${fieldLabel} must contain only digits.`;
+    }
+    if (cleaned.length !== 10) {
+      return `${fieldLabel} must be exactly 10 digits.`;
+    }
+    if (!cleaned.startsWith('0')) {
+      return `${fieldLabel} must start with 0 (e.g. 0240000000).`;
+    }
+    return null;
+  }
+
+  /**
+   * INLINE VALIDATION ON BLUR
+   */
+  function attachPhoneValidation(inputId, fieldLabel) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.addEventListener('blur', function() {
+      const val = this.value.trim();
+      if (!val) return;
+      const err = validateGhanaPhone(val, fieldLabel);
+      const existing = document.getElementById(inputId + '_err');
+      if (existing) existing.remove();
+      if (err) {
+        const msg = document.createElement('div');
+        msg.id = inputId + '_err';
+        msg.className = 'text-danger small mt-1 px-2';
+        msg.innerHTML = `<i class="bi bi-exclamation-circle-fill me-1"></i>${err}`;
+        this.parentNode.appendChild(msg);
+        this.classList.add('border-danger');
+      } else {
+        this.classList.remove('border-danger');
+      }
+    });
+    input.addEventListener('input', function() {
+      const existing = document.getElementById(inputId + '_err');
+      if (existing) existing.remove();
+      this.classList.remove('border-danger');
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    attachPhoneValidation('whatsapp', 'WhatsApp Number');
+    attachPhoneValidation('momo', 'MoMo Number');
+  });
 
   /**
    * HELPER: IMAGE COMPRESSION ENGINE
@@ -49,21 +101,16 @@
                 let width = img.width;
                 let height = img.height;
                 const MAX_DIM = 1200;
-
                 if (width > height) {
                     if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; }
                 } else {
                     if (height > MAX_DIM) { width *= MAX_DIM / height; height = MAX_DIM; }
                 }
-
                 canvas.width = width;
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-
-                canvas.toBlob((blob) => {
-                    resolve(blob);
-                }, 'image/jpeg', 0.7);
+                canvas.toBlob((blob) => { resolve(blob); }, 'image/jpeg', 0.7);
             };
             img.onerror = reject;
         };
@@ -77,7 +124,6 @@
   window.previewFile = function(input, targetContainerId, targetImgId) {
       const container = document.getElementById(targetContainerId);
       const img = document.getElementById(targetImgId);
-      
       if (input.files && input.files[0]) {
           const reader = new FileReader();
           reader.onload = function(e) {
@@ -97,62 +143,142 @@
   };
 
   /**
-   * MAIN ONBOARDING: KYC Submission & Automated Email Dispatch
+   * CONFIRMATION MODAL: STEP LOGIC
    */
-  window.submitOnboarding = async function(event) {
+  let currentConfirmStep = 1;
+  const TOTAL_CONFIRM_STEPS = 3;
+
+  window.goToConfirmStep = function(step) {
+    for (let i = 1; i <= TOTAL_CONFIRM_STEPS; i++) {
+      const el = document.getElementById('confirmStep' + i);
+      if (el) el.classList.add('d-none');
+    }
+    const target = document.getElementById('confirmStep' + step);
+    if (target) target.classList.remove('d-none');
+
+    // Update progress dots
+    document.querySelectorAll('.confirm-dot').forEach((dot, idx) => {
+      dot.classList.toggle('active', idx + 1 === step);
+      dot.classList.toggle('done', idx + 1 < step);
+    });
+
+    currentConfirmStep = step;
+  };
+
+  /**
+   * FORM VALIDATION & OPEN CONFIRMATION MODAL
+   */
+  window.openConfirmModal = function(event) {
     event.preventDefault();
-    
-    const submitBtn = document.getElementById('submitBtn');
-    const submitBtnText = document.getElementById('submitBtnText');
-    const loadingSpinner = document.getElementById('loadingSpinner');
-    const idFileInput = document.getElementById('studentId');
-    const selfieFileInput = document.getElementById('selfiePhoto');
+
     const errorBox = document.getElementById('errorBox');
-    
-    if (!idFileInput || !idFileInput.files || !selfieFileInput || !selfieFileInput.files) {
-        alert("Both Student ID and Selfie are required for verification.");
-        return;
+    errorBox.classList.add('d-none');
+
+    // Validate phone numbers
+    const whatsapp = document.getElementById('whatsapp').value.trim();
+    const momo = document.getElementById('momo').value.trim();
+
+    const whatsappErr = validateGhanaPhone(whatsapp, 'WhatsApp Number');
+    const momoErr = validateGhanaPhone(momo, 'MoMo Number');
+
+    if (whatsappErr || momoErr) {
+      errorBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>${whatsappErr || momoErr}`;
+      errorBox.classList.remove('d-none');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
     }
 
-    errorBox.classList.add('d-none');
-    if (submitBtn) submitBtn.disabled = true;
-    if (loadingSpinner) loadingSpinner.classList.remove('d-none');
-    if (submitBtnText) submitBtnText.innerText = 'Optimizing & Sending Request...';
+    // Validate files
+    const idFileInput = document.getElementById('studentId');
+    const selfieFileInput = document.getElementById('selfiePhoto');
+
+    if (!idFileInput || !idFileInput.files || idFileInput.files.length === 0) {
+      errorBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>Please scan your Student ID before submitting.`;
+      errorBox.classList.remove('d-none');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (!selfieFileInput || !selfieFileInput.files || selfieFileInput.files.length === 0) {
+      errorBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>Please take a live selfie before submitting.`;
+      errorBox.classList.remove('d-none');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    // Populate summary card
+    const fullName = document.getElementById('fullName').value.trim();
+    const university = document.getElementById('university').value;
+    const course = document.getElementById('course').value.trim();
+
+    document.getElementById('summaryName').textContent = fullName || '—';
+    document.getElementById('summaryUniversity').textContent = university || '—';
+    document.getElementById('summaryCourse').textContent = course || '—';
+    document.getElementById('summaryWhatsapp').textContent = whatsapp || '—';
+    document.getElementById('summaryMomo').textContent = momo || '—';
+
+    // Populate ID preview in modal
+    const idSrc = document.getElementById('idPreviewImg').src;
+    document.getElementById('confirmIdImg').src = idSrc;
+
+    // Populate selfie preview in modal
+    const selfieSrc = document.getElementById('selfiePreviewImg').src;
+    document.getElementById('confirmSelfieImg').src = selfieSrc;
+
+    // Reset to step 1
+    goToConfirmStep(1);
+
+    const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    confirmModal.show();
+  };
+
+  /**
+   * MAIN ONBOARDING: KYC Submission & Automated Email Dispatch
+   */
+  window.submitOnboarding = async function() {
+    const submitFinalBtn = document.getElementById('submitFinalBtn');
+    const submitFinalBtnText = document.getElementById('submitFinalBtnText');
+    const submitFinalSpinner = document.getElementById('submitFinalSpinner');
+    const idFileInput = document.getElementById('studentId');
+    const selfieFileInput = document.getElementById('selfiePhoto');
+
+    if (submitFinalBtn) submitFinalBtn.disabled = true;
+    if (submitFinalSpinner) submitFinalSpinner.classList.remove('d-none');
+    if (submitFinalBtnText) submitFinalBtnText.innerText = 'Uploading & Submitting...';
 
     try {
         // 1. Compress & Upload Student ID to Cloudinary
-        const compressedId = await compressImage(idFileInput.files);
+        const targetIdBlobFile = idFileInput.files.item(0);
+        const compressedId = await compressImage(targetIdBlobFile);
         const idFormData = new FormData();
         idFormData.append("file", compressedId);
         idFormData.append("upload_preset", UPLOAD_PRESET);
-        
         const idResp = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: "POST", body: idFormData });
         const idRes = await idResp.json();
-        if (!idRes.secure_url) throw new Error("ID Asset synchronization failed.");
+        if (!idRes.secure_url) throw new Error("ID sync failed.");
 
         // 2. Compress & Upload Selfie to Cloudinary
-        const compressedSelfie = await compressImage(selfieFileInput.files);
+        const targetSelfieBlobFile = selfieFileInput.files.item(0);
+        const compressedSelfie = await compressImage(targetSelfieBlobFile);
         const selfieFormData = new FormData();
         selfieFormData.append("file", compressedSelfie);
         selfieFormData.append("upload_preset", UPLOAD_PRESET);
-        
         const sResp = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: "POST", body: selfieFormData });
         const sRes = await sResp.json();
-        if (!sRes.secure_url) throw new Error("Selfie Asset synchronization failed.");
+        if (!sRes.secure_url) throw new Error("Selfie sync failed.");
 
-        // 3. Prepare Data with Unique Discriminator
+        // 3. Prepare Payload
         const fullName = document.getElementById('fullName').value.trim();
         const momo = document.getElementById('momo').value.trim();
         const university = document.getElementById('university').value;
         const course = document.getElementById('course').value.trim();
         const whatsapp = document.getElementById('whatsapp').value.trim();
-        
         const discriminator = momo.slice(-4);
         const uniqueMerchantId = `${fullName} ${discriminator}`;
 
         const payload = {
-            merchantId: uniqueMerchantId, 
-            fullName: fullName,          
+            merchantId: uniqueMerchantId,
+            fullName: fullName,
             university: university,
             course: course,
             whatsapp: whatsapp,
@@ -163,38 +289,38 @@
             status: 'pending'
         };
 
-        // 4. Save to Firestore (Database Backup log)
+        // 4. Save to Firestore
         await db.collection('artifacts').doc(__app_id)
             .collection('public').doc('data')
             .collection('pending_merchants').add(payload);
 
-        // 5. AUTOMATED INTEGRATION: Dispatch to Universal Switchboard Backend
+        // 5. Dispatch to Switchboard Backend
         const emailResponse = await fetch('/api/email/dispatch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: "kyc_submitted",
-                payload: payload
-            })
+            body: JSON.stringify({ type: "kyc_submitted", payload: payload })
         });
 
         if (!emailResponse.ok) {
             console.warn("Switchboard Notification delayed, but document safely logged in Firestore.");
         }
 
-        // 6. Launch Success Confirmation Modal
+        // 6. Close confirm modal, show success modal
+        bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
         const successModal = new bootstrap.Modal(document.getElementById('successModal'));
         successModal.show();
 
     } catch (e) {
         console.error("Ledgehold Security Intercept:", e);
-        errorBox.innerText = e.message || "Onboarding pipeline failed. Verify connectivity.";
+        bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
+        const errorBox = document.getElementById('errorBox');
+        errorBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>${e.message || "Onboarding pipeline failed. Verify connectivity."}`;
         errorBox.classList.remove('d-none');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
-        if (submitBtn) submitBtn.disabled = false;
-        if (loadingSpinner) loadingSpinner.classList.add('d-none');
-        if (submitBtnText) submitBtnText.innerText = 'Submit Verification Request';
+        if (submitFinalBtn) submitFinalBtn.disabled = false;
+        if (submitFinalSpinner) submitFinalSpinner.classList.add('d-none');
+        if (submitFinalBtnText) submitFinalBtnText.innerText = 'Confirm & Submit';
     }
   };
 </script>
@@ -209,7 +335,7 @@
                 <p class="text-muted small">Verify your institutional identity to run your business with us.</p>
             </div>
 
-            <form onsubmit="submitOnboarding(event)">
+            <form onsubmit="openConfirmModal(event)">
                 <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 bg-white border">
                     <h6 class="fw-bold mb-4 text-primary text-uppercase small" style="letter-spacing: 1px;"><i class="bi bi-person-badge-fill me-2"></i>Institutional Identity</h6>
                     
@@ -272,13 +398,14 @@
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label small fw-bold text-muted">WhatsApp Number</label>
-                            <input type="tel" id="whatsapp" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" placeholder="0240000000" required>
+                            <input type="tel" id="whatsapp" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" placeholder="0240000000" maxlength="10" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small fw-bold text-muted">MoMo Number</label>
-                            <input type="tel" id="momo" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" placeholder="0550000000" required>
+                            <input type="tel" id="momo" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" placeholder="0550000000" maxlength="10" required>
                         </div>
                     </div>
+                    <p class="text-muted mt-2 mb-0 px-1" style="font-size: 0.7rem;"><i class="bi bi-info-circle me-1"></i>Must be 10 digits starting with 0 (e.g. 0240000000)</p>
                 </div>
 
                 <div class="card bg-dark text-white p-4 mb-4 rounded-4 shadow-lg border-0">
@@ -299,8 +426,7 @@
 
                 <div class="d-grid gap-2">
                     <button type="submit" id="submitBtn" class="btn btn-primary btn-lg rounded-pill fw-bold py-3 shadow-lg">
-                        <span id="loadingSpinner" class="spinner-border spinner-border-sm d-none me-2" role="status"></span>
-                        <span id="submitBtnText">Submit Verification Request</span>
+                        <span id="submitBtnText">Review & Submit</span>
                     </button>
                     <p class="text-center text-muted mt-2" style="font-size: 0.65rem;">
                         <i class="bi bi-lock-fill me-1"></i> Your sensitive documents are encrypted during transfer.
@@ -311,6 +437,113 @@
     </div>
 </div>
 
+<!-- ===================== CONFIRMATION MODAL ===================== -->
+<div class="modal fade" id="confirmModal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 28px; overflow: hidden;">
+
+            <!-- Modal Header -->
+            <div class="modal-header border-0 px-4 pt-4 pb-0 d-flex align-items-center justify-content-between">
+                <div>
+                    <h5 class="fw-bold text-dark mb-0">Review Your Submission</h5>
+                    <p class="text-muted mb-0" style="font-size: 0.75rem;">Step <span id="stepIndicatorText">1</span> of 3</p>
+                </div>
+                <!-- Progress Dots -->
+                <div class="d-flex gap-2 align-items-center">
+                    <span class="confirm-dot active" data-step="1"></span>
+                    <span class="confirm-dot" data-step="2"></span>
+                    <span class="confirm-dot" data-step="3"></span>
+                </div>
+            </div>
+
+            <div class="modal-body px-4 py-4">
+
+                <!-- STEP 1: Details Summary -->
+                <div id="confirmStep1">
+                    <p class="text-muted small mb-3">Please confirm your details are correct before proceeding.</p>
+                    <div class="summary-card rounded-4 p-4 mb-3" style="background: #f8fafc; border: 1px solid #e9ecef;">
+                        <div class="summary-row">
+                            <span class="summary-label">Full Name</span>
+                            <span class="summary-value fw-semibold" id="summaryName">—</span>
+                        </div>
+                        <div class="summary-divider"></div>
+                        <div class="summary-row">
+                            <span class="summary-label">University</span>
+                            <span class="summary-value" id="summaryUniversity">—</span>
+                        </div>
+                        <div class="summary-divider"></div>
+                        <div class="summary-row">
+                            <span class="summary-label">Course</span>
+                            <span class="summary-value" id="summaryCourse">—</span>
+                        </div>
+                        <div class="summary-divider"></div>
+                        <div class="summary-row">
+                            <span class="summary-label">WhatsApp</span>
+                            <span class="summary-value" id="summaryWhatsapp">—</span>
+                        </div>
+                        <div class="summary-divider"></div>
+                        <div class="summary-row">
+                            <span class="summary-label">MoMo Number</span>
+                            <span class="summary-value" id="summaryMomo">—</span>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-4 fw-semibold" data-bs-dismiss="modal">
+                            <i class="bi bi-pencil-fill me-1"></i> Edit
+                        </button>
+                        <button type="button" class="btn btn-primary rounded-pill fw-bold flex-grow-1" onclick="goToConfirmStep(2); document.getElementById('stepIndicatorText').textContent='2';">
+                            Next <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP 2: Student ID Preview -->
+                <div id="confirmStep2" class="d-none">
+                    <p class="text-muted small mb-3">Check that your Student ID is clear and all details are readable.</p>
+                    <div class="text-center mb-3">
+                        <img id="confirmIdImg" src="" class="rounded-4 shadow-sm w-100" style="max-height: 280px; object-fit: contain; background: #f0f2f5; border: 1px solid #dee2e6;">
+                    </div>
+                    <div class="d-flex align-items-center gap-2 rounded-3 px-3 py-2 mb-4" style="background: #fff8e1; border: 1px solid #ffe082;">
+                        <i class="bi bi-eye-fill text-warning"></i>
+                        <span class="small text-warning-emphasis">Make sure your name, photo, and ID number on the card are clearly readable — blurry images may delay verification.</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-4 fw-semibold" onclick="goToConfirmStep(1); document.getElementById('stepIndicatorText').textContent='1';">
+                            <i class="bi bi-arrow-left me-1"></i> Back
+                        </button>
+                        <button type="button" class="btn btn-primary rounded-pill fw-bold flex-grow-1" onclick="goToConfirmStep(3); document.getElementById('stepIndicatorText').textContent='3';">
+                            Next <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP 3: Selfie Preview + Final Submit -->
+                <div id="confirmStep3" class="d-none">
+                    <p class="text-muted small mb-3">Confirm your selfie is clear and your face is fully visible.</p>
+                    <div class="text-center mb-3">
+                        <img id="confirmSelfieImg" src="" class="rounded-circle shadow" style="width: 190px; height: 190px; object-fit: cover; border: 4px solid #fff; outline: 3px solid #0d6efd;">
+                    </div>
+                    <div class="d-flex align-items-center gap-2 rounded-3 px-3 py-2 mb-4" style="background: #e8f5e9; border: 1px solid #a5d6a7;">
+                        <i class="bi bi-person-check-fill text-success"></i>
+                        <span class="small text-success-emphasis">Your face should be well-lit, centred, and unobstructed. Sunglasses or hats may cause delays.</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-4 fw-semibold" onclick="goToConfirmStep(2); document.getElementById('stepIndicatorText').textContent='2';">
+                            <i class="bi bi-arrow-left me-1"></i> Back
+                        </button>
+                        <button type="button" id="submitFinalBtn" class="btn btn-success rounded-pill fw-bold flex-grow-1 py-2" onclick="submitOnboarding()">
+                            <span id="submitFinalSpinner" class="spinner-border spinner-border-sm d-none me-2" role="status"></span>
+                            <span id="submitFinalBtnText">Confirm & Submit</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== SUCCESS MODAL ===================== -->
 <div class="modal fade" id="successModal" data-bs-backdrop="static" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 30px;">
@@ -336,5 +569,50 @@
         background-color: #fff !important;
     }
     .btn-outline-primary:hover { color: #fff !important; }
+
+    /* Progress Dots */
+    .confirm-dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #dee2e6;
+        transition: all 0.3s ease;
+    }
+    .confirm-dot.active {
+        background: #0d6efd;
+        width: 28px;
+        border-radius: 6px;
+    }
+    .confirm-dot.done {
+        background: #0d6efd;
+        opacity: 0.4;
+    }
+
+    /* Summary Card Rows */
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+    }
+    .summary-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: #adb5bd;
+        letter-spacing: 0.5px;
+    }
+    .summary-value {
+        font-size: 0.875rem;
+        color: #212529;
+        text-align: right;
+        max-width: 60%;
+        word-break: break-word;
+    }
+    .summary-divider {
+        height: 1px;
+        background: #e9ecef;
+    }
 </style>
 {% endblock %}
