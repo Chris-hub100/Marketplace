@@ -755,7 +755,7 @@ def gatekeeper_verify():
         # ========================================================
         raw_merchant_phone = order_data.get('momo') or order_data.get('merchantPhone')
         merchant_id_string = order_data.get('merchantId', 'Verified Merchant')
-        gross_price_raw = order_data.get('price', 0.0)
+        gross_price_raw = order_data.get('amount', 0.0)
 
         if raw_merchant_phone and gross_price_raw:
             try:
