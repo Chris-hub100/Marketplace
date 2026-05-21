@@ -35,7 +35,7 @@ PAYSTACK_SECRET_KEY = os.getenv('PAYSTACK_SECRET_KEY')
 ADMIN_ID = os.environ.get("ADMIN_ID")
 ADMIN_PIN = os.environ.get("ADMIN_PIN")
 
-ADMIN_EMAILS = ["chris@ledgehold.xyz", "ledghold.business@gmail.com"]
+ADMIN_EMAILS = ["ledghold.business@gmail.com"]
 
 # Compliance & Entity Logic
 COMPLIANCE_MODE = False
