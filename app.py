@@ -772,13 +772,29 @@ def gatekeeper_verify():
                         "Content-Type": "application/json"
                     }
 
-                    # Step A: Register the Transfer Beneficiary Recipient Node
+                    # 1. NETWORK PREFIX DETECTION
+                    momo_str = str(raw_merchant_phone).strip()
+                    # Normalize to local format (0xxxxxxxxx) for prefix matching
+                    if momo_str.startswith('233'): momo_str = '0' + momo_str[3:]
+                    
+                    # Determine Bank Code for Paystack
+                    bank_code = 'MTN' # Default
+                    if momo_str.startswith(('024', '054', '055', '059', '025')):
+                        bank_code = 'MTN'
+                    elif momo_str.startswith(('020', '050')):
+                        bank_code = 'TCL'
+                    elif momo_str.startswith(('027', '057', '026', '056')):
+                        bank_code = 'ATL'
+
+                    # 2. UPDATED RECIPIENT DATA (Use this to replace your old recipient_data block)
                     recipient_data = {
-                        "type": "bch", # Mobile money network signature
+                        "type": "mobile_money", 
                         "name": merchant_id_string,
                         "account_number": str(raw_merchant_phone).strip(),
+                        "bank_code": bank_code, # <--- The missing link
                         "currency": "GHS"
                     }
+
                     rcp_req = requests.post("https://api.paystack.co/transferrecipient", json=recipient_data, headers=paystack_headers).json()
                     
                     if rcp_req.get('status'):
