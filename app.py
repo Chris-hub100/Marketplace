@@ -192,7 +192,7 @@ def run_expiry_sweep():
             time_diff = now - order_time
             
             # If the order is older than 5 days (120 hours)
-            if time_diff.total_seconds() > (120 * 3600):
+            if time_diff.total_seconds() > (168 * 3600):
                 print(f"⚠️ Flagging Order {doc.id} for Administrative Review (Expired 120h).")
                 doc.reference.update({"status": "requires_review"})
                 expired_count += 1
@@ -426,7 +426,7 @@ def universal_email_dispatch():
     try:
         response = resend.Emails.send({
             "from": "Ledgehold System <onboarding@resend.dev>", # Update with your verified Resend domain
-            "to": ADMIN_EMAILS, # Sends to both addresses instantly
+            "to": ["ledgehold.business@gmail.com"], # Sends to both addresses instantly
             "subject": subject,
             "html": html_body
         })

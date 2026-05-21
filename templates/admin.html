@@ -404,7 +404,7 @@
                                 </div>
                                 <div class="d-grid">
                                     <button onclick="approveMerchant('${m.id}', '${m.merchantId}', '${m.momo}', '${m.fullName}')" class="btn btn-success btn-sm rounded-pill fw-bold shadow-sm" id="btn-approve-${m.id}">Approve & Send SMS</button>
-                                    <button onclick="denyMerchant('${m.id}')" class="btn btn-link text-danger btn-sm mt-1 fw-bold text-decoration-none">Deny</button>
+                                    <button onclick="denyMerchant('${m.id}', '${m.fullName}', '${m.momo}')" class="btn btn-link text-danger btn-sm mt-1 fw-bold text-decoration-none">Deny</button>
                                 </div>
                             </div>
                         </div>
@@ -443,7 +443,7 @@
             await reqRef.delete();
             
             // 4. Trigger SMS Dispatch (Your builder needs an endpoint to catch this)
-            const message = `Hello ${fullName}, your Merchant Account is approved! ID: ${merchantId}. Setup your Account PIN here to log into your dashboard: ${cmsLink}`;
+            const message = `Hello ${fullName}, your Merchant Account has been approved! ID: ${merchantId}. Setup your Account PIN here to log into your dashboard: ${cmsLink}`;
             
             await fetch('/api/admin/send_sms', {
                 method: 'POST',
@@ -463,9 +463,28 @@
         }
     };
 
-    window.denyMerchant = async (docId) => {
-        if (!confirm("Wipe this sign-up request?")) return;
-        await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('pending_merchants').doc(docId).delete();
+    window.denyMerchant = async (docId, fullName, phone) => {
+        if (!confirm(`Wipe this sign-up request for ${fullName}?`)) return;
+        
+        try {
+            // 1. Send the polite rejection SMS via backend switchboard
+            const message = `Hello ${fullName}, we were unable to verify your Merchant application due to unclear details. Feel free to reapply ensuring that your ID and selfie images are clear.`;
+            
+            await fetch('/api/admin/send_sms', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: phone, 
+                    message: message
+                })
+            });
+
+            // 2. Wipe the document from the pending queue
+            await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('pending_merchants').doc(docId).delete();
+            
+        } catch (e) {
+            alert("Failed to wipe or send SMS: " + e.message);
+        }
     };
 
     /**

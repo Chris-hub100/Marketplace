@@ -114,7 +114,7 @@
 
         // 2. Security Validation
         if (!docSnap.exists) {
-            throw new Error("Invalid Merchant ID. Please ensure you typed it exactly as received on WhatsApp (e.g., 'Kwadwo Nkansah 1234').");
+            throw new Error("Invalid Merchant ID. Please ensure you typed it exactly as received in the SMS sent to you (e.g., 'Kwadwo Nkansah 1234').");
         }
 
         const merchantData = docSnap.data();
