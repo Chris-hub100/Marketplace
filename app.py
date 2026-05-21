@@ -700,7 +700,7 @@ def gatekeeper_verify():
             }), 404
 
         # 4. Extract data cleanly 
-        target_doc = docs 
+        target_doc = docs[0]
         order_data = target_doc.to_dict() 
         paystack_ref = target_doc.id 
         order_ref = target_doc.reference
