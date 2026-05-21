@@ -14,6 +14,32 @@
         100% { background-position: 0% 50%; }
     }
 
+    @keyframes dropAndExpand {
+    0% {
+        transform: translateY(-60px) scaleX(0.18);
+        opacity: 0;
+    }
+    50% {
+        transform: translateY(0px) scaleX(0.18);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(0px) scaleX(1);
+        opacity: 1;
+    }
+    }
+
+    .hero-badge-track {
+    display: flex;
+    justify-content: center;
+    }
+
+    .hero-badge {
+    transform-origin: center center;
+    animation: dropAndExpand 1.6s cubic-bezier(0.34, 1.56, 0.64, 1) 1.2s both;
+    white-space: nowrap;
+    }
+
     .animate-in {
         animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         opacity: 0;
@@ -24,54 +50,42 @@
     .delay-300 { animation-delay: 0.3s; }
 
     .hero-section {
-        /* Added Texture: Dot Matrix Pattern */
         background-color: #f8fafc;
         background-image: radial-gradient(#94a3b8 1px, transparent 1px);
         background-size: 32px 32px;
-
         border-radius: 40px;
-        padding: 80px 15px; /* Adjusted padding for mobile safety */
+        padding: 80px 15px; 
         margin-bottom: 50px;
-        
-        /* Higher Contrast Border & Shadow */
         border: 1px solid #cbd5e1;
         box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.15);
-        
         position: relative;
         overflow: hidden;
     }
 
-    /* Massive Brand Header */
     .brand-hero-text {
-        /* RESPONSIVE FIX: Lowered minimum size to 2.5rem for mobile safety */
         font-size: clamp(2.5rem, 12vw, 6.5rem);
         font-weight: 900;
         letter-spacing: -0.04em;
-        line-height: 1.1; /* Slight increase to prevent clipping */
+        line-height: 1.1; 
         background: linear-gradient(135deg, #0f172a 0%, #3b82f6 50%, #0f172a 100%);
         background-size: 200% auto;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         animation: gradientFlow 5s ease infinite, fadeInUp 1s ease-out forwards;
         margin-bottom: 1.5rem;
-        
-        /* Added Drop Shadow for Contrast against Pattern */
         filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
-        
-        /* Safety for small screens */
         max-width: 100%;
         word-wrap: break-word;
     }
 
     .hero-subtitle {
         font-size: 1.15rem;
-        color: #475569; /* Slightly darker for better contrast */
+        color: #475569; 
         font-weight: 500;
         line-height: 1.6;
         letter-spacing: -0.01em;
     }
 
-    /* Original Component Styles Preserved */
     .ad-billboard {
         background: white;
         border: 1px dashed #cbd5e1;
@@ -91,19 +105,18 @@
     .backdrop-blur { backdrop-filter: blur(5px); }
 </style>
 
-<!-- 1. MASTERCLASS HERO SECTION -->
 <div class="hero-section text-center">
-    <!-- Spotlight Effect: Fades the pattern in the center for text readability -->
     <div class="position-absolute top-50 start-50 translate-middle" 
          style="width: 120%; height: 120%; background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,255,255,0.85) 40%, rgba(255,255,255,0) 70%); pointer-events: none;">
     </div>
     
     <div class="position-relative z-1">
-        <!-- Powered By Badge -->
         <div class="animate-in delay-100">
-            <span class="d-inline-block px-3 py-1 rounded-pill bg-white border border-secondary border-opacity-25 shadow-sm text-dark fw-bold small mb-3 text-uppercase tracking-wider" style="font-size: 0.65rem;">
+            <div class="hero-badge-track">
+                <span class="hero-badge d-inline-block px-3 py-1 rounded-pill bg-white border border-secondary border-opacity-25 shadow-sm text-dark fw-bold small mb-3 text-uppercase tracking-wider" style="font-size: 0.65rem;">
                 <i class="bi bi-cpu-fill text-primary me-1"></i> Powered by Ledgehold
-            </span>
+                </span>
+            </div>
         </div>
 
         <h1 class="brand-hero-text">ProlyfiQ</h1>
@@ -120,11 +133,10 @@
     </div>
 </div>
 
-<!-- 2. ADVERTISEMENT BANNER -->
 <div class="container mb-5 animate-in delay-400">
-    <div class="ad-billboard p-4 text-center" onclick="window.location.href='https://wa.me/233551681706?text=I+want+to+advertise+on+ProlyfiQ'">
+    <div class="ad-billboard p-4 text-center" data-bs-toggle="modal" data-bs-target="#adInquiryModal">
         <div class="my-3">
-            <i class="bi bi-megaphone-fill fs-1 text-muted opacity-50"></i>
+            <i class="bi bi-soundwave fs-1 text-muted opacity-50"></i>
         </div>
         <h5 class="fw-bold text-secondary">Your Business Here</h5>
         <p class="text-muted small mb-3">
@@ -137,7 +149,6 @@
     </div>
 </div>
 
-<!-- 3. CAMPUS LOGISTICS (FOOD RUN) -->
 <div class="mb-5 animate-in delay-400">
     <h6 class="fw-bold text-muted ms-1 mb-3">Campus Logistics</h6>
     
@@ -147,7 +158,6 @@
             
             <div class="card-body d-flex flex-column justify-content-end p-4">
                 <div class="mb-auto">
-                    <!-- Dynamic Badge based on Python Logic -->
                     {% if food_active %}
                     <span class="badge bg-danger animate-pulse border border-white shadow-sm">LIVE NOW</span>
                     {% else %}
@@ -162,7 +172,6 @@
     </a>
 </div>
 
-<!-- CORPORATE FOOTER -->
 <div class="mt-5 pt-4 text-center pb-5 animate-in delay-400">
     <p class="text-muted" style="font-size: 0.65rem; letter-spacing: 1.5px; font-weight: 700;">PAYMENTS PROCESSED via :</p>
     <div class="opacity-50 grayscale d-flex justify-content-center gap-4 align-items-center mt-2">
@@ -177,44 +186,83 @@
 
 <div style="height: 80px;"></div>
 
-<!-- QR CODE MODAL LOGIC -->
+<div class="modal fade" id="adInquiryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-lg">
+            <div class="modal-header border-0 pb-0">
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body px-4 px-md-5 pb-5 pt-2">
+                <div class="text-center mb-4">
+                    <div>
+                        <i class="bi bi-soundwave fs-3"></i>
+                    </div>
+                    <br>
+                    <h4 class="fw-bold text-dark">Advertise With Us</h4>
+                    <p class="text-muted small">Drop your details below and our partnership team will reach out soon.</p>
+                </div>
+
+                <div id="adFormContainer">
+                    <form id="adInquiryForm" onsubmit="submitAdInquiry(event)">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">BUSINESS NAME</label>
+                            <input type="text" id="adBusinessName" class="form-control rounded-pill border-light bg-light py-2 px-3" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted">EMAIL ADDRESS</label>
+                            <input type="email" id="adEmail" class="form-control rounded-pill border-light bg-light py-2 px-3" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted">PHONE / WHATSAPP</label>
+                            <input type="tel" id="adPhone" class="form-control rounded-pill border-light bg-light py-2 px-3" required>
+                        </div>
+                        
+                        <div id="adErrorMsg" class="alert alert-danger d-none small rounded-3 py-2"></div>
+                        
+                        <button type="submit" id="adSubmitBtn" class="btn btn-dark w-100 rounded-pill py-3 fw-bold shadow-sm">
+                            Request Callback
+                        </button>
+                    </form>
+                </div>
+                
+                <div id="adSuccessContainer" class="text-center py-4 d-none">
+                    <i class="bi bi-check-circle-fill text-success display-4 mb-3 d-block"></i>
+                    <h5 class="fw-bold">Request Received!</h5>
+                    <p class="text-muted small">We'll be in touch shortly to request additional info before setting up your campaign.</p>
+                    <button type="button" class="btn btn-outline-dark rounded-pill px-4 mt-3 fw-bold" data-bs-dismiss="modal">Close</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
 {% if welcome_msg %}
 <div class="modal fade" id="qrMessageModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content rounded-4 border-0 shadow-lg">
-            
             <div class="modal-body text-center p-5">
-                <!-- Dynamic Icon Based on 'welcome_type' -->
                 <div class="mb-4">
                       {% if welcome_type == 'danger' %}
-                        <!-- Red Warning Icon (For back Shirt) -->
                         <div class="bg-danger bg-opacity-10 rounded-circle d-inline-flex p-3 animate-pulse text-danger">
                             <i class="bi bi-exclamation-triangle-fill display-1"></i>
                         </div>
                         <h2 class="fw-bold text-dark mt-3 mb-2">Busted! </h2>
-                      
                       {% elif welcome_type == 'success' %}
-                        <!-- Green Trophy Icon (For front Shirt) -->
                         <div class="bg-success bg-opacity-10 rounded-circle d-inline-flex p-3 animate-pulse text-success">
                             <i class="bi bi-emoji-laughing"></i>
                         </div>
-                      
                       {% else %}
-                        <!-- Default Info Icon -->
                         <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex p-3 animate-pulse text-primary">
                             <i class="bi bi-emoji-sunglasses-fill display-1"></i>
                         </div>
                       {% endif %}
                 </div>
-
-                <!-- The Message from Python -->
                 <p class="text-muted fs-5 mb-4">{{ welcome_msg }}</p>
-
                 <button type="button" class="btn btn-dark rounded-pill px-5 py-2 fw-bold shadow-sm" data-bs-dismiss="modal">
                     Let's Dive In
                 </button>
             </div>
-
         </div>
     </div>
 </div>
@@ -228,7 +276,7 @@
 {% endif %}
 
 <script>
-    // Trigger animations on scroll (simple observer)
+    // Scroll Animations
     document.addEventListener('DOMContentLoaded', () => {
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -239,10 +287,65 @@
             });
         });
         
-        // Ensure animations run
         document.querySelectorAll('.animate-in').forEach(el => {
             el.style.opacity = '1'; 
         });
+    });
+
+    // Ad Inquiry Submission Logic
+    async function submitAdInquiry(event) {
+        event.preventDefault();
+        
+        const businessName = document.getElementById('adBusinessName').value.trim();
+        const email = document.getElementById('adEmail').value.trim();
+        const phone = document.getElementById('adPhone').value.trim();
+        const btn = document.getElementById('adSubmitBtn');
+        const errorBox = document.getElementById('adErrorMsg');
+        
+        errorBox.classList.add('d-none');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Sending...';
+
+        try {
+            const response = await fetch('/api/email/dispatch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: "ad_inquiry",
+                    payload: {
+                        businessName: businessName,
+                        email: email,
+                        phone: phone
+                    }
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                // Hide form, show success message
+                document.getElementById('adFormContainer').classList.add('d-none');
+                document.getElementById('adSuccessContainer').classList.remove('d-none');
+                
+                // Reset form for future use
+                document.getElementById('adInquiryForm').reset();
+            } else {
+                throw new Error("Could not send request. Please try again.");
+            }
+        } catch (error) {
+            errorBox.innerText = error.message;
+            errorBox.classList.remove('d-none');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Request Callback';
+        }
+    }
+
+    // Reset Modal state when closed so it's fresh if they open it again
+    document.getElementById('adInquiryModal').addEventListener('hidden.bs.modal', function () {
+        document.getElementById('adFormContainer').classList.remove('d-none');
+        document.getElementById('adSuccessContainer').classList.add('d-none');
+        document.getElementById('adErrorMsg').classList.add('d-none');
     });
 </script>
 

@@ -114,7 +114,7 @@
 
         // 2. Security Validation
         if (!docSnap.exists) {
-            throw new Error("Invalid Merchant ID. Please ensure you typed it exactly as received on WhatsApp (e.g., 'Kwadwo Nkansah 3863').");
+            throw new Error("Invalid Merchant ID. Please ensure you typed it exactly as received on WhatsApp (e.g., 'Kwadwo Nkansah 1234').");
         }
 
         const merchantData = docSnap.data();
@@ -229,7 +229,7 @@
                     <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white d-flex flex-column">
                         <div class="d-flex align-items-center gap-3 mb-4">
                             <div class="bg-primary-subtle p-3 rounded-circle">
-                                <i class="bi bi-shield-check text-primary fs-4"></i>
+                                <i class="bi bi-person-lock text-primary fs-4"></i>
                             </div>
                             <div>
                                 <h6 class="fw-bold text-dark mb-0">Security Protocols</h6>

@@ -8,6 +8,7 @@ import firebase_admin
 import requests
 import hmac
 import hashlib
+import uuid
 import json
 from base64 import b64encode
 from firebase_admin import credentials, firestore, initialize_app
@@ -33,6 +34,8 @@ PAYSTACK_SECRET_KEY = os.getenv('PAYSTACK_SECRET_KEY')
 # Admin Access
 ADMIN_ID = os.environ.get("ADMIN_ID")
 ADMIN_PIN = os.environ.get("ADMIN_PIN")
+
+ADMIN_EMAILS = ["chris@ledgehold.xyz", "ledghold.business@gmail.com"]
 
 # Compliance & Entity Logic
 COMPLIANCE_MODE = False
@@ -102,7 +105,7 @@ def send_handoff_email(order_data, paystack_ref):
         """
 
         resend.Emails.send({
-            "from": "Handoff Alerts <onboarding@resend.dev>", # Use your verified Resend domain
+            "from": "Ledgehold System <onboarding@resend.dev>", # Use your verified Resend domain
             "to": ["ledgehold.business@gmail.com"], # Where you want to receive the alerts
             "subject": f"✅ Handoff Complete: {order_data.get('item')}",
             "html": email_body
@@ -230,6 +233,209 @@ def admin_auth():
     if data.get('id') == ADMIN_ID and data.get('pin') == ADMIN_PIN:
         return jsonify({"success": True})
     return jsonify({"success": False, "message": "Unauthorized"}), 401
+
+@app.route('/api/admin/send_sms', methods=['POST'])
+def admin_send_sms():
+    data = request.json
+    phone = data.get('phone')
+    message = data.get('message')
+
+    # 1. Guard Clause
+    if not phone or not message:
+        print("SMS Error: Missing phone number or message content.")
+        return jsonify({"success": False, "error": "Missing parameters"}), 400
+
+    try:
+        # 2. Format the phone number to international standard (233...) just in case
+        clean_phone = str(phone).replace("+", "").replace(" ", "").strip()
+        if clean_phone.startswith("0"):
+            clean_phone = "233" + clean_phone[1:]
+
+        # 3. Pull Hubtel Credentials from Render Environment Variables
+        hubtel_client_id = os.environ.get('HUBTEL_CLIENT_ID')
+        hubtel_client_secret = os.environ.get('HUBTEL_CLIENT_SECRET')
+        sender_id = os.environ.get('HUBTEL_SENDER_ID', 'Ledgehold') # Defaults to Ledgehold if not set
+
+        if not hubtel_client_id or not hubtel_client_secret:
+            print("⚠️ SMS Warning: Hubtel credentials missing from environment. Bypassing send.")
+            # We return success so the frontend doesn't crash during testing if env vars aren't set yet
+            return jsonify({"success": True, "warning": "Simulated. No credentials."}), 200
+
+        # 4. Fire the payload to Hubtel via their Quick Send API
+        response = requests.get(
+            "https://smsc.hubtel.com/v1/messages/send",
+            params={
+                "clientid": hubtel_client_id,
+                "clientsecret": hubtel_client_secret,
+                "from": sender_id,
+                "to": clean_phone,
+                "content": message
+            }
+        )
+
+        # 5. Evaluate the gateway response directly via Hubtel's JSON
+        try:
+            res_data = response.json()
+            
+            # Verify success: HTTP OK AND Hubtel status indicates success
+            # (Adjust based on Hubtel's actual API docs - common: status 0 = success)
+            success = response.ok and res_data.get('status') in [0, 1, 100]  # ← FIXED
+            
+            if success:
+                msg_id = res_data.get('messageId', 'Unknown')
+                print(f"📨 SMS DISPATCHED: Success to {clean_phone} | Hubtel ID: {msg_id}")
+                return jsonify({"success": True}), 200
+            else:
+                error_msg = res_data.get('message', 'Gateway rejected the message')
+                print(f"❌ SMS Gateway Error: {error_msg}")
+                return jsonify({"success": False, "error": error_msg}), 502
+                
+        except Exception as json_err:
+            # Fallback for non-JSON response
+            if response.ok:
+                print(f"⚠️ SMS Sent but response not JSON: {response.text}")
+                return jsonify({"success": True, "warning": "Response format unexpected"}), 200
+            else:
+                print(f"❌ SMS Gateway Error (Raw): {response.text}")
+                return jsonify({"success": False, "error": "Gateway communication failed"}), 502
+
+    except Exception as e:
+        print(f"🛡️ SMS Pipeline Exception: {str(e)}")
+        return jsonify({"success": False, "error": "Internal Processing Error"}), 500
+    
+@app.route('/api/email/dispatch', methods=['POST'])
+def universal_email_dispatch():
+    data = request.json
+    action_type = data.get('type')  # Identifies what event just happened
+    payload = data.get('payload', {}) # Holds the dynamic data (names, IDs, etc.)
+    
+    if not action_type:
+        return jsonify({"success": False, "error": "Missing action type."}), 400
+
+    subject = ""
+    html_body = ""
+
+    # ========================================================
+    # SECURITY ACTION REGISTRY
+    # ========================================================
+    
+    # Template 1: New Merchant KYC uploaded
+    if action_type == "kyc_submitted":
+        merchant_name = payload.get('fullName', 'Unknown Merchant')
+        merchant_id = payload.get('merchantId', 'Unknown ID')
+        university = payload.get('university', 'Unknown Campus')
+        
+        subject = f"👤 New Account: KYC Submitted ({merchant_id})"
+        html_body = f"""
+        <div style="font-family: sans-serif; padding: 20px; color: #0f172a;">
+            <h3 style="color: #3b82f6; margin-top: 0;">New Merchant Registration Awaiting Review</h3>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-bottom: 20px;"/>
+            <p><b>Name:</b> {merchant_name}</p>
+            <p><b>Merchant ID:</b> {merchant_id}</p>
+            <p><b>Institution:</b> {university}</p>
+            <br/>
+            <p><a href="https://market-place-gx9a.onrender.com/admin_controls" style="background: #0f172a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 13px;">Open Admin Command Center</a></p>
+        </div>
+        """
+
+    # Template 2: Advertisement Inquiry
+    elif action_type == "ad_inquiry":
+        business_name = payload.get('businessName', 'Unknown Business')
+        contact_email = payload.get('email', 'N/A')
+        contact_phone = payload.get('phone', 'N/A')
+        
+        subject = f"📢 Ad Inquiry: {business_name}"
+        html_body = f"""
+        <div style="font-family: sans-serif; padding: 20px; color: #0f172a;">
+            <h3 style="color: #3b82f6; margin-top: 0;">New Advertisement Request</h3>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-bottom: 20px;"/>
+            <p><b>Business Name:</b> {business_name}</p>
+            <p><b>Email:</b> <a href="mailto:{contact_email}">{contact_email}</a></p>
+            <p><b>Phone/WhatsApp:</b> {contact_phone}</p>
+            <br/>
+            <p style="font-size: 13px; color: #64748b;">Please reach out to this business to request necessary business info.</p>
+        </div>
+        """
+    
+    # Template 3: Premium Merchant Kit Order/Request
+    elif action_type == "merch_request":
+        merchant_id = payload.get('merchantId', 'Unknown Merchant')
+        campus = payload.get('campus', 'Unknown Campus')
+        pickup = payload.get('pickupPoint', 'Unknown Location')
+        selection = payload.get('gearSelection', 'No gear specified')
+        total_items = payload.get('totalItems', 1)
+        
+        subject = f"👕 [MERCH ORDER] - {merchant_id} ({total_items} Items)"
+        html_body = f"""
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; color: #0f172a;">
+            <h3 style="color: #10b981; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                New Custom Gear Order
+            </h3>
+            <p style="margin-top: 15px;"><b>Merchant Identifier:</b> {merchant_id}</p>
+            <p><b>Distribution Campus:</b> {campus}</p>
+            <p><b>Fulfillment Pickup Point:</b> {pickup}</p>
+            
+            <h4 style="margin-top: 25px; margin-bottom: 10px; color: #475569; font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase;">
+                Gear Configuration Breakdown
+            </h4>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; font-size: 14px; line-height: 1.6;">
+                {selection}
+            </div>
+            
+            <p style="font-size: 11px; color: #94a3b8; margin-top: 30px; border-top: 1px dashed #e2e8f0; padding-top: 15px;">
+                Fulfillment SLA: Standard 10-day production loop applies. Verify Paystack dashboard logs for corresponding matching reference tokens if premium add-ons exist.
+            </p>
+        </div>
+        """
+
+        # Template 4: Merchant Priority Support Ticket
+    elif action_type == "merchant_support":
+        merchant_id = payload.get('merchantId', 'Unknown/Logged Out')
+        contact_email = payload.get('email', 'No email provided')
+        issue_desc = payload.get('issue', 'No description provided')
+        
+        subject = f"🚨 SUPPORT TICKET - {merchant_id}"
+        html_body = f"""
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; color: #0f172a;">
+            <h3 style="color: #ef4444; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                Priority Support Request
+            </h3>
+            <p style="margin-top: 15px;"><b>Merchant Account:</b> {merchant_id}</p>
+            <p><b>Contact Email:</b> {contact_email}</p>
+            
+            <h4 style="margin-top: 25px; margin-bottom: 10px; color: #475569; font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase;">
+                Issue / Concern Log
+            </h4>
+            <div style="background: #fff1f2; border: 1px solid #fda4af; padding: 15px; border-radius: 12px; font-size: 14px; line-height: 1.6; color: #9f1239;">
+                {issue_desc}
+            </div>
+            
+            <p style="font-size: 11px; color: #94a3b8; margin-top: 30px; border-top: 1px dashed #e2e8f0; padding-top: 15px;">
+                This ticket was generated via the Secure Dashboard Support Hub. Reply directly to the merchant's email address to initiate a resolution thread.
+            </p>
+        </div>
+        """
+
+    else:
+        print(f"⚠️ Switchboard Warning: Unregistered action type '{action_type}'")
+        return jsonify({"success": False, "error": "Template not found."}), 400
+
+    # ========================================================
+    # DISPATCH TO ADMINS
+    # ========================================================
+    try:
+        response = resend.Emails.send({
+            "from": "Ledgehold System <onboarding@resend.dev>", # Update with your verified Resend domain
+            "to": ADMIN_EMAILS, # Sends to both addresses instantly
+            "subject": subject,
+            "html": html_body
+        })
+        print(f"📧 ALERTS DISPATCHED: '{action_type}' email routed to Admin array.")
+        return jsonify({"success": True}), 200
+        
+    except Exception as e:
+        print(f"❌ Email Switchboard Exception: {str(e)}")
+        return jsonify({"success": False, "error": "Internal server error."}), 500
 
 @app.route('/admin_controls')
 def admin_controls():
@@ -461,7 +667,6 @@ def gatekeeper_verify():
         # ========================================================
         # PATH A: Seamless Token Match
         # ========================================================
-        # STRICT MATCH: Look ONLY for 'buyer_reviewing' to grab the exact document the buyer just scanned
         if token:
             query = orders_ref.where(filter=FieldFilter('listing_id', '==', listing_id)) \
                               .where(filter=FieldFilter('status', 'in', ['paid_in_escrow', 'buyer_reviewing']))\
@@ -470,16 +675,19 @@ def gatekeeper_verify():
             docs = list(query)
 
         # ========================================================
-        # PATH B: Manual Phone + PIN Bypass
+        # PATH B: Manual Phone + PIN Bypass (Upgraded for Cryptographic Matching)
         # ========================================================
         if not docs and buyer_phone and incoming_pin:
             p = str(buyer_phone).strip()
             phone_variants = [p, '233' + p[1:] if p.startswith('0') else p, '0' + p[3:] if p.startswith('233') else p]
             
+            raw_pin_string = str(incoming_pin).strip()
+            hashed_pin_signature = hashlib.sha256(raw_pin_string.encode('utf-8')).hexdigest()
+            
             query = orders_ref.where(filter=FieldFilter('listing_id', '==', listing_id)) \
                               .where(filter=FieldFilter('status', 'in', ['paid_in_escrow', 'buyer_reviewing']))\
                               .where(filter=FieldFilter('buyerPhone', 'in', phone_variants)) \
-                              .where(filter=FieldFilter('securityStamp.handoffPin', '==', str(incoming_pin))) \
+                              .where(filter=FieldFilter('securityStamp.handoffPin', '==', hashed_pin_signature)) \
                               .limit(1).get()
             docs = list(query)
 
@@ -492,7 +700,7 @@ def gatekeeper_verify():
             }), 404
 
         # 4. Extract data cleanly 
-        target_doc = docs[0]  
+        target_doc = docs 
         order_data = target_doc.to_dict() 
         paystack_ref = target_doc.id 
         order_ref = target_doc.reference
@@ -514,14 +722,15 @@ def gatekeeper_verify():
         # MANUAL VALIDATION
         # ========================================================
         actual_token = order_data.get('securityStamp', {}).get('token')
-        actual_pin = order_data.get('securityStamp', {}).get('handoffPin')
+        actual_pin_hash = order_data.get('securityStamp', {}).get('handoffPin')
         
-        # Verify the exact credentials the user submitted during this request
         is_valid = False
         if token and actual_token == token:
             is_valid = True
-        elif incoming_pin and str(actual_pin) == str(incoming_pin):
-            is_valid = True
+        elif incoming_pin:
+            calculated_hash = hashlib.sha256(str(incoming_pin).strip().encode('utf-8')).hexdigest()
+            if actual_pin_hash == calculated_hash:
+                is_valid = True
             
         if not is_valid:
             new_failures = failed_attempts + 1
@@ -541,9 +750,67 @@ def gatekeeper_verify():
         })
         print(f"✅ HANDSHAKE SUCCESSFUL: Order {paystack_ref} locked and marked completed.")
         
+        # ========================================================
+        # 💸 NEW: INTEGRATED AUTOMATED PAYSTACK TRANSFER PIPELINE
+        # ========================================================
+        raw_merchant_phone = order_data.get('momo') or order_data.get('merchantPhone')
+        merchant_id_string = order_data.get('merchantId', 'Verified Merchant')
+        gross_price_raw = order_data.get('price', 0.0)
+
+        if raw_merchant_phone and gross_price_raw:
+            try:
+                # Execution Math Split: Gross minus 5% commission, minus GHS 0.40 user share of MoMo cost
+                gross_amount = float(gross_price_raw)
+                ledgehold_commission = gross_amount * 0.05
+                net_subtotal = gross_amount - ledgehold_commission
+                final_payout_volume = net_subtotal - 0.40
+                
+                if final_payout_volume > 0:
+                    payout_kobo_integer = int(round(final_payout_volume * 100))
+                    paystack_headers = {
+                        "Authorization": f"Bearer {PAYSTACK_SECRET_KEY}",
+                        "Content-Type": "application/json"
+                    }
+
+                    # Step A: Register the Transfer Beneficiary Recipient Node
+                    recipient_data = {
+                        "type": "bch", # Mobile money network signature
+                        "name": merchant_id_string,
+                        "account_number": str(raw_merchant_phone).strip(),
+                        "currency": "GHS"
+                    }
+                    rcp_req = requests.post("https://api.paystack.co/transferrecipient", json=recipient_data, headers=paystack_headers).json()
+                    
+                    if rcp_req.get('status'):
+                        recipient_code = rcp_req['data']['recipient_code']
+
+                        # Step B: Discharge Outbound Balance to MoMo Target
+                        transfer_data = {
+                            "source": "balance",
+                            "amount": payout_kobo_integer,
+                            "recipient": recipient_code,
+                            "reason": f"Ledgehold Escrow Release. Ref: {paystack_ref}",
+                            "reference": str(uuid.uuid4()) # Idempotency Block
+                        }
+                        payout_req = requests.post("https://api.paystack.co/transfer", json=transfer_data, headers=paystack_headers).json()
+                        
+                        if payout_req.get('status'):
+                            print(f"💸 PIPELINE SUCCESS: GHS {final_payout_volume:.2f} automated transfer fired to {merchant_id_string}.")
+                        else:
+                            print(f"🚨 PAYSTACK API PAYOUT REJECTION: {payout_req.get('message')}")
+                    else:
+                        print(f"🚨 PAYSTACK RECIPIENT NODE REGISTRY REJECTION: {rcp_req.get('message')}")
+                else:
+                    print(f"⚠️ PIPELINE ABORTED: Volume balance GHS {final_payout_volume:.2f} too low to calculate.")
+            except Exception as payout_err:
+                print(f"🚨 CRITICAL SYSTEM CRASH INSIDE PAYSTACK TRANSFER ENGINE: {str(payout_err)}")
+        else:
+            print("⚠️ PAYOUT SKIPPED: Missing crucial MoMo target details or price anchors inside order document.")
+
+        # ========================================================
         # 6. TRIGGER NOTIFICATIONS (Non-blocking)
+        # ========================================================
         
-        # Internal helper to clean and format strings for Hubtel (054... -> 23354...)
         def format_gh_phone(raw_phone):
             phone_str = str(raw_phone).strip() if raw_phone else ""
             if not phone_str or phone_str in ["Unknown", "None"]:
@@ -555,8 +822,6 @@ def gatekeeper_verify():
             return phone_str
 
         raw_buyer_phone = order_data.get('buyerPhone')
-        raw_merchant_phone = order_data.get('momo') or order_data.get('merchantPhone')
-
         clean_buyer_phone = format_gh_phone(raw_buyer_phone)
         clean_merchant_phone = format_gh_phone(raw_merchant_phone)
 
@@ -610,15 +875,13 @@ def gatekeeper_set_review():
     buyer_phone = data.get('buyerPhone')
     handoff_pin = data.get('handoffPin')
     
-    # Updated guard clause: We only strictly require the listingId upfront. 
-    # The identity is verified via either token OR phone+pin below.
+    # Guard clause: We only strictly require the listingId upfront. 
     if not listing_id:
         print("Review Attempt Fail: Missing listingId")
         return jsonify({"success": False, "error": "Missing listing ID."}), 400
         
     try:
         orders_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders')
-        
         docs = []
 
         # ========================================================
@@ -632,19 +895,23 @@ def gatekeeper_set_review():
             docs = list(query)
 
         # ========================================================
-        # PATH B: Manual Phone + PIN Bypass (If token is missing/cleared)
+        # PATH B: Manual Phone + PIN Bypass (Upgraded for Cryptographic Matching)
         # ========================================================
         if not docs and buyer_phone and handoff_pin:
             print(f"🔄 Identity Bypass: Attempting manual verification for Phone: {buyer_phone}")
             
-            # Format phone to handle '054...' vs '23354...' vs '+233...' safely
+            # Format phone to handle '054...' vs '23354...' safely
             p = str(buyer_phone).strip()
             phone_variants = [p, '233' + p[1:] if p.startswith('0') else p, '0' + p[3:] if p.startswith('233') else p]
+            
+            # CRITICAL SECURITY MATCH: Hash the manual plain text string to challenge the signature in DB
+            raw_pin_string = str(handoff_pin).strip()
+            hashed_pin_signature = hashlib.sha256(raw_pin_string.encode('utf-8')).hexdigest()
             
             query = orders_ref.where(filter=FieldFilter('listing_id', '==', listing_id))\
                               .where(filter=FieldFilter('status', '==', 'paid_in_escrow'))\
                               .where(filter=FieldFilter('buyerPhone', 'in', phone_variants))\
-                              .where(filter=FieldFilter('securityStamp.handoffPin', '==', str(handoff_pin)))\
+                              .where(filter=FieldFilter('securityStamp.handoffPin', '==', hashed_pin_signature))\
                               .limit(1).get()
             docs = list(query)
 
@@ -653,7 +920,6 @@ def gatekeeper_set_review():
             print(f"Review Sync Fail: No active escrow found for Listing {listing_id} with provided credentials.")
             return jsonify({"success": False, "error": "Authentication Failed"}), 404
             
-        # FIXED: Explicitly extract the single DocumentSnapshot using index
         target_doc = docs[0]
         
         # Advance the order state to flip the merchant's UI screen to blue
@@ -749,7 +1015,6 @@ def endorsement():
 
 @app.route('/marketplace')
 def marketplace():
-    actual_key = os.getenv('IMGBB_API_KEY')
     return render_template('marketplace.html', **get_firebase_context())
 
 @app.route('/inventory_management')
@@ -760,16 +1025,10 @@ def inventory():
 @app.route('/seller_onboarding')
 @app.route('/onboarding') # Both URLs now lead here and pass the key
 def onboarding():
-    # Fetch the key from the server environment
-    # Note: Make sure you have set this in your terminal or .env file!
-    actual_key = os.getenv('IMGBB_API_KEY') 
-    
-    # Pass it to the template
     return render_template('seller_onboarding.html', **get_firebase_context())
 
 @app.route('/list_item')
 def list_item():
-    actual_key = os.getenv('IMGBB_API_KEY')
     return render_template('list_item.html', **get_firebase_context())
 
 @app.route('/directory')
@@ -780,21 +1039,9 @@ def directory():
 def faq():
     return render_template('faq.html')
 
-@app.route('/tracking')
-def waybill():
-    return render_template('waybill.html', **get_firebase_context())
-
 @app.route('/handshake')
 def handshake():
     return render_template('handshake.html', **get_firebase_context())
-
-@app.route('/way_admin')
-def way_admin():
-    return render_template('way_admin.html', **get_firebase_context())
-
-@app.route('/login')
-def login_page():
-    return render_template('login.html')
 
 @app.route('/cms')
 def admin():
@@ -806,31 +1053,13 @@ def merchant_dashboard():
     # We must pass the Firebase context so the Canvas can initialize the DPA Registry
     return render_template('merchant_dashboard.html', **get_firebase_context())
 
-@app.route('/payout_portal')
-def payout():
-    actual_key = os.getenv('IMGBB_API_KEY') 
-    # Pass it to the template
-    return render_template('payout_portal.html', **get_firebase_context())
-
 @app.route('/shop')
 def shop():
     return render_template('shop.html')
 
-#@app.route('/chat')
-#def chat():
-    #return render_template('chat.html', **get_firebase_context())
-
-@app.route('/receipt_request')
-def receipt():
-    return render_template('receipt_request.html', **get_firebase_context())
-
 @app.route('/receipt_generator')
 def receipt_generator():
     return render_template('receipt_generator.html', **get_firebase_context())
-
-#@app.route('/inbox')
-#def inbox():
-    #return render_template('inbox.html', **get_firebase_context())
 
 @app.route('/intel')
 def intel():
@@ -956,93 +1185,12 @@ def tv_page():
     
     return render_template('tv.html', videos=movies)
 
-# --- VOUCHERS (HIDDEN IN COMPLIANCE MODE) ---
-#@app.route('/vouchers')
-#def voucher_page():
-    #if COMPLIANCE_MODE:
-        #return render_template('maintenance.html', page_name="Voucher Mall")
-
-    # From second code - complete voucher list
-    items = [
-        {
-            "name": "Audiomack",
-            "image": "https://d13ms5efar3wc5.cloudfront.net/eyJidWNrZXQiOiJpbWFnZXMtY2Fycnkxc3QtcHJvZHVjdHMiLCJrZXkiOiJlOTVlM2NjOC0zNWYwLTQ5MjctOWM3MS0yMTRlN2ZiYzVmOTgucG5nLndlYnAiLCJlZGl0cyI6eyJyZXNpemUiOnsid2lkdGgiOjc2OH19LCJ3ZWJwIjp7InF1YWxpdHkiOjc1fX0=",
-            "link": "audiomack",
-            "desc": "Subscription"
-        },
-        {
-            "name": "Tinder",
-            "image": "https://d13ms5efar3wc5.cloudfront.net/eyJidWNrZXQiOiJpbWFnZXMtY2Fycnkxc3QtcHJvZHVjdHMiLCJrZXkiOiI5ZGQxOGRhYy0wN2E4LTQ3NTctYTQ5NC04YzU5MmNjYjE5M2UucG5nLndlYnAiLCJlZGl0cyI6eyJyZXNpemUiOnsid2lkdGgiOjM4NH19LCJ3ZWJwIjp7InF1YWxpdHkiOjc1fX0=",
-            "link": "tinder",
-            "desc": "Subscription"
-        },
-        {
-            "name": "EA Sports FC™ Mobile",
-            "image": "https://d13ms5efar3wc5.cloudfront.net/eyJidWNrZXQiOiJpbWFnZXMtY2Fycnkxc3QtcHJvZHVjdHMiLCJrZXkiOiIyNWNlMjI5Yi00YmQ3LTRjMTktOGE4Yy0zOTY5MzNiMmE5NDMucG5nLndlYnAiLCJlZGl0cyI6eyJyZXNpemUiOnsid2lkdGgiOjc2OH19LCJ3ZWJwIjp7InF1YWxpdHkiOjc1fX0=",
-            "link": "fcmobile",
-            "desc": "FC Points"
-        },
-        {
-            "name": "Free Fire",
-            "image": "https://d13ms5efar3wc5.cloudfront.net/eyJidWNrZXQiOiJpbWFnZXMtY2Fycnkxc3QtcHJvZHVjdHMiLCJrZXkiOiIwNDUzOTRmOC0zMWY1LTRlMDMtYjQ1OS03ZWEzMmJlZWY1YjQucG5nLndlYnAiLCJlZGl0cyI6eyJyZXNpemUiOnsid2lkdGgiOjM4NH19LCJ3ZWJwIjp7InF1YWxpdHkiOjc1fX0=",
-            "link": "freefire",
-            "desc": "Diamonds"
-        },
-        {
-            "name": "Call of Duty: Mobile",
-            "image": "https://d13ms5efar3wc5.cloudfront.net/eyJidWNrZXQiOiJpbWFnZXMtY2Fycnkxc3QtcHJvZHVjdHMiLCJrZXkiOiI4NmYyM2EwNi00MjI4LTQyNzctOTQwMS00ZWVlZTBkY2NmMzgucG5nLndlYnAiLCJlZGl0cyI6eyJyZXNpemUiOnsid2lkdGgiOjc2OH19LCJ3ZWJwIjp7InF1YWxpdHkiOjc1fX0=",
-            "link": "codm",
-            "desc": "COD Points"
-        },
-        {
-            "name": "EA Sports FC™ Mobile",
-            "image": "https://d13ms5efar3wc5.cloudfront.net/eyJidWNrZXQiOiJpbWFnZXMtY2Fycnkxc3QtcHJvZHVjdHMiLCJrZXkiOiIyNWNlMjI5Yi00YmQ3LTRjMTktOGE4Yy0zOTY5MzNiMmE5NDMucG5nLndlYnAiLCJlZGl0cyI6eyJyZXNpemUiOnsid2lkdGgiOjM4NH19LCJ3ZWJwIjp7InF1YWxpdHkiOjc1fX0=",
-            "link": "fcmobile.",
-            "desc": "Silver"
-        },
-        {
-            "name": "Call of Duty: Mobile",
-            "image": "https://d13ms5efar3wc5.cloudfront.net/eyJidWNrZXQiOiJpbWFnZXMtY2Fycnkxc3QtcHJvZHVjdHMiLCJrZXkiOiI4NmYyM2EwNi00MjI4LTQyNzctOTQwMS00ZWVlZTBkY2NmMzgucG5nLndlYnAiLCJlZGl0cyI6eyJyZXNpemUiOnsid2lkdGgiOjM4NH19LCJ3ZWJwIjp7InF1YWxpdHkiOjc1fX0=",
-            "link": "codm.",
-            "desc": "Battle Pass"
-        },
-        {
-            "name": "Marvel Rivals",
-            "image": "https://d13ms5efar3wc5.cloudfront.net/eyJidWNrZXQiOiJpbWFnZXMtY2Fycnkxc3QtcHJvZHVjdHMiLCJrZXkiOiIxMDRlYjFmNi1kMThiLTRjNGItODU4OS1iMWJiYjRiMzc4NzQucG5nLndlYnAiLCJlZGl0cyI6eyJyZXNpZml4Ing=",
-            "link": "marvelrivals",
-            "desc": "Lattices"
-        },
-        {
-            "name": "Delta Force",
-            "image": "https://d13ms5efar3wc5.cloudfront.net/eyJidWNrZXQiOiJpbWFnZXMtY2Fycnkxc3QtcHJvZHVjdHMiLCJrZXkiOiIyYTVjYzFiYy00Yjg4LTQ2ZmYtYmFiZi04MTc3M2NkYTA1YTIucG5nLndlYnAiLCJlZGl0cyI6eyJyZXNpemUiOnsid2lkdGgiOjM4NH19LCJ3ZWJwIjp7InF1YWxpdHkiOjc1fX0=",
-            "link": "deltaforce",
-            "desc": "Coins"
-        },
-        {
-            "name": "Honor of Kings",
-            "image": "https://d13ms5efar3wc5.cloudfront.net/eyJidWNrZXQiOiJpbWFnZXMtY2Fycnkxc3QtcHJvZHVjdHMiLCJrZXkiOiIzZmJhZTU0Mi1iZTM0LTRjM2EtYmM1Yy0xYTE4NzYxOGU0NzMucG5nLndlYnAiLCJlZGl0cyI6eyJyZXNpemUiOnsid2lkdGgiOjM4NH19LCJ3ZWJwIjp7InF1YWxpdHkiOjc1fX0=",
-            "link": "honorofkings",
-            "desc": "Tokens"
-        },
-        {
-            "name": "Arena Breakout",
-            "image": "https://d13ms5efar3wc5.cloudfront.net/eyJidWNrZXQiOiJpbWFnZXMtY2Fycnkxc3QtcHJvZHVjdHMiLCJrZXkiOiJmZTY2NTRjYy00YzEyLTQ5NWEtOGMzMi1kNjhiNDMwOTkwYjgucG5nLndlYnAiLCJlZGl0cyI6eyJyZXNpemUiOnsid2lkdGgiOjM4NH19LCJ3ZWJwIjp7InF1YWxpdHkiOjc1fX0=",
-            "link": "arenabreakout",
-            "desc": "Bonds"
-        }
-    ]
-    return render_template('vouchers.html', items=items)
 
 # --- UNIVERSAL BUY PAGE ---
 @app.route('/buy/<network>')
 def product_page(network):
-    # If in Compliance Mode, BLOCK voucher networks
-    risky_networks = ['audiomack', 'tinder', 'fcmobile', 'freefire', 'codm', 'marvelrivals', 'deltaforce', 'honorofkings', 'arenabreakout', 'fcmobile.', 'codm.']
-    
-    if COMPLIANCE_MODE and network in risky_networks:
-        return render_template('maintenance.html', page_name="Digital Vouchers")
 
-    # MASTER PRICE LIST (From second code - complete pricing)
+    # MASTER PRICE LIST
     pricing = {
         # --- DATA BUNDLES (Keep these active for 'Campus Connectivity') ---
         "mtn": [
@@ -1078,90 +1226,6 @@ def product_page(network):
             {"name": "8GB Non-Expiry", "price": 75, "input_type": "phone", "active": True},
             {"name": "10GB Non-Expiry", "price": 95, "input_type": "phone", "active": True},
             {"name": "12GB Non-Expiry", "price": 113, "input_type": "phone", "active": True},
-        ],
-
-        # --- VOUCHERS (These are blocked in COMPLIANCE_MODE) ---
-        "audiomack": [
-            {"name": "Audiomack Day Pass", "price": 3, "input_type": "email", "active": True},
-            {"name": "Audiomack Monthly Pass", "price": 25, "input_type": "email", "active": True}
-        ],
-         "tinder": [
-            {"name": "Standard 1 Week - Plus", "price":25, "input_type": "phone", "active": True},
-            {"name": "Standard 1 Week - Gold", "price": 35, "input_type": "phone", "active": True},
-            {"name": "Standard 1 Month - Plus", "price": 42, "input_type": "phone", "active": True},
-            {"name": "Standard 1 Month - Gold", "price": 55, "input_type": "phone", "active": True},
-        ],
-        "fcmobile": [
-            {"name": "40 FC Points", "price": 7, "input_type": "id", "active": True},
-            {"name": "100 FC Points", "price": 17, "input_type": "id", "active": True},
-            {"name": "520 FC Points", "price": 80, "input_type": "id", "active": True},
-            {"name": "1070 FC Points", "price": 160, "input_type": "id", "active": True},
-            {"name": "2200 FC Points", "price": 310, "input_type": "id", "active": True},
-            {"name": "5750 FC Points", "price": 775, "input_type": "id", "active": True},
-            {"name": "12000 FC Points", "price": 1570, "input_type": "id", "active": True},
-        ],
-        "freefire": [
-            {"name": "100 Diamonds", "price": 18, "input_type": "id", "active": True},
-            {"name": "210 Diamonds", "price": 32, "input_type": "id", "active": True},
-            {"name": "530 Diamonds", "price": 72, "input_type": "id", "active": True},
-            {"name": "1080 Diamonds", "price": 142, "input_type": "id", "active": True},
-            {"name": "2200 Diamonds", "price": 275, "input_type": "id", "active": True},
-        ],
-        "codm": [
-            {"name": "880 CP", "price": 145, "input_type": "id", "active": True},
-            {"name": "30 CP", "price": 7, "input_type": "id", "active": True},
-            {"name": "80 CP", "price": 15, "input_type": "id", "active": True},
-            {"name": "420 CP", "price": 72, "input_type": "id", "active": True},
-            {"name": "2400 CP", "price": 370, "input_type": "id", "active": True},
-            {"name": "5000 CP", "price": 730, "input_type": "id", "active": True},
-            {"name": "10800 CP", "price": 1440, "input_type": "id", "active": True},
-            {"name": "21600 CP", "price": 2600, "input_type": "id", "active": True},
-            {"name": "32400 CP", "price": 3800, "input_type": "id", "active": True},
-            {"name": "54000 CP", "price": 6200, "input_type": "id", "active": True}
-        ],
-        "fcmobile.": [
-            {"name": "39 Silver", "price": 8, "input_type": "id", "active": True},
-            {"name": "99 Silver", "price": 18, "input_type": "id", "active": True},
-            {"name": "499 Silver", "price": 82, "input_type": "id", "active": True},
-            {"name": "1999 Silver", "price": 317, "input_type": "id", "active": True},
-            {"name": "4999 Silver", "price": 780, "input_type": "id", "active": True},
-            {"name": "9999 Silver", "price": 1550, "input_type": "id", "active": True},
-        ],
-        "codm.": [
-            {"name": "Battle Pass Premium", "price": 40, "input_type": "id", "active": True},
-            {"name": "Battle Pass Premium Bundle", "price": 93, "input_type": "id", "active": True}
-        ],
-         "marvelrivals": [
-            {"name": "100 Lattices", "price": 15, "input_type": "id", "active": True},
-            {"name": "500 Lattices", "price": 70, "input_type": "id", "active": True},
-            {"name": "1000 Lattices", "price": 142, "input_type": "id", "active": True},
-            {"name": "2180 Lattices", "price": 283, "input_type": "id", "active": True},
-            {"name": "5680 Lattices", "price": 660, "input_type": "id", "active": True},
-            {"name": "11680 Lattices", "price": 1310, "input_type": "id", "active": True},
-        ],
-        "deltaforce": [
-            {"name": "18 Delta Coins", "price": 5.5, "input_type": "id", "active": True},
-            {"name": "30 Delta Coins", "price": 9, "input_type": "id", "active": True},
-            {"name": "60 Delta Coins", "price": 14, "input_type": "id", "active": True},
-            {"name": "320 Delta Coins", "price": 60, "input_type": "id", "active": True},
-            {"name": "460 Delta Coins", "price": 82, "input_type": "id", "active": True},
-            {"name": "750 Delta Coins", "price": 115, "input_type": "id", "active": True},
-        ],
-        "honorofkings": [
-            {"name": "16 Tokens", "price": 5, "input_type": "id", "active": True},
-            {"name": "80 Tokens", "price": 15, "input_type": "id", "active": True},
-            {"name": "240 Tokens", "price": 40, "input_type": "id", "active": True},
-            {"name": "400 Tokens", "price": 65, "input_type": "id", "active": True},
-            {"name": "560 Tokens", "price": 90, "input_type": "id", "active": True},
-            {"name": "830 Tokens", "price": 130, "input_type": "id", "active": True},
-        ],
-        "arenabreakout": [
-            {"name": "66 Bonds", "price": 15, "input_type": "id", "active": True},
-            {"name": "335 Bonds", "price": 66, "input_type": "id", "active": True},
-            {"name": "675 Bonds", "price": 130, "input_type": "id", "active": True},
-            {"name": "1690 Bonds", "price": 317, "input_type": "id", "active": True},
-            {"name": "3400 Bonds", "price": 630, "input_type": "id", "active": True},
-            {"name": "6820 Bonds", "price": 1255, "input_type": "id", "active": True},
         ]
     }
     

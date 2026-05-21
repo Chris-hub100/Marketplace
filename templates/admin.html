@@ -3,7 +3,6 @@
 {% block title %}Admin Command Center | Ledgehold{% endblock %}
 
 {% block content %}
-<!-- EXTERNAL ENGINES -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
@@ -12,19 +11,17 @@
     var __app_id = '{{ __app_id }}';
     var __firebase_config = '{{ __firebase_config | safe }}';
     
-    // CLOUDINARY CONFIG - ADDED FROM SECOND FILE
+    // CLOUDINARY CONFIG
     const CLOUD_NAME = 'dze9o4ymx'; 
     const UPLOAD_PRESET = 'ledgehold_uploads';
 </script>
 
 <div class="container py-4" style="min-height: 80vh;">
-    <!-- INITIAL LOADING STATE -->
     <div id="loadingView" class="text-center py-5">
         <div class="spinner-border text-primary" role="status"></div>
         <p class="mt-3 text-muted small">Synchronizing...</p>
     </div>
 
-    <!-- SECTION 1: SECURE LOGIN GATEWAY -->
     <div id="loginSection" class="row justify-content-center d-none">
         <div class="col-md-5 text-center py-5">
             <div class="mb-4">
@@ -51,7 +48,6 @@
         </div>
     </div>
 
-    <!-- SECTION 2: COMMAND CENTER (AUTHENTICATED) -->
     <div id="commandSection" class="d-none">
         <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
             <div>
@@ -61,31 +57,32 @@
             <button onclick="handleLogout()" class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold">Logout</button>
         </div>
 
-        <!-- TAB NAVIGATION -->
         <div class="overflow-auto no-scrollbar mb-4">
             <ul class="nav nav-pills bg-light p-1 rounded-pill d-inline-flex border flex-nowrap" id="adminTabs" style="white-space: nowrap;">
                 <li class="nav-item"><button class="nav-link active rounded-pill fw-bold px-3" id="btn-requests" onclick="switchTab('requests')">Requests <span id="pendingBadge" class="badge rounded-pill bg-danger d-none">0</span></button></li>
                 <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-listings" onclick="switchTab('listings')">Mod-Listings</button></li>
                 <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-waitlist" onclick="switchTab('waitlist')">Wait-List</button></li>
                 <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-receipt" onclick="switchTab('receipt')">D-Trail</button></li>
-                <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-cms" onclick="switchTab('cms')">CMS Invites</button></li>
                 <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-channel" onclick="switchTab('channel')">Intel Hub</button></li>
                 <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-broadcast" onclick="switchTab('broadcast')">Messaging</button></li>
                 <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-revoke" onclick="switchTab('revoke')">Registry</button></li>
             </ul>
         </div>
 
-        <!-- TAB: KYC REQUESTS -->
         <div id="requestsTab" class="admin-tab">
             <div class="card border-0 shadow-sm rounded-4 p-4 bg-white border mb-4">
                 <h6 class="fw-bold mb-4 text-primary"><i class="bi bi-person-plus-fill me-2"></i>Merchant Onboarding Queue</h6>
-                <div id="requestsList" class="row g-3">
+                <div id="requestsList" class="row g-3 mb-4">
                     <div class="col-12 text-center py-5 text-muted small">No pending verification requests.</div>
+                </div>
+
+                <h6 class="fw-bold mb-3 text-muted border-top pt-4 mt-2">Active CMS Invitations</h6>
+                <div id="tokenRegistry" class="overflow-auto" style="max-height: 250px;">
+                    <div class="text-center text-muted small py-3">No active tokens found.</div>
                 </div>
             </div>
         </div>
 
-        <!-- TAB: MARKETPLACE MODERATION -->
         <div id="listingsTab" class="admin-tab d-none">
             <div class="card border-0 shadow-sm rounded-4 p-4 bg-white border mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -98,7 +95,6 @@
             </div>
         </div>
 
-        <!-- TAB: ENDORSEMENT WAITLIST -->
         <div id="waitlistTab" class="admin-tab d-none">
             <div class="card border-0 shadow-sm rounded-4 p-4 bg-white border mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
@@ -125,7 +121,6 @@
             </div>
         </div>
 
-        <!-- TAB: RECEIPT GENERATOR -->
         <div id="receiptTab" class="admin-tab d-none">
             <div class="row g-4">
                 <div class="col-lg-5">
@@ -166,45 +161,6 @@
             </div>
         </div>
 
-        <!-- TAB: CMS INVITES -->
-        <div id="cmsTab" class="admin-tab d-none">
-            <div class="row g-4">
-                <div class="col-lg-5">
-                    <div class="card border-0 shadow-sm p-4 rounded-4 border bg-white">
-                        <div class="text-center mb-4">
-                            <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
-                                <i class="bi bi-key-fill fs-2"></i>
-                            </div>
-                            <h5 class="fw-bold">Generate Onboarding Link</h5>
-                            <p class="text-muted small">Share this secure token for Approved Merchants to activate their Vault.</p>
-                        </div>
-                        <div class="mb-4">
-                            <label class="form-label small fw-bold text-muted">TOKEN EXPIRY (HOURS)</label>
-                            <select id="tokenExpiry" class="form-select rounded-pill border-light bg-light">
-                                <option value="24" selected>24 Hours</option>
-                                <option value="168">1 Week</option>
-                            </select>
-                        </div>
-                        <button id="genTokenBtn" onclick="generateOnboardingToken()" class="btn btn-primary w-100 rounded-pill py-3 fw-bold shadow-sm mb-3">Generate Secure Invite</button>
-                        <div id="newTokenDisplay" class="d-none">
-                            <div class="alert alert-success border-0 rounded-4 small">
-                                <p class="mb-2 fw-bold text-success"><i class="bi bi-check2-circle me-1"></i> New Invitation Link:</p>
-                                <code id="generatedLink" class="d-block bg-white p-2 rounded border mb-3 text-break x-small"></code>
-                                <button onclick="copyGeneratedLink()" class="btn btn-sm btn-dark w-100 rounded-pill fw-bold">Copy Link</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-7">
-                    <div class="card border-0 shadow-sm p-4 rounded-4 border bg-white h-100">
-                        <h6 class="fw-bold mb-3 text-muted">Active Access Tokens</h6>
-                        <div id="tokenRegistry" class="overflow-auto" style="max-height: 400px;"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- TAB: INTEL HUB -->
         <div id="channelTab" class="admin-tab d-none">
             <div class="row g-4">
                 <div class="col-lg-5">
@@ -218,7 +174,6 @@
                             <label class="form-label small fw-bold text-muted text-uppercase">Message</label>
                             <textarea id="intelMsg" class="form-control rounded-4 border-light bg-light p-3" rows="4"></textarea>
                         </div>
-                        <!-- UPDATED: Image Input from Second File -->
                         <div class="mb-3">
                             <label class="form-label small fw-bold text-muted text-uppercase">Visual Asset (Optional)</label>
                             <input type="file" id="intelImage" class="form-control rounded-pill border-light bg-light" accept="image/*">
@@ -233,7 +188,6 @@
             </div>
         </div>
 
-        <!-- TAB: BROADCAST -->
         <div id="broadcastTab" class="admin-tab d-none">
             <div class="row g-4">
                 <div class="col-lg-5">
@@ -266,7 +220,6 @@
             </div>
         </div>
 
-        <!-- TAB: REGISTRY (REVOKE & RESET) -->
         <div id="revokeTab" class="admin-tab d-none">
             <div class="row g-4">
                 <div class="col-lg-12">
@@ -284,7 +237,6 @@
 </div>
 
 
-<!-- UPGRADED OFFICIAL RECEIPT MASTER (HIDDEN) -->
 <div style="position: absolute; left: -9999px;">
     <div id="receiptMaster" style="padding: 50px 50px 100px 50px; font-family: 'Inter', sans-serif; background: white; width: 720px; color: #0f172a; position: relative; min-height: 900px;">
         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 70px; color: rgba(0,0,0,0.03); font-weight: 900; pointer-events: none; z-index: 0; white-space: nowrap;">CERTIFIED TRUE COPY</div>
@@ -374,7 +326,7 @@
     }
 
     /**
-     * SHARED COMPRESSION UTILITY - ADDED FROM SECOND FILE
+     * SHARED COMPRESSION UTILITY 
      */
     async function compressImage(file) {
         return new Promise((resolve, reject) => {
@@ -426,7 +378,7 @@
 
                 list.innerHTML = items.length === 0 ? '<div class="col-12 text-center py-5 text-muted small">No pending verification requests.</div>' :
                 items.map(m => `
-                    <div class="col-md-4">
+                    <div class="col-md-4" id="card-${m.id}">
                         <div class="card border-0 shadow-sm rounded-4 overflow-hidden border">
                             <div class="bg-dark text-white p-3 d-flex justify-content-between align-items-center">
                                 <span class="small fw-bold text-truncate pe-2">${m.fullName}</span>
@@ -440,7 +392,6 @@
                             </div>
                             <div class="p-3 bg-white">
                                 <p class="x-small text-muted mb-2"><b>University:</b> ${m.university} | <b>Course:</b> ${m.course}</p>
-                                <!-- FINANCIAL DATA DISPLAY -->
                                 <div class="bg-warning bg-opacity-10 p-2 rounded-3 mb-3 border border-warning border-opacity-25">
                                     <div class="d-flex align-items-center gap-2 mb-1">
                                         <i class="bi bi-phone text-dark"></i>
@@ -452,7 +403,7 @@
                                     </div>
                                 </div>
                                 <div class="d-grid">
-                                    <button onclick="approveMerchant('${m.id}', \`${m.merchantId}\`, '${m.whatsapp}')" class="btn btn-success btn-sm rounded-pill fw-bold shadow-sm">Approve & Start Chat</button>
+                                    <button onclick="approveMerchant('${m.id}', '${m.merchantId}', '${m.momo}', '${m.fullName}')" class="btn btn-success btn-sm rounded-pill fw-bold shadow-sm" id="btn-approve-${m.id}">Approve & Send SMS</button>
                                     <button onclick="denyMerchant('${m.id}')" class="btn btn-link text-danger btn-sm mt-1 fw-bold text-decoration-none">Deny</button>
                                 </div>
                             </div>
@@ -462,37 +413,87 @@
             });
     }
 
-    window.approveMerchant = async (docId, merchantId, phone) => {
-        if (!confirm(`Officially activate merchant: ${merchantId}? This triggers a WhatsApp chat for token delivery.`)) return;
+    // THE MERGED SMS & APPROVAL PIPELINE
+    window.approveMerchant = async (docId, merchantId, phone, fullName) => {
+        if (!confirm(`Officially activate merchant: ${merchantId}? This will automatically generate a token and send an SMS.`)) return;
+        
+        const approveBtn = document.getElementById(`btn-approve-${docId}`);
+        approveBtn.disabled = true;
+        approveBtn.innerText = "Processing...";
+
         try {
             const reqRef = db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('pending_merchants').doc(docId);
             const snap = await reqRef.get();
             const data = snap.data();
 
-            // USE UNIQUE ID AS DOC KEY
+            // 1. Generate the CMS Token dynamically
+            const token = Math.random().toString(16).slice(2, 10);
+            const expiresAt = Date.now() + (168 * 3600000); // 1 week
+            await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('onboarding_tokens').doc(token).set({
+                token, expiresAt, status: 'active', used: false, createdAt: Date.now(), createdBy: currentAdmin, merchantId: merchantId
+            });
+            const cmsLink = window.location.origin + '/cms?token=' + token;
+
+            // 2. Register as a Verified Merchant
             await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('verified_merchants').doc(merchantId).set({
                 ...data, isApproved: true, approvedAt: Date.now(), status: 'active'
             });
 
+            // 3. Clear from Pending Queue
             await reqRef.delete();
             
-            const cleanPhone = phone.replace(/\D/g, '');
-            const formattedPhone = cleanPhone.startsWith('0') ? '233' + cleanPhone.substring(1) : cleanPhone;
+            // 4. Trigger SMS Dispatch (Your builder needs an endpoint to catch this)
+            const message = `Hello ${fullName}, your Merchant Account is approved! ID: ${merchantId}. Setup your Account PIN here to log into your dashboard: ${cmsLink}`;
             
-            // UNIQUE ID IN MESSAGE
-            const message = `Hello ${data.fullName}! Your Ledgehold Merchant Account has been approved. %0A%0A` +
-                            `*Your Approved Merchant ID:* ${merchantId} %0A` +
-                            `*(Use this exact ID to get your pin using the link below)*%0A%0A` +
-                            `Set up your Merchant Dashboard PIN here: [PASTE_TOKEN_LINK_HERE]`;
-            
-            window.open(`https://wa.me/${formattedPhone}?text=${message}`, '_blank');
-            alert(`${merchantId} Activated.`);
-        } catch (e) { alert("Approval failed: " + e.message); }
+            await fetch('/api/admin/send_sms', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    phone: phone, 
+                    message: message
+                })
+            });
+
+            // Re-render UI
+            alert(`${merchantId} Activated. CMS Invite sent via SMS.`);
+        } catch (e) { 
+            alert("Approval pipeline failed: " + e.message); 
+            approveBtn.disabled = false;
+            approveBtn.innerText = "Approve & Send SMS";
+        }
     };
 
     window.denyMerchant = async (docId) => {
         if (!confirm("Wipe this sign-up request?")) return;
         await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('pending_merchants').doc(docId).delete();
+    };
+
+    /**
+     * TOKEN REGISTRY (Moved into the Requests Tab)
+     */
+    function loadTokenRegistry() {
+        db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('onboarding_tokens')
+            .onSnapshot(snap => {
+                const list = document.getElementById('tokenRegistry');
+                let tokens = []; snap.forEach(d => tokens.push({id: d.id, ...d.data()}));
+                const active = tokens.filter(t => t.status === 'active' && t.expiresAt > Date.now() && !t.used);
+                
+                list.innerHTML = active.length === 0 ? '<div class="text-center text-muted small py-3 border rounded bg-light">No active tokens found.</div>' :
+                active.map(t => `
+                    <div class="p-2 border rounded mb-2 x-small d-flex justify-content-between align-items-center bg-light">
+                        <div>
+                            <code class="fw-bold fs-6">...${t.id.slice(-4)}</code>
+                            <span class="ms-2 text-muted">Merchant: ${t.merchantId || 'Unknown'}</span>
+                        </div>
+                        <button class="btn btn-link text-danger p-0 fw-bold x-small text-decoration-none" onclick="revokeToken('${t.id}')">Revoke</button>
+                    </div>
+                `).join('');
+            });
+    }
+
+    window.revokeToken = async (id) => { 
+        if(!confirm(`Revoke token ...${id.slice(-4)}?`)) return;
+        await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('onboarding_tokens').doc(id).delete(); 
     };
 
     /**
@@ -581,7 +582,7 @@
     };
 
     /**
-     * REGISTRY: RESET & REVOKE - UPDATED WITH ENHANCED WIPE LOGIC
+     * REGISTRY: RESET & REVOKE 
      */
     function loadMerchantRegistry() {
         db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('verified_merchants')
@@ -601,7 +602,6 @@
                                 <span class="badge bg-${statusClass}-subtle text-${statusClass} x-small border border-${statusClass}">${statusText}</span>
                             </div>
                             
-                            <!-- COLLAPSIBLE DETAILS TOGGLE -->
                             <button class="btn btn-link p-0 x-small text-decoration-none mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#details-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}">
                                 <i class="bi bi-eye me-1"></i> View Payout Info
                             </button>
@@ -634,17 +634,14 @@
         alert("PIN cleared. Merchant can now use /cms again.");
     };
 
-    // UPDATED: Enhanced wipe functionality from second file
     window.revokeMerchant = async (id) => {
         if (!confirm(`PERMANENT WIPE: Delete ${id} and ALL their listings? All verified data will be lost.`)) return;
         try {
-            // Delete all listings by this merchant
             const listingsRef = db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('market_listings');
             const listingsSnap = await listingsRef.where('merchantId', '==', id).get();
             const batch = db.batch();
             listingsSnap.forEach(doc => batch.delete(doc.ref));
             
-            // Delete the merchant
             const merchantRef = db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('verified_merchants').doc(id);
             batch.delete(merchantRef);
             
@@ -656,37 +653,7 @@
     };
 
     /**
-     * TOKENS / SECURE INVITES
-     */
-    window.generateOnboardingToken = async () => {
-        const btn = document.getElementById('genTokenBtn'); btn.disabled = true;
-        try {
-            const token = Math.random().toString(16).slice(2, 10);
-            const expiresAt = Date.now() + (parseInt(document.getElementById('tokenExpiry').value) * 3600000);
-            await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('onboarding_tokens').doc(token).set({
-                token, expiresAt, status: 'active', used: false, createdAt: Date.now(), createdBy: currentAdmin
-            });
-            document.getElementById('generatedLink').innerText = window.location.origin + '/cms?token=' + token;
-            document.getElementById('newTokenDisplay').classList.remove('d-none');
-        } catch (e) { alert("Token failed."); }
-        finally { btn.disabled = false; }
-    };
-
-    function loadTokenRegistry() {
-        db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('onboarding_tokens')
-            .onSnapshot(snap => {
-                const list = document.getElementById('tokenRegistry');
-                let tokens = []; snap.forEach(d => tokens.push({id: d.id, ...d.data()}));
-                const active = tokens.filter(t => t.status === 'active' && t.expiresAt > Date.now() && !t.used);
-                list.innerHTML = active.length === 0 ? '<p class="text-center py-4 text-muted small">No active invitations.</p>' :
-                active.map(t => `<div class="p-2 border rounded mb-2 x-small d-flex justify-content-between bg-light"><code>...${t.id.slice(-4)}</code> <button class="btn btn-link text-danger p-0 fw-bold x-small text-decoration-none" onclick="revokeToken('${t.id}')">Revoke</button></div>`).join('');
-            });
-    }
-
-    window.revokeToken = async (id) => { await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('onboarding_tokens').doc(id).delete(); };
-
-    /**
-     * INTEL / BROADCAST / RECEIPT - UPDATED WITH CLOUDINARY
+     * INTEL / BROADCAST / RECEIPT
      */
     window.publishIntelligence = async () => {
         const header = document.getElementById('intelHeader').value.trim();
@@ -700,9 +667,8 @@
         
         let imgUrl = null;
         try {
-            // Upload to Cloudinary if image exists
             if (imgInput.files.length > 0) {
-                const compressed = await compressImage(imgInput.files[0]);
+                const compressed = await compressImage(imgInput.files);
                 const formData = new FormData();
                 formData.append("file", compressed);
                 formData.append("upload_preset", UPLOAD_PRESET);
@@ -714,7 +680,6 @@
                 if (data.secure_url) imgUrl = data.secure_url;
             }
             
-            // Save to Firestore
             await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('intelligence_channel').add({ 
                 header, 
                 message: msg, 
@@ -723,7 +688,6 @@
                 adminId: currentAdmin 
             });
             
-            // Clear form
             document.getElementById('intelHeader').value = ""; 
             document.getElementById('intelMsg').value = ""; 
             imgInput.value = "";
@@ -814,7 +778,6 @@
         const fee = gross * 0.05;
         const net = gross - fee;
 
-        // Map to Upgraded Template IDs
         document.getElementById('pdf_ref').innerText = document.getElementById('refId').value;
         document.getElementById('pdf_merchant').innerText = document.getElementById('merchantName').value;
         document.getElementById('pdf_item').innerText = document.getElementById('itemName').value;
@@ -825,7 +788,6 @@
         document.getElementById('pdf_fee').innerText = `- ${fee.toFixed(2)}`;
         document.getElementById('pdf_net').innerText = net.toFixed(2);
 
-        // Inject clone into preview
         const container = document.getElementById('previewContainer');
         container.innerHTML = ''; 
         container.appendChild(document.getElementById('receiptMaster').cloneNode(true));
@@ -851,8 +813,6 @@
         html2pdf().set(opt).from(element).save();
     };
 
-
-
     /**
      * ADMIN SYSTEM
      */
@@ -867,11 +827,6 @@
         document.getElementById(tab + 'Tab').classList.remove('d-none'); 
         document.querySelectorAll('#adminTabs .nav-link').forEach(l => l.classList.remove('active')); 
         document.getElementById('btn-' + tab).classList.add('active'); 
-    };
-    window.copyGeneratedLink = () => {
-        const link = document.getElementById('generatedLink').innerText;
-        const el = document.createElement('textarea'); el.value = link; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
-        alert("Link Copied.");
     };
 
     window.onload = refreshUI;

@@ -3,14 +3,12 @@
 {% block title %}Merchant Dashboard | ProlyfiQ{% endblock %}
 
 {% block content %}
-<!-- BRIDGE SCRIPT: Connects Flask/Jinja variables to JavaScript -->
 <script>
     var __firebase_config = '{{ __firebase_config | safe if __firebase_config else "{}" }}';
     var __app_id = '{{ __app_id if __app_id else "ledgehold-ghana1" }}';
 </script>
 
 <div class="container py-4" style="min-height: 80vh;">
-    <!-- SECTION 1: SECURE LOGIN GATEWAY -->
     <div id="loginSection" class="row justify-content-center d-none">
         <div class="col-md-5 text-center py-5">
             <div class="mb-4">
@@ -27,29 +25,25 @@
 
             <div class="card border-0 shadow-lg p-4 rounded-4 bg-white">
                 <div class="mb-3 text-start">
-                    <!-- UPDATED: Label and placeholder for clarity -->
                     <label class="form-label small fw-bold text-muted">NAME</label>
                     <input type="text" id="merchantNameInput" 
-                           class="form-control rounded-pill border-light bg-light py-2 px-4" 
+                           class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" 
                            placeholder="e.g. Kwadwo Nkansah" 
                            spellcheck="false" 
                            autocomplete="off">
                 </div>
                 <div class="mb-4 text-start">
                     <label class="form-label small fw-bold text-muted">PIN</label>
-                    <input type="password" id="merchantPinInput" maxlength="6" class="form-control rounded-pill border-light bg-light py-2 px-4 text-center fw-bold" style="letter-spacing: 8px;" placeholder="••••••" inputmode="numeric">
+                    <input type="password" id="merchantPinInput" maxlength="6" class="form-control rounded-pill border-light bg-light py-2 px-4 text-center fw-bold shadow-none" style="letter-spacing: 8px;" placeholder="••••••" inputmode="numeric">
                 </div>
                 <button id="unlockBtn" onclick="handleLogin()" class="btn btn-dark w-100 rounded-pill py-3 fw-bold shadow-sm">
                     Unlock Dashboard
                 </button>
             
-            <!-- NEW: FORGOT PIN BRIDGE -->
                 <div class="mt-3">
-                    <a href="https://wa.me/233551681706?text=Hello%ProlyfiQ%20Support%20Team!%20I%20have%20forgotten%20my%20Merchant%20PIN.%20Please%20assist%20with%20identity%20verification." 
-                       target="_blank" 
-                       class="text-decoration-none small fw-bold text-muted hover-primary transition-all">
+                    <button type="button" data-bs-toggle="modal" data-bs-target="#forgotPinModal" class="btn btn-link text-decoration-none small fw-bold text-muted shadow-none p-0 hover-primary transition-all">
                         <i class="bi bi-question-circle me-1"></i> Forgot my PIN?
-                    </a>
+                    </button>
                 </div>
             </div>
             
@@ -59,7 +53,6 @@
         </div>
     </div>
 
-    <!-- SECTION 2: MERCHANT DASHBOARD (AUTHENTICATED) -->
     <div id="dashboardSection" class="d-none">
         <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
             <div>
@@ -74,12 +67,9 @@
             </button>
         </div>
 
-        <!-- DYNAMIC NOTIFICATION BANNER (FIXED ALIGNMENT FOR LONG MESSAGES) -->
         <div id="directNotification" class="alert d-none rounded-4 border-0 shadow-lg p-4 mb-5 overflow-hidden position-relative notification-banner" style="background: #2563eb;">
-            <!-- Background sweep effect -->
             <div class="position-absolute top-0 start-0 w-100 h-100 opacity-10 sweep-effect"></div>
             
-            <!-- HEADER SECTION: Icon, Title, and Close Button -->
             <div class="d-flex align-items-center justify-content-between mb-3 position-relative z-index-1">
                 <div class="d-flex align-items-center gap-3">
                     <div id="notifyIconBox" class="bg-white bg-opacity-20 rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 45px; height: 45px; min-width: 45px;">
@@ -90,23 +80,19 @@
                         <span class="badge rounded-pill bg-white fw-bold notification-badge" style="font-size: 0.55rem; color: #2563eb;">from ProlyfiQ</span>
                     </div>
                 </div>
-                <!-- Close button positioned relative to the header flex -->
                 <button type="button" onclick="dismissNotification()" class="btn-close btn-close-white shadow-none"></button>
             </div>
             
-            <!-- BODY SECTION: Text filling the remaining bottom space -->
             <div class="position-relative z-index-1">
                 <p id="notifyText" class="mb-0 text-white small fw-medium opacity-90 w-100" style="line-height: 1.6; white-space: pre-wrap; word-break: break-word;"></p>
             </div>
         </div>
 
-        <!-- NEW: ELITE MERCH KIT BANNER -->
         <div class="row mb-5">
             <div class="col-12">
                 <div class="card border-0 shadow-lg position-relative overflow-hidden" 
                      style="background: linear-gradient(135deg, #0f172a 0%, #020617 100%); border-radius: 24px; border: 1px solid rgba(251, 191, 36, 0.2);">
                     
-                    <!-- Decorative Element -->
                     <div class="position-absolute top-0 end-0 opacity-10" style="transform: translate(20%, -20%);">
                         <i class="bi bi-gift-fill" style="font-size: 180px; color: #fbbf24;"></i>
                     </div>
@@ -119,7 +105,7 @@
                                 </div>
                                 <h2 class="fw-bold mb-2">Claim Your Custom Merchant Kit</h2>
                                 <p class="opacity-75 mb-4 mb-md-0" style="max-width: 500px;">
-                                    As a verified merchant on <strong>ProlyfiQ</strong>, you are now eligible for an Official ProlyfiQ T-Shirt with an embedded QR code leading to your storefront, to boost your campus visibility.
+                                    As a verified merchant on <strong>ProlyfiQ</strong>, you are now eligible for an Official ProlyfiQ T-Shirt with an embedded QR code leading to your storefront.
                                 </p>
                             </div>
                             <div class="col-md-4 text-md-end">
@@ -134,62 +120,43 @@
             </div>
         </div>
 
-        <!-- Action Grid -->
         <div class="row g-4">
+            
             <div class="col-md-4">
                 <div class="card border-0 rounded-4 p-4 h-100 hover-lift position-relative overflow-hidden shadow-lg" 
-                     style="background: linear-gradient(135deg, #0f172a 0%, #020617 100%); 
-                            border: 1px solid rgba(111, 66, 193, 0.3);">
-                    
-                    <!-- Gold Accent Line -->
+                     style="background: linear-gradient(135deg, #0f172a 0%, #020617 100%); border: 1px solid rgba(111, 66, 193, 0.3);">
                     <div class="position-absolute top-0 start-0 w-100" style="height: 3px; background: linear-gradient(90deg, #fbbf24, #f59e0b);"></div>
-                    
-                    <!-- Subtle Purple Glow Effect -->
-                    <div class="position-absolute top-0 start-0 w-100 h-100 opacity-25" 
-                         style="background: radial-gradient(circle at 20% 20%, rgba(111, 66, 193, 0.4) 0%, transparent 70%);"></div>
+                    <div class="position-absolute top-0 start-0 w-100 h-100 opacity-25" style="background: radial-gradient(circle at 20% 20%, rgba(111, 66, 193, 0.4) 0%, transparent 70%);"></div>
                     
                     <div class="position-relative z-index-1 d-flex flex-column h-100">
-                        <!-- Icon Section -->
                         <div class="d-flex align-items-center gap-3 mb-4">
                             <div class="position-relative">
-                                <!-- Purple Icon Background -->
-                                <div class="p-3 rounded-4 shadow-sm" 
-                                     style="background: linear-gradient(135deg, #6d28d9 0%, #4c1d95 100%);">
+                                <div class="p-3 rounded-4 shadow-sm" style="background: linear-gradient(135deg, #6d28d9 0%, #4c1d95 100%);">
                                     <i class="bi bi-diamond-fill text-dark fs-4"></i>
                                 </div>
-                                <!-- Gold Ring Effect -->
-                                <div class="position-absolute top-0 start-0 w-100 h-100 rounded-4 border border-warning opacity-50" 
-                                     style="transform: scale(1.15);"></div>
+                                <div class="position-absolute top-0 start-0 w-100 h-100 rounded-4 border border-warning opacity-50" style="transform: scale(1.15);"></div>
                             </div>
                             <h6 class="fw-bold mb-0 text-white">Merchant Endorsement</h6>
                         </div>
                         
                         <p class="text-white opacity-50 small mb-4" style="line-height: 1.5;">
-                            Get endorsed by <strong>Major Brands and Firms</strong>. Boost your storefront credibility, get the "Endorsed" badge on your storefront and be able to sell on other campuses.
+                            Get endorsed by <strong>Major Brands and Firms</strong>. Boost your storefront credibility, get the "Endorsed" badge and sell on other campuses.
                         </p>
                         
-                        <!-- Premium Purple-Gold Button -->
-                        <a href="/endorsement" 
-                           class="btn w-100 rounded-pill fw-bold py-2 mt-auto shadow-lg d-flex align-items-center justify-content-center gap-2 hover-scale"
-                           style="background: linear-gradient(135deg, #6d28d9 0%, #4c1d95 100%);
-                                  border: 1px solid rgba(251, 191, 36, 0.4);
-                                  color: white;
-                                  transition: all 0.3s ease;">
+                        <a href="/endorsement" class="btn w-100 rounded-pill fw-bold py-2 mt-auto shadow-lg d-flex align-items-center justify-content-center gap-2 hover-scale"
+                           style="background: linear-gradient(135deg, #6d28d9 0%, #4c1d95 100%); border: 1px solid rgba(251, 191, 36, 0.4); color: white; transition: all 0.3s ease;">
                             <span>Apply for Endorsement</span>
                             <i class="bi bi-chevron-right text-warning"></i>
                         </a>
                         
-                        <!-- Verified Badge -->
                         <div class="text-center mt-3">
-                            <span class="badge bg-white bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-3 py-1" 
-                                  style="font-size: 0.55rem; letter-spacing: 1px;">
+                            <span class="badge bg-white bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-3 py-1" style="font-size: 0.55rem; letter-spacing: 1px;">
                                 <i class="bi bi-shield-check me-1"></i>SPONSORED
                             </span>
                         </div>
                     </div>
                 </div>
             </div>
-
 
             <div class="col-md-4">
                 <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white hover-lift">
@@ -206,7 +173,6 @@
                 </div>
             </div>
 
-            <!-- 3. PAYOUTS (TRIGGER MODAL) -->
             <div class="col-md-4">
                 <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white hover-lift">
                     <div class="d-flex align-items-center gap-3 mb-4">
@@ -241,7 +207,7 @@
                         </div>
                         <h6 class="fw-bold mb-0">Marketing Toolkit</h6>
                     </div>
-                    <p class="text-muted small mb-4">Pre-made marketing templates to help you easily reach potential customers online .</p>
+                    <p class="text-muted small mb-4">Pre-made marketing templates to help you easily reach potential customers online.</p>
                     <a href="/marketing_toolkit" class="btn btn-purple w-100 rounded-pill fw-bold py-2 mt-auto shadow-sm">
                         Toolkit <i class="bi bi-chevron-right ms-1"></i>
                     </a>
@@ -278,95 +244,37 @@
                 </div>
             </div>
 
-            
-         <!-- 4. NEW: Request Sale Receipt -->
             <div class="col-md-4">
                 <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white hover-lift">
                     <div class="d-flex align-items-center gap-3 mb-4">
                         <div class="bg-dark p-3 rounded-4">
-                            <i class="bi bi-receipt-cutoff text-warning fs-4"></i>
+                            <i class="bi bi-credit-card-2-front-fill text-warning fs-4"></i>
                         </div>
-                        <h6 class="fw-bold mb-0">Sale Receipts</h6>
+                        <h6 class="fw-bold mb-0">Payment Info</h6>
                     </div>
-                    <p class="text-muted small mb-4">Request digital receipts for completed sales.</p>
-                    <a href="/receipt_request" class="btn btn-dark w-100 rounded-pill fw-bold py-2 mt-auto shadow-sm">
-                        Request Receipt <i class="bi bi-chevron-right ms-1"></i>
-                    </a>
+                    <p class="text-muted small mb-4">Update your beneficiary MoMo number for automated settlements.</p>
+                    <button type="button" class="btn btn-dark w-100 rounded-pill fw-bold py-2 mt-auto shadow-sm" data-bs-toggle="modal" data-bs-target="#paymentInfoModal" onclick="fetchCurrentMoMo()">
+                        Update <i class="bi bi-pencil-square ms-1"></i>
+                    </button>
                 </div>
             </div>
         </div>
         
-
-        <!-- INFRASTRUCTURE SUPPORT HUB -->
         <div class="row mt-5">
             <div class="col-12">
                 <div class="card border-0 shadow-lg rounded-4 p-4 bg-dark text-white overflow-hidden position-relative">
-                    <i class="bi bi-whatsapp position-absolute bottom-0 end-0 opacity-10" style="font-size: 8rem; transform: translate(20%, 20%);"></i>
+                    <i class="bi bi-headset position-absolute bottom-0 end-0 opacity-10" style="font-size: 8rem; transform: translate(20%, 20%);"></i>
                     <div class="row align-items-center position-relative z-index-1">
                         <div class="col-md-7">
-                            <h6 class="fw-bold mb-1 text-warning">Infrastructure Support Hub</h6>
-                            <p class="small opacity-75 mb-3">Need to update payment info or have a technical inquiry? Contact our support team via WhatsApp.</p>
+                            <h6 class="fw-bold mb-1 text-warning">Merchant Direct</h6>
+                            <p class="small opacity-75 mb-3">Have a technical inquiry, dispute, or issue? Log a priority ticket directly with our team.</p>
                             <div class="d-flex flex-wrap gap-2">
-                                <a href="https://wa.me/233551681706?text=Hello%ProlyfiQ%20Support!%20I%20want%20to%20request%20a%20change%20of%20my%20PIN." 
-                                   target="_blank" class="btn btn-outline-light btn-sm rounded-pill px-3 fw-bold">
-                                    <i class="bi bi-question-circle me-1"></i> Help Desk
-                                </a>
+                                <button data-bs-toggle="modal" data-bs-target="#supportModal" class="btn btn-outline-light btn-sm rounded-pill px-4 py-2 fw-bold">
+                                    <i class="bi bi-ticket-detailed me-1"></i> Report
+                                </button>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- AUTO-LOGOUT WARNING MODAL -->
-
-<!-- PAYOUT PROTOCOL MODAL -->
-<div class="modal fade" id="payoutMethodModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
-            <div class="modal-header border-0 bg-light p-4">
-                <div>
-                    <h5 class="fw-bold text-dark mb-0">Verify Payout</h5>
-                    <p class="text-muted small mb-0">Select your delivery protocol</p>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body p-4">
-                <!-- Method 1 -->
-                <div class="p-3 rounded-4 border border-2 border-primary bg-primary bg-opacity-10 mb-3 hover-lift-sm" onclick="window.location.href='/handshake'" style="cursor: pointer;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; min-width: 40px;">
-                            <i class="bi bi-qr-code-scan"></i>
-                        </div>
-                        <div>
-                            <h6 class="fw-bold mb-0 text-primary">QR Code (Instant)</h6>
-                            <p class="x-small text-dark opacity-75 mb-0">Primary payout request method. Buyer scans your screen which serves as valid P.O.D. to authorize payout on the spot.</p>
-                        </div>
-                        <i class="bi bi-chevron-right text-primary ms-auto"></i>
-                    </div>
-                </div>
-
-                <!-- Method 2 -->
-                <div class="p-3 rounded-4 border border-light bg-light hover-lift-sm" onclick="window.location.href='/payout_portal'" style="cursor: pointer;">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="bg-dark text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; min-width: 40px;">
-                            <i class="bi bi-camera-fill text-warning"></i>
-                        </div>
-                        <div>
-                            <h6 class="fw-bold mb-0 text-dark">Manual (Photo/Video)</h6>
-                            <p class="x-small text-muted mb-0">Secondary payout request method. Upload a photo or video of the item handoff.</p>
-                        </div>
-                        <i class="bi bi-chevron-right text-muted ms-auto"></i>
-                    </div>
-                </div>
-                
-                <div class="mt-4 p-3 bg-warning bg-opacity-10 rounded-4 border border-warning border-opacity-25">
-                    <p class="x-small text-dark mb-0 fw-medium">
-                        <i class="bi bi-shield-check-fill text-warning me-1"></i>
-                        Verification is mandatory under <strong>The Gatekeeper Policy</strong>.
-                    </p>
                 </div>
             </div>
         </div>
@@ -391,169 +299,173 @@
     </div>
 </div>
 
+<div class="modal fade" id="payoutMethodModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 bg-light p-4">
+                <div>
+                    <h5 class="fw-bold text-dark mb-0">Verify Payout</h5>
+                    <p class="text-muted small mb-0">Select your delivery protocol</p>
+                </div>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="p-3 rounded-4 border border-2 border-primary bg-primary bg-opacity-10 mb-3 hover-lift-sm" onclick="window.location.href='/handshake'" style="cursor: pointer;">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; min-width: 40px;">
+                            <i class="bi bi-qr-code-scan"></i>
+                        </div>
+                        <div>
+                            <h6 class="fw-bold mb-0 text-primary">QR Code (Instant)</h6>
+                            <p class="x-small text-dark opacity-75 mb-0">Primary payout request method. Buyer scans your screen to authorize payout on the spot.</p>
+                        </div>
+                        <i class="bi bi-chevron-right text-primary ms-auto"></i>
+                    </div>
+                </div>
+                
+                <div class="mt-4 p-3 bg-warning bg-opacity-10 rounded-4 border border-warning border-opacity-25">
+                    <p class="x-small text-dark mb-0 fw-medium">
+                        <i class="bi bi-shield-check-fill text-warning me-1"></i>
+                        Verification is mandatory under <strong>The Gatekeeper Policy</strong>.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="paymentInfoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 bg-light p-4">
+                <h5 class="fw-bold text-dark mb-0">Update Beneficiary</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="paymentUpdateForm" onsubmit="savePaymentInfo(event)">
+                    <div class="mb-4">
+                        <label class="small fw-bold text-muted mb-1 ms-1">NEW MOBILE MONEY NUMBER</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-light" style="border-radius: 50px 0 0 50px;">
+                                <i class="bi bi-phone text-muted px-1"></i>
+                            </span>
+                            <input type="tel" id="updateMomoInput" class="form-control bg-light border-light py-3 shadow-none fw-bold" placeholder="055XXXXXXX" maxlength="10" required style="border-radius: 0 50px 50px 0;">
+                        </div>
+                        <div id="momoError" class="text-danger fw-bold small ms-2 mt-2 d-none">Number must be exactly 10 digits.</div>
+                    </div>
+                    <div id="momoSuccess" class="alert alert-success d-none small rounded-4 border-0 mb-3 fw-bold">
+                        <i class="bi bi-check-circle-fill me-1"></i> Number updated successfully.
+                    </div>
+                    <button type="submit" id="momoSaveBtn" class="btn btn-dark w-100 rounded-pill py-3 fw-bold shadow-sm">
+                        Save Changes
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="supportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 bg-light p-4">
+                <h5 class="fw-bold text-dark mb-0">Priority Support Ticket</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="supportForm" onsubmit="submitSupportRequest(event)">
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted mb-1 ms-1">CONTACT EMAIL</label>
+                        <input type="email" id="supportEmail" class="form-control bg-light border-light py-2 rounded-pill px-4 shadow-none" placeholder="Enter your email address" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="small fw-bold text-muted mb-1 ms-1">ISSUE / CONCERN</label>
+                        <textarea id="supportMessage" class="form-control bg-light border-light py-3 rounded-4 px-4 shadow-none" rows="4" placeholder="Describe the problem in detail..." required></textarea>
+                    </div>
+                    
+                    <div id="supportError" class="alert alert-danger d-none small rounded-4 border-0 mb-3"></div>
+                    <div id="supportSuccess" class="alert alert-success d-none small rounded-4 border-0 mb-3 fw-bold">
+                        <i class="bi bi-check-circle-fill me-1"></i> Ticket logged! We will reach out via email.
+                    </div>
+
+                    <button type="submit" id="supportSubmitBtn" class="btn btn-dark w-100 rounded-pill py-3 fw-bold shadow-sm">
+                        Submit Ticket <i class="bi bi-send-fill ms-1"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="forgotPinModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 bg-light p-4">
+                <h5 class="fw-bold text-dark mb-0">Reset Merchant PIN</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="alert bg-warning bg-opacity-10 border border-warning border-opacity-25 rounded-4 p-3 mb-4 small text-dark">
+                    <i class="bi bi-info-circle-fill text-warning me-1"></i> Enter your Onboarding ID and your registered MoMo number to authenticate a reset.
+                </div>
+                
+                <form id="forgotPinForm" onsubmit="verifyForgotPin(event)">
+                    <div class="mb-3">
+                        <label class="small fw-bold text-muted mb-1 ms-1">ONBOARDING ID</label>
+                        <input type="text" id="resetMerchantId" class="form-control bg-light border-light py-2 rounded-pill px-4 shadow-none" placeholder="Kwadwo Nkansah 1234" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="small fw-bold text-muted mb-1 ms-1">REGISTERED MOMO NUMBER</label>
+                        <input type="tel" id="resetPhone" class="form-control bg-light border-light py-2 rounded-pill px-4 shadow-none" placeholder="055XXXXXXX" required>
+                    </div>
+                    
+                    <div id="resetError" class="alert alert-danger d-none small rounded-4 border-0 mb-3 fw-bold"></div>
+
+                    <button type="submit" id="resetSubmitBtn" class="btn btn-dark w-100 rounded-pill py-3 fw-bold shadow-sm">
+                        Verify & Reset
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, collection, query, where, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, updateDoc, collection, query, where, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
-    // 1. Initialization
     const config = JSON.parse(__firebase_config);
     const app = initializeApp(config);
     const auth = getAuth(app);
     const db = getFirestore(app);
     const appId = __app_id;
 
-    // 2. Session & Logout Logic (2-Minute Threshold)
     let currentMerchant = localStorage.getItem('ledgehold_merchant_name');
+    let merchantDataCache = null; // Cache to quickly populate modals
     let notificationUnsubscribe = null;
     let logoutTimer, warningTimer, countdownInterval;
     let countdownValue = 10;
-    const SESSION_TIMEOUT = 120000; // 2 minutes
-    const WARNING_THRESHOLD = 110000; // 1 min 50 seconds
+    const SESSION_TIMEOUT = 120000; 
+    const WARNING_THRESHOLD = 110000; 
 
+    // --- SESSION MANAGEMENT ---
     function resetTimers() {
         if (!currentMerchant) return;
-        
         clearTimeout(logoutTimer);
         clearTimeout(warningTimer);
         clearInterval(countdownInterval);
-        
-        // Update activity timestamp for persistence across tab closure
         localStorage.setItem('ledgehold_last_active', Date.now());
-
-        // Set the 1m 50s warning
         warningTimer = setTimeout(showWarning, WARNING_THRESHOLD);
-        
-        // Set the 2m hard logout
         logoutTimer = setTimeout(handleLogout, SESSION_TIMEOUT);
-    }
-
-    // FUNCTION TO APPLY NOTIFICATION STYLING BASED ON TYPE
-    function applyNotificationStyle(type, message) {
-        const banner = document.getElementById('directNotification');
-        const iconBox = document.getElementById('notifyIconBox');
-        const badge = banner.querySelector('.notification-badge');
-        const title = document.getElementById('notifyTitle');
-        
-        // Remove all existing type classes
-        banner.classList.remove('notification-primary', 'notification-warning', 'notification-success', 'notification-danger');
-        
-        // Set styles based on type
-        let iconClass, badgeColor, titleText;
-        
-        switch(type) {
-            case 'primary':
-                banner.classList.add('notification-primary');
-                iconClass = 'bi-bell-fill';
-                badgeColor = 'text-primary';
-                titleText = 'Notification';
-                break;
-            case 'warning':
-                banner.classList.add('notification-warning');
-                iconClass = 'bi-exclamation-triangle-fill';
-                badgeColor = 'text-warning';
-                titleText = 'Compliance Notice';
-                break;
-            case 'success':
-                banner.classList.add('notification-success');
-                iconClass = 'bi-check-circle-fill';
-                badgeColor = 'text-success';
-                titleText = 'Success Update';
-                break;
-            case 'danger':
-                banner.classList.add('notification-danger');
-                iconClass = 'bi-x-circle-fill';
-                badgeColor = 'text-danger';
-                titleText = 'Urgent Alert';
-                break;
-            default:
-                banner.classList.add('notification-primary');
-                iconClass = 'bi-megaphone-fill';
-                badgeColor = 'text-primary';
-                titleText = 'Notification';
-        }
-        
-        // Update icon
-        iconBox.innerHTML = `<i class="bi ${iconClass} fs-4"></i>`;
-        
-        // Update badge color
-        if (badge) {
-            badge.className = `badge rounded-pill bg-white fw-bold ${badgeColor}`;
-            badge.style.fontSize = '0.55rem';
-        }
-        
-        // Update title
-        if (title) {
-            title.textContent = titleText;
-        }
-        
-        // Optional: Add urgency indicators for danger/warning
-        if (type === 'danger' || type === 'warning') {
-            const sweepEffect = banner.querySelector('.sweep-effect');
-            if (sweepEffect) {
-                sweepEffect.style.animation = 'sweep 2s infinite';
-            }
-        }
-    }
-
-    function startNotificationListener() {
-        // Clear any existing listener
-        if (notificationUnsubscribe) {
-            notificationUnsubscribe();
-            notificationUnsubscribe = null;
-        }
-        
-        if (!currentMerchant) return;
-        
-        try {
-            // Path: /artifacts/{appId}/public/data/merchant_notifications/{merchantName}
-            const notifyRef = doc(db, 'artifacts', appId, 'public', 'data', 'merchant_notifications', currentMerchant);
-            
-            notificationUnsubscribe = onSnapshot(notifyRef, (snap) => {
-                const banner = document.getElementById('directNotification');
-                if (snap.exists() && snap.data().message) {
-                    const data = snap.data();
-                    const message = data.message;
-                    const type = data.type || 'primary';
-                    
-                    // Set message text
-                    document.getElementById('notifyText').innerText = message;
-                    
-                    // Apply type-based styling
-                    applyNotificationStyle(type, message);
-                    
-                    // Show banner
-                    banner.classList.remove('d-none');
-                    
-                    // Add animation for new notifications
-                    banner.style.animation = 'none';
-                    void banner.offsetWidth; // Trigger reflow
-                    banner.style.animation = 'slideDown 0.3s ease-out forwards';
-                    
-                    // Optional: Play sound for urgent notifications
-                    if (type === 'danger' || type === 'warning') {
-                        // You could add a notification sound here
-                        console.log('Urgent notification received:', message);
-                    }
-                } else {
-                    banner.classList.add('d-none');
-                }
-            }, (error) => {
-                console.error("Notification listener error:", error);
-            });
-        } catch (error) {
-            console.error("Failed to start notification listener:", error);
-        }
     }
 
     function showWarning() {
         const modalElement = document.getElementById('logoutWarningModal');
         const modal = new bootstrap.Modal(modalElement);
         modal.show();
-        
         countdownValue = 10;
         document.getElementById('logoutCountdown').innerText = countdownValue;
-        
         countdownInterval = setInterval(() => {
             countdownValue--;
             document.getElementById('logoutCountdown').innerText = countdownValue;
@@ -572,88 +484,110 @@
     };
 
     window.handleLogout = function() {
-        // Clean up notification listener
-        if (notificationUnsubscribe) {
-            notificationUnsubscribe();
-            notificationUnsubscribe = null;
-        }
-        
+        if (notificationUnsubscribe) notificationUnsubscribe();
         localStorage.removeItem('ledgehold_merchant_name');
         localStorage.removeItem('ledgehold_last_active');
         currentMerchant = null;
         window.location.reload(); 
     };
 
-    // Dismiss notification function
-    window.dismissNotification = function() {
-        const banner = document.getElementById('directNotification');
-        banner.classList.add('d-none');
-        
-        // Optional: Mark as read in database
-        if (currentMerchant) {
-            // You could update Firestore to mark notification as read
-            // Example: 
-            // const notifyRef = doc(db, 'artifacts', appId, 'public', 'data', 'merchant_notifications', currentMerchant);
-            // updateDoc(notifyRef, { read: true, dismissedAt: new Date() });
-        }
-    };
-
-    // Monitor interactions to reset timer
     ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
         window.addEventListener(evt, resetTimers, true);
     });
 
-    /**
-     * DPA COMPLIANT HASHING
-     */
-    async function hashPin(pin) {
-        if (!window.crypto || !window.crypto.subtle) {
-            throw new Error("SECURE CONTEXT ERROR: Your browser is blocking encryption. Ensure you are using HTTPS.");
+    // --- NOTIFICATIONS ---
+    function applyNotificationStyle(type, message) {
+        const banner = document.getElementById('directNotification');
+        const iconBox = document.getElementById('notifyIconBox');
+        const badge = banner.querySelector('.notification-badge');
+        const title = document.getElementById('notifyTitle');
+        
+        banner.classList.remove('notification-primary', 'notification-warning', 'notification-success', 'notification-danger');
+        
+        let iconClass, badgeColor, titleText;
+        switch(type) {
+            case 'primary': banner.classList.add('notification-primary'); iconClass = 'bi-bell-fill'; badgeColor = 'text-primary'; titleText = 'Notification'; break;
+            case 'warning': banner.classList.add('notification-warning'); iconClass = 'bi-exclamation-triangle-fill'; badgeColor = 'text-warning'; titleText = 'Compliance Notice'; break;
+            case 'success': banner.classList.add('notification-success'); iconClass = 'bi-check-circle-fill'; badgeColor = 'text-success'; titleText = 'Success Update'; break;
+            case 'danger': banner.classList.add('notification-danger'); iconClass = 'bi-x-circle-fill'; badgeColor = 'text-danger'; titleText = 'Urgent Alert'; break;
+            default: banner.classList.add('notification-primary'); iconClass = 'bi-megaphone-fill'; badgeColor = 'text-primary'; titleText = 'Notification';
         }
+        
+        iconBox.innerHTML = `<i class="bi ${iconClass} fs-4"></i>`;
+        if (badge) { badge.className = `badge rounded-pill bg-white fw-bold ${badgeColor}`; badge.style.fontSize = '0.55rem'; }
+        if (title) title.textContent = titleText;
+        
+        if (type === 'danger' || type === 'warning') {
+            const sweepEffect = banner.querySelector('.sweep-effect');
+            if (sweepEffect) sweepEffect.style.animation = 'sweep 2s infinite';
+        }
+    }
+
+    function startNotificationListener() {
+        if (notificationUnsubscribe) { notificationUnsubscribe(); notificationUnsubscribe = null; }
+        if (!currentMerchant) return;
+        
+        try {
+            const notifyRef = doc(db, 'artifacts', appId, 'public', 'data', 'merchant_notifications', currentMerchant);
+            notificationUnsubscribe = onSnapshot(notifyRef, (snap) => {
+                const banner = document.getElementById('directNotification');
+                if (snap.exists() && snap.data().message) {
+                    const data = snap.data();
+                    document.getElementById('notifyText').innerText = data.message;
+                    applyNotificationStyle(data.type || 'primary', data.message);
+                    banner.classList.remove('d-none');
+                    banner.style.animation = 'none';
+                    void banner.offsetWidth;
+                    banner.style.animation = 'slideDown 0.3s ease-out forwards';
+                } else {
+                    banner.classList.add('d-none');
+                }
+            });
+        } catch (error) { console.error("Listener error:", error); }
+    }
+
+    window.dismissNotification = function() {
+        document.getElementById('directNotification').classList.add('d-none');
+    };
+
+    // --- CRYPTO HASHING ---
+    async function hashPin(pin) {
+        if (!window.crypto || !window.crypto.subtle) throw new Error("Ensure you are using HTTPS.");
         const msgUint8 = new TextEncoder().encode(pin);
         const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
-    function refreshUI() {
-        // CROSS-SESSION PROTECTION: Check if they quit and reopened after 2 mins
+    // --- INITIALIZATION & ROUTING ---
+    async function refreshUI() {
         const lastActive = localStorage.getItem('ledgehold_last_active');
         const now = Date.now();
-        
-        if (lastActive && (now - lastActive > SESSION_TIMEOUT)) {
-            handleLogout();
-            return;
-        }
+        if (lastActive && (now - lastActive > SESSION_TIMEOUT)) { handleLogout(); return; }
 
         if (currentMerchant) {
             document.getElementById('loginSection').classList.add('d-none');
             document.getElementById('dashboardSection').classList.remove('d-none');
             document.getElementById('activeMerchantDisplay').innerText = currentMerchant;
             
-            // START NOTIFICATION LISTENER
+            // Cache merchant data for modals
+            const mRef = doc(db, 'artifacts', appId, 'public', 'data', 'verified_merchants', currentMerchant);
+            const mSnap = await getDoc(mRef);
+            if(mSnap.exists()) { merchantDataCache = mSnap.data(); }
+
             startNotificationListener();
             
-            // Update merch link with merchant name
             const merchLink = document.getElementById('merchLink');
-            if (merchLink) {
-                merchLink.href = `/merch?merchant=${encodeURIComponent(currentMerchant)}`;
-            }
+            if (merchLink) merchLink.href = `/merch?merchant=${encodeURIComponent(currentMerchant)}`;
             
             resetTimers();
         } else {
             document.getElementById('loginSection').classList.remove('d-none');
             document.getElementById('dashboardSection').classList.add('d-none');
-            
-            // Clean up notification listener on logout
-            if (notificationUnsubscribe) {
-                notificationUnsubscribe();
-                notificationUnsubscribe = null;
-            }
+            if (notificationUnsubscribe) { notificationUnsubscribe(); notificationUnsubscribe = null; }
         }
     }
 
-    // THE GATEKEEPER: Smart Query Login (Decoupled Name/ID Logic) - FROM SECOND FILE
     window.handleLogin = async function() {
         const nameInput = document.getElementById('merchantNameInput').value.trim();
         const pinInput = document.getElementById('merchantPinInput').value.trim();
@@ -662,35 +596,22 @@
         const errMsg = document.getElementById('errorMsg');
 
         if (!nameInput || !pinInput) return;
-
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Verifying...';
+        btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Verifying...';
 
         try {
             const inputHash = await hashPin(pinInput);
-            
-            // SECURITY UPGRADE: Query by Human Name, Verify by PIN
             const merchantsRef = collection(db, 'artifacts', appId, 'public', 'data', 'verified_merchants');
-            // Look for any document where 'fullName' matches the input (e.g. "Chris Tetteh")
             const q = query(merchantsRef, where("fullName", "==", nameInput));
             const querySnapshot = await getDocs(q);
 
             let matchFound = false;
             let foundMerchantId = null;
 
-            // Iterate through potential duplicates to find the one with the matching PIN
             querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                if (data.pin === inputHash) {
-                    matchFound = true;
-                    // CAPTURE THE UNIQUE ID (e.g., "Chris Tetteh 3863")
-                    foundMerchantId = doc.id; 
-                }
+                if (doc.data().pin === inputHash) { matchFound = true; foundMerchantId = doc.id; }
             });
 
             if (matchFound && foundMerchantId) {
-                // IMPORTANT: Save the UNIQUE ID to session, NOT just the name they typed.
-                // This ensures all backend systems (Inventory, Links) use the collision-proof ID.
                 localStorage.setItem('ledgehold_merchant_name', foundMerchantId);
                 localStorage.setItem('ledgehold_last_active', Date.now());
                 currentMerchant = foundMerchantId;
@@ -703,12 +624,160 @@
             err.classList.remove('d-none');
             setTimeout(() => err.classList.add('d-none'), 5000);
         } finally {
-            btn.disabled = false;
-            btn.innerHTML = 'Unlock Dashboard';
+            btn.disabled = false; btn.innerHTML = 'Unlock Dashboard';
         }
     };
 
-    // STARTUP
+    // ==============================================
+    // NEW MODAL LOGIC (PAYMENT, SUPPORT, FORGOT PIN)
+    // ==============================================
+
+    // 1. UPDATE PAYMENT INFO
+    window.fetchCurrentMoMo = function() {
+        const input = document.getElementById('updateMomoInput');
+        const err = document.getElementById('momoError');
+        const success = document.getElementById('momoSuccess');
+        
+        err.classList.add('d-none');
+        success.classList.add('d-none');
+        
+        if (merchantDataCache && merchantDataCache.momo) {
+            input.value = merchantDataCache.momo;
+        } else {
+            input.value = "";
+        }
+    };
+
+    window.savePaymentInfo = async function(e) {
+        e.preventDefault();
+        const input = document.getElementById('updateMomoInput').value.trim();
+        const err = document.getElementById('momoError');
+        const success = document.getElementById('momoSuccess');
+        const btn = document.getElementById('momoSaveBtn');
+
+        err.classList.add('d-none');
+        success.classList.add('d-none');
+
+        // Regex: Must be exactly 10 digits
+        if (!/^\d{10}$/.test(input)) {
+            err.classList.remove('d-none');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Saving...';
+
+        try {
+            const mRef = doc(db, 'artifacts', appId, 'public', 'data', 'verified_merchants', currentMerchant);
+            await updateDoc(mRef, { momo: input });
+            
+            if(merchantDataCache) merchantDataCache.momo = input; // Update local cache
+            success.classList.remove('d-none');
+            
+            setTimeout(() => {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('paymentInfoModal'));
+                if(modal) modal.hide();
+            }, 1500);
+
+        } catch(error) {
+            err.innerText = "Database connection error. Try again.";
+            err.classList.remove('d-none');
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Save Changes';
+        }
+    };
+
+    // 2. PRIORITY SUPPORT TICKET
+    window.submitSupportRequest = async function(e) {
+        e.preventDefault();
+        const email = document.getElementById('supportEmail').value.trim();
+        const message = document.getElementById('supportMessage').value.trim();
+        const err = document.getElementById('supportError');
+        const success = document.getElementById('supportSuccess');
+        const btn = document.getElementById('supportSubmitBtn');
+
+        err.classList.add('d-none');
+        success.classList.add('d-none');
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Sending...';
+
+        try {
+            const response = await fetch('/api/email/dispatch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: "merchant_support",
+                    payload: {
+                        merchantId: currentMerchant || "Unauthenticated Session",
+                        email: email,
+                        issue: message
+                    }
+                })
+            });
+
+            const result = await response.json();
+            if (response.ok && result.success) {
+                success.classList.remove('d-none');
+                document.getElementById('supportForm').reset();
+                setTimeout(() => {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('supportModal'));
+                    if(modal) modal.hide();
+                }, 2000);
+            } else {
+                throw new Error("Transmission failed. Please try again.");
+            }
+        } catch(error) {
+            err.innerText = error.message;
+            err.classList.remove('d-none');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Submit Ticket <i class="bi bi-send-fill ms-1"></i>';
+        }
+    };
+
+    // 3. FORGOT PIN LOGIC
+    window.verifyForgotPin = async function(e) {
+        e.preventDefault();
+        const mId = document.getElementById('resetMerchantId').value.trim();
+        const phone = document.getElementById('resetPhone').value.trim();
+        const err = document.getElementById('resetError');
+        const btn = document.getElementById('resetSubmitBtn');
+
+        err.classList.add('d-none');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Verifying...';
+
+        try {
+            // Direct query by Document ID (which is the merchantId)
+            const mRef = doc(db, 'artifacts', appId, 'public', 'data', 'verified_merchants', mId);
+            const mSnap = await getDoc(mRef);
+
+            if (mSnap.exists() && mSnap.data().momo === phone) {
+                // Generate a one-time reset token
+                const resetToken = crypto.randomUUID();
+                
+                // Wipe the existing PIN and set flag allowing an update via CMS
+                await updateDoc(mRef, { 
+                    pin: null, // INSTANTLY WIPES THE OLD PIN
+                    resetToken: resetToken, 
+                    resetExpiry: Date.now() + (15 * 60 * 1000) // 15 mins expiry
+                });
+
+                // Bridge to CMS
+                window.location.href = `/cms?action=reset_pin&mid=${encodeURIComponent(mId)}&token=${resetToken}`;
+            } else {
+                throw new Error("Identity mismatch. Check your ID and registered MoMo number.");
+            }
+        } catch(error) {
+            err.innerText = error.message;
+            err.classList.remove('d-none');
+            btn.disabled = false;
+            btn.innerHTML = 'Verify & Reset';
+        }
+    };
+
     onAuthStateChanged(auth, (user) => {
         if (user) refreshUI();
         else signInAnonymously(auth);
@@ -716,24 +785,11 @@
 </script>
 
 <style>
-    @keyframes pulse { 
-        0%, 100% { opacity: 1; } 
-        50% { opacity: 0.4; } 
-    }
-    
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
     @keyframes slideDown {
-        from { 
-            opacity: 0; 
-            transform: translateY(-20px); 
-            max-height: 0;
-        }
-        to { 
-            opacity: 1; 
-            transform: translateY(0); 
-            max-height: 200px;
-        }
+        from { opacity: 0; transform: translateY(-20px); max-height: 0; }
+        to { opacity: 1; transform: translateY(0); max-height: 200px; }
     }
-    
     @keyframes sweep {
         0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
         100% { transform: translateX(200%) translateY(200%) rotate(45deg); }
@@ -742,19 +798,10 @@
     .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     .animate-slide-down { animation: slideDown 0.3s ease-out forwards; }
     
-    /* NOTIFICATION TYPE STYLES */
-    .notification-banner.notification-primary { 
-        background: #2563eb !important; 
-    }
-    .notification-banner.notification-warning { 
-        background: #f59e0b !important; 
-    }
-    .notification-banner.notification-success { 
-        background: #10b981 !important; 
-    }
-    .notification-banner.notification-danger { 
-        background: #ef4444 !important; 
-    }
+    .notification-banner.notification-primary { background: #2563eb !important; }
+    .notification-banner.notification-warning { background: #f59e0b !important; }
+    .notification-banner.notification-success { background: #10b981 !important; }
+    .notification-banner.notification-danger { background: #ef4444 !important; }
     
     .sweep-effect {
         background: linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.8) 50%, transparent 55%);
@@ -768,29 +815,13 @@
     .text-purple {color: #4c1d95 !important;}
     .btn-purple {background-color: #6f42c1 !important; border-color: #6f42c1 !important; color: white !important;}
     
-    .hover-lift { 
-        transition: transform 0.2s ease, box-shadow 0.2s ease; 
-        cursor: pointer; 
-    }
-    .hover-lift:hover { 
-        transform: translateY(-5px); 
-        box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important; 
-    }
+    .hover-lift { transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer; }
+    .hover-lift:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important; }
     
-    .hover-scale {
-        transition: transform 0.2s ease;
-    }
-    .hover-scale:hover {
-        transform: scale(1.05);
-    }
+    .hover-scale { transition: transform 0.2s ease; }
+    .hover-scale:hover { transform: scale(1.05); }
     
-    #merchantPinInput:focus { 
-        border-color: #fbbf24; 
-        box-shadow: 0 0 0 0.25rem rgba(251, 191, 36, 0.1); 
-    }
-    
-    .z-index-1 {
-        z-index: 1;
-    }
+    #merchantPinInput:focus { border-color: #fbbf24; box-shadow: 0 0 0 0.25rem rgba(251, 191, 36, 0.1); }
+    .z-index-1 { z-index: 1; }
 </style>
 {% endblock %}

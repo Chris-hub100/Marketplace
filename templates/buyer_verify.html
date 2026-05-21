@@ -7,7 +7,7 @@
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
             
-            <div id="quickIdentityCard" class="card border-0 shadow-lg p-4 p-md-5 rounded-4 bg-white d-none animate-slide-up">
+            <div id="quickIdentityCard" class="card border-0 shadow-lg p-4 p-md-5 rounded-4 bg-white d-none animate-slide-up transition-view">
                 <div class="mb-4 text-center">
                     <div class="bg-primary-subtle text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
                         <i class="bi bi-lock-fill fs-2"></i>
@@ -18,21 +18,21 @@
                 
                 <div class="mb-4 text-start">
                     <label class="small fw-bold text-muted mb-1 ms-1">DELIVERY PIN</label>
-                    <input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" id="quickPin" class="form-control bg-light border-0 py-3 rounded-pill px-4" placeholder="Enter 4-digit PIN">
+                    <input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" id="quickPin" class="form-control bg-light border-0 py-3 rounded-pill px-4 shadow-none" placeholder="Enter 4-digit PIN">
                 </div>
                 
                 <div id="quickErrorMsg" class="alert alert-danger d-none small rounded-3 mb-4 fw-bold"></div>
                 
-                <button id="quickVerifyBtn" onclick="submitQuickIdentity()" class="btn btn-primary w-100 rounded-pill fw-bold py-3 shadow-sm mb-3">
+                <button id="quickVerifyBtn" onclick="submitQuickIdentity()" class="btn btn-primary w-100 rounded-pill fw-bold py-3 shadow-sm mb-2">
                     Unlock Handoff
                 </button>
 
-                <button onclick="switchToManual()" class="btn btn-link text-muted small text-decoration-none shadow-none">
-                    Encountering a problem?
+                <button onclick="switchToManual()" class="btn btn-link text-muted small text-decoration-none shadow-none mt-2">
+                    <i class="bi bi-person-exclamation me-1"></i> Not your device? Verify Manually
                 </button>
             </div>
 
-            <div id="identityCard" class="card border-0 shadow-lg p-4 p-md-5 rounded-4 bg-white d-none animate-slide-up">
+            <div id="identityCard" class="card border-0 shadow-lg p-4 p-md-5 rounded-4 bg-white d-none animate-slide-up transition-view">
                 <div class="mb-4 text-center">
                     <div class="bg-warning-subtle text-warning rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
                         <i class="bi bi-person-badge fs-2"></i>
@@ -43,12 +43,12 @@
                 
                 <div class="mb-3 text-start">
                     <label class="small fw-bold text-muted mb-1 ms-1">PHONE NUMBER</label>
-                    <input type="tel" id="verifyPhone" class="form-control bg-light border-0 py-3 rounded-pill px-4" placeholder="024 XXX XXXX">
+                    <input type="tel" id="verifyPhone" class="form-control bg-light border-0 py-3 rounded-pill px-4 shadow-none" placeholder="024 XXX XXXX">
                 </div>
                 
                 <div class="mb-4 text-start">
                     <label class="small fw-bold text-muted mb-1 ms-1">DELIVERY PIN</label>
-                    <input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" id="verifyPin" class="form-control bg-light border-0 py-3 rounded-pill px-4" placeholder="Enter 4-digit PIN">
+                    <input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" id="verifyPin" class="form-control bg-light border-0 py-3 rounded-pill px-4 shadow-none" placeholder="Enter 4-digit PIN">
                 </div>
                 
                 <div id="identityErrorMsg" class="alert alert-danger d-none small rounded-3 mb-4 fw-bold"></div>
@@ -98,7 +98,6 @@
                 </div>
                 <a href="/marketplace" class="btn btn-outline-dark rounded-pill w-100 fw-bold">Return to Marketplace</a>
             </div>
-
         </div>
     </div>
 </div>
@@ -124,14 +123,10 @@
     const urlParams = new URLSearchParams(window.location.search);
     const listingId = urlParams.get('ref'); 
 
-    // BOOTSTRAP THE SESSION ON LOAD
     document.addEventListener("DOMContentLoaded", async () => {
         if (!listingId) return;
         document.getElementById('displayRef').innerText = "#" + listingId.toUpperCase();
         
-        // The buyer must type it from memory to prove physical possession.
-
-        // Intelligently show the correct initial card based on browser state
         if (activeDeviceToken) {
             document.getElementById('quickIdentityCard').classList.remove('d-none');
         } else {
@@ -139,12 +134,22 @@
         }
     });
 
+    // SMOOTH MOTION VIEW STATE TOGGLE
     window.switchToManual = function() {
-        document.getElementById('quickIdentityCard').classList.add('d-none');
-        document.getElementById('identityCard').classList.remove('d-none');
+        const quickCard = document.getElementById('quickIdentityCard');
+        const manualCard = document.getElementById('identityCard');
+        
+        quickCard.style.opacity = '0';
+        quickCard.style.transform = 'translateY(-10px)';
+        
+        setTimeout(() => {
+            quickCard.classList.add('d-none');
+            manualCard.classList.remove('d-none');
+            manualCard.style.opacity = '1';
+            manualCard.style.transform = 'translateY(0)';
+        }, 250);
     };
 
-    // PROCESS PATH A: QUICK PIN (Token Exists)
     window.submitQuickIdentity = async function() {
         const btn = document.getElementById('quickVerifyBtn');
         const pin = document.getElementById('quickPin').value.trim();
@@ -165,10 +170,9 @@
             const result = await res.json();
 
             if (res.ok && result.success) {
-                fallbackPin = pin; // Store for the final swipe
+                fallbackPin = pin; 
                 document.getElementById('quickIdentityCard').classList.add('d-none');
                 document.getElementById('verifyCard').classList.remove('d-none');
-                // Auto-refresh swipe tracker bounds just in case
                 track.dispatchEvent(new CustomEvent('slider-reset'));
             } else {
                 throw new Error("Invalid PIN or expired session.");
@@ -181,7 +185,6 @@
         }
     };
 
-    // PROCESS PATH B: MANUAL (Phone + PIN)
     window.submitManualIdentity = async function() {
         const btn = document.getElementById('verifyIdentityBtn');
         const phone = document.getElementById('verifyPhone').value.trim();
@@ -219,7 +222,6 @@
         }
     };
 
-    // TRIGGER FINAL MATCH ON SWIPE
     async function initiateGatekeeperMatch() {
         const errorMsg = document.getElementById('errorMsg');
         errorMsg.classList.add('d-none');
@@ -273,7 +275,6 @@
         track._sliderLocked = false;
 
         function getMaxTravel() {
-            // THE FIX: Forces true width calculation when unhidden
             const realWidth = track.getBoundingClientRect().width || track.offsetWidth;
             const safeWidth = realWidth > 0 ? realWidth : 300; 
             return safeWidth - THUMB_W - 4; 
@@ -292,7 +293,7 @@
             if (track._sliderLocked) return;
             dragging  = true;
             maxTravel = getMaxTravel();
-            startX    = (e.touches ? e.touches[0].clientX : e.clientX) - currentX;
+            startX    = (e.touches ? e.touches.clientX : e.clientX) - currentX;
             thumb.style.transition = 'none';
             fill.style.transition  = 'none';
             track.classList.add('is-dragging');
@@ -301,7 +302,7 @@
         function onMove(e) {
             if (!dragging || track._sliderLocked) return;
             e.preventDefault();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientX = e.touches ? e.touches.clientX : e.clientX;
             setPosition(clientX - startX);
         }
 
@@ -369,6 +370,10 @@
     @keyframes slideUp {
         from { transform: translateY(30px); opacity: 0; }
         to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    .transition-view {
+        transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
     }
 
     /* ── SWIPE SLIDER ── */

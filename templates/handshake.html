@@ -3,89 +3,110 @@
 {% block title %}P.O.D. Handshake | ProlyfiQ{% endblock %}
 
 {% block content %}
-<!-- BRIDGE SCRIPT -->
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
 <script>
     var __firebase_config = '{{ __firebase_config | safe if __firebase_config else "{}" }}';
     var __app_id = '{{ __app_id if __app_id else "ledgehold-ghana1" }}';
+    
+    const config = JSON.parse(__firebase_config);
+    if (!firebase.apps.length) firebase.initializeApp(config);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
 </script>
 
+<div class="mb-4">
+    <a href="/merchant_dashboard" 
+      style="display: inline-flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 0.875rem; font-weight: bold; color: #64748b; text-decoration: none; transition: all 0.3s ease;"
+      class="hover:text-slate-900"
+    >
+      <div style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background-color: #f1f5f9;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 18-6-6 6-6"/>
+        </svg>
+      </div>
+      <span>Dashboard</span>
+    </a>
+</div>
+
 <div class="container py-4" style="min-height: 85vh; max-width: 500px;">
-    <!-- SESSION LOADING STATE -->
     <div id="loadingView" class="text-center py-5">
         <div class="spinner-border text-primary" role="status"></div>
         <p class="mt-3 text-muted small">Loading...</p>
     </div>
 
-    <!-- MAIN HANDSHAKE INTERFACE -->
     <div id="handshakeSection" class="d-none animate-slide-up">
-        <div class="mb-4">
-            <a href="/merchant_dashboard" class="text-decoration-none small fw-bold text-muted d-inline-flex align-items-center gap-2">
-                <i class="bi bi-arrow-left"></i> Dashboard
-            </a>
-            <h4 class="fw-bold text-dark mt-3 mb-1">P.O.D. Handshake</h4>
-            <p class="text-muted small">Merchant: <span id="activeMerchantDisplay" class="fw-bold text-primary" style="text-transform: capitalize;"></span></p>
+        
+        <div class="text-center mb-5 pb-3 border-bottom">
+            <h3 class="fw-bold text-dark">P.O.D. Handshake</h3>
+            <p class="text-muted small" id="syncText">Generate structural tokens to execute escrow releases at your landmark.</p>
+            
+            <!-- MERCHANT PROFILE BADGE — mirrors list_item.html exactly -->
+            <div class="merchant-badge-animation-wrapper" style="position: relative; height: 70px; margin-top: 10px;">
+                <div id="merchantBadge" style="position: absolute; top: -40px; left: 50%; transform: translateX(-50%); width: 35px; height: 35px; border-radius: 50%; background-color: #0d6efd; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); z-index: 20;">
+                    <i class="bi bi-qr-code-scan text-white"></i>
+                </div>
+            </div>
         </div>
 
-        <!-- GENERATOR FORM -->
         <div id="setupState">
-            <div class="card border-0 shadow-lg rounded-4 p-4 mb-4 bg-white">
-                <form id="handshakeForm" autocomplete="off">
-                    <!-- SEARCHABLE ITEM DROPDOWN -->
+            <div class="card border-0 shadow-lg rounded-4 p-4 p-md-5 mb-4 bg-white">
+                <div autocomplete="off">
                     <div class="position-relative mb-4">
-                        <label class="form-label small fw-bold text-muted text-uppercase" style="font-size: 0.65rem;">Select Item for Delivery</label>
-                        <input type="text" id="itemSearch" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" placeholder="Search your listings..." onfocus="showListingDropdown()" oninput="filterListings(this.value)">
+                        <label class="form-label small fw-bold text-muted text-uppercase" style="font-size: 0.65rem; letter-spacing: 0.5px;">Select Item for Delivery</label>
+                        <input type="text" id="itemSearch" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none small" placeholder="Search your listings..." onfocus="showListingDropdown()" oninput="filterListings(this.value)">
                         
-                        <div id="listingDropdown" class="autocomplete-dropdown d-none shadow-lg border rounded-4 bg-white overflow-hidden">
-                            <!-- Listings injected here -->
-                        </div>
+                        <div id="listingDropdown" class="autocomplete-dropdown d-none shadow-lg border rounded-4 bg-white overflow-hidden"></div>
                     </div>
 
-                    <!-- HIDDEN REF ID FIELD -->
                     <input type="hidden" id="selectedRefId">
 
                     <button type="button" onclick="generateHandshakeQR()" class="btn btn-dark w-100 rounded-pill py-3 fw-bold shadow-sm">
                         Generate Verification QR <i class="bi bi-qr-code-scan ms-2"></i>
                     </button>
-                </form>
+                </div>
             </div>
             
-            <div class="bg-primary-subtle p-3 rounded-4 border border-primary border-opacity-10">
-                <div class="d-flex gap-3">
-                    <i class="bi bi-shield-lock-fill text-primary fs-4"></i>
+            <div class="bg-primary-subtle p-3 rounded-4 border border-primary border-opacity-10 shadow-sm">
+                <div class="d-flex gap-3 align-items-center">
+                    <div>
+                        <i class="bi bi-fingerprint fs-5"></i>
+                    </div>
                     <p class="x-small text-muted mb-0" style="line-height: 1.4;">
-                        <strong>Gatekeeper Protocol:</strong> This QR contains a unique digital signature. Do not share this screen with anyone except the buyer at the point of physical handoff.
+                        <strong>Gatekeeper Protocol:</strong> This QR contains a temporary digital signature. Do not share this screen with anyone except the buyer at the point of physical handoff.
                     </p>
                 </div>
             </div>
         </div>
 
-        <!-- QR DISPLAY STATE -->
         <div id="qrState" class="d-none text-center">
             <div class="card border-0 shadow-lg rounded-5 p-5 bg-white mb-4 position-relative overflow-hidden">
-                <!-- Glow overlay — color controlled by JS -->
                 <div id="qrGlowOverlay" class="position-absolute top-0 start-0 w-100 h-100" style="background: radial-gradient(circle at 50% 50%, #FFEB3B 0%, transparent 70%); transition: background 0.4s ease; pointer-events: none; z-index: 1"></div>
                 
-                <h6 id="statusHeaderLabel" class="fw-bold text-muted text-uppercase small mb-4 position-relative" style="letter-spacing: 2px;">Scan to Release Funds</h6>
+                <h6 id="statusHeaderLabel" class="fw-bold text-muted text-uppercase small mb-4 position-relative" style="letter-spacing: 2px; z-index: 2;">Scan to Release Funds</h6>
                 
-                <!-- qrContainer uses flex to truly center the injected canvas/img -->
-                <div id="qrContainer" class="d-flex align-items-center justify-content-center p-3 bg-white rounded-4 border shadow-sm mb-4 position-relative mx-auto" style="width: fit-content; z-index: 0">
+                <div id="qrContainer" class="d-flex align-items-center justify-content-center p-3 bg-white rounded-4 border shadow-sm mb-4 position-relative mx-auto" style="width: fit-content; z-index: 2">
                     <div id="qrcode"></div>
                 </div>
 
-                <div class="mb-2 position-relative">
+                <div class="mb-2 position-relative" style="z-index: 2;">
                     <h5 id="displayItem" class="fw-bold text-dark mb-1">---</h5>
                     <p id="statusPulseText" class="small fw-bold mb-0 opacity-75 animate-pulse" style="color: #92400e;">Awaiting Scan</p>
                 </div>
             </div>
 
-            <button onclick="resetHandshake()" class="btn btn-outline-secondary w-100 rounded-pill py-2 fw-bold small">
+            <button onclick="resetHandshake()" class="btn btn-outline-secondary w-100 rounded-pill py-2 fw-bold small shadow-none">
                 Cancel / New Handshake
             </button>
         </div>
     </div>
 </div>
 
-<!-- SECURITY MODALS (REPLICATED FROM RECEIPT PAGE) -->
+<!-- LOGOUT WARNING MODAL -->
 <div class="modal fade" id="logoutWarningModal" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow-lg rounded-4 p-4 text-center">
@@ -117,21 +138,9 @@
     </div>
 </div>
 
-<!-- QR GENERATOR LIBRARY -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-    import { getFirestore, collection, getDocs, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
-
-    const config = JSON.parse(__firebase_config);
-    const app = initializeApp(config);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const appId = __app_id;
-
+<script>
     let currentMerchant = localStorage.getItem('ledgehold_merchant_name');
+    let merchantUniversity = "Verified Merchant";
     let merchantListings = [];
     let logoutTimer, warningTimer, countdownInterval;
     const SESSION_TIMEOUT = 120000;
@@ -177,8 +186,8 @@
     async function fetchMerchantListings() {
         if (!currentMerchant) return;
         try {
-            const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'market_listings');
-            const snap = await getDocs(colRef);
+            const colRef = db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('market_listings');
+            const snap = await colRef.get();
             merchantListings = [];
             const target = currentMerchant.trim().toLowerCase();
             
@@ -186,10 +195,7 @@
                 const data = doc.data();
                 const owner = (data.merchantId || data.seller || "").toString().trim().toLowerCase();
                 if (owner === target) {
-                    merchantListings.push({
-                        id: doc.id,
-                        itemName: data.itemName || "Unnamed Item"
-                    });
+                    merchantListings.push({ id: doc.id, itemName: data.itemName || "Unnamed Item" });
                 }
             });
         } catch (e) { console.error("Data Sync Error:", e); }
@@ -220,111 +226,118 @@
         document.getElementById('listingDropdown').classList.add('d-none');
     };
 
-    // --- QR GENERATION (WITH DYNAMIC STATE STREAM & TOOLTIP STRIPPING) ---
+    // --- MERCHANT BADGE ANIMATION (mirrors list_item.html) ---
+    function animateMerchantBadge(name, campus) {
+        const badge = document.getElementById('merchantBadge');
+        const syncText = document.getElementById('syncText');
+        if (!badge) return;
+
+        if (syncText) syncText.classList.add('sync-text-fade');
+
+        setTimeout(() => {
+            badge.style.transition = 'all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
+            badge.style.top = '0';
+
+            setTimeout(() => {
+                badge.style.transition = 'all 0.15s ease-out';
+                badge.style.top = '-5px';
+
+                setTimeout(() => {
+                    badge.style.transition = 'all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
+                    badge.style.top = '0';
+                    badge.style.width = 'auto';
+                    badge.style.height = 'auto';
+                    badge.style.padding = '8px 16px 8px 8px';
+                    badge.style.borderRadius = '50px';
+                    badge.style.backgroundColor = '#fff';
+                    badge.style.border = '1px solid #e2e8f0';
+                    badge.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                    badge.style.display = 'flex';
+                    badge.style.alignItems = 'center';
+                    badge.style.gap = '12px';
+
+                    const textContainer = document.createElement('div');
+                    textContainer.className = 'text-start';
+                    textContainer.innerHTML = `
+                        <p class="mb-0 fw-bold text-dark x-small">${name}</p>
+                        <p class="mb-0 text-muted" style="font-size: 0.6rem;">${campus}</p>
+                    `;
+
+                    setTimeout(() => {
+                        textContainer.style.opacity = '0';
+                        textContainer.style.transform = 'translateX(-10px)';
+                        textContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        badge.appendChild(textContainer);
+
+                        setTimeout(() => {
+                            textContainer.style.opacity = '1';
+                            textContainer.style.transform = 'translateX(0)';
+                            if (syncText) syncText.classList.remove('sync-text-fade');
+                        }, 50);
+                    }, 200);
+                }, 150);
+            }, 300);
+        }, 100);
+    }
+
+    // --- QR GENERATION ---
     window.generateHandshakeQR = function() {
         const refId = document.getElementById('selectedRefId').value;
         const itemName = document.getElementById('itemSearch').value;
 
-        if (!refId) {
-            alert("Please select an item from your listings.");
-            return;
-        }
+        if (!refId) { alert("Please select an item from your listings."); return; }
 
-        // Generate the production URL for the buyer scan
         const verificationUrl = `${window.location.origin}/verify_order?ref=${refId}`;
-
-        // Clear existing QR if any
         document.getElementById("qrcode").innerHTML = "";
         
-        // Generate new QR
         new QRCode(document.getElementById("qrcode"), {
-            text: verificationUrl,
-            width: 220,
-            height: 220,
-            colorDark : "#000000",
-            colorLight : "#ffffff",
-            correctLevel : QRCode.CorrectLevel.H
+            text: verificationUrl, width: 220, height: 220,
+            colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H
         });
 
-        // ========================================================
-        // 🛠️ TOOLTIP REMOVAL LAYER
-        // ========================================================
-        // Instantly target the parent element and clear the text title attribute
-        const qrContainerElement = document.getElementById("qrcode");
-        qrContainerElement.removeAttribute("title");
-        
-        // Give the DOM a tiny fraction of a millisecond to finish rendering elements, then strip sub-tags
+        // Remove tooltip artifacts injected by QRCode lib
+        const qrEl = document.getElementById("qrcode");
+        qrEl.removeAttribute("title");
         setTimeout(() => {
-            if (qrContainerElement.hasAttribute("title")) {
-                qrContainerElement.removeAttribute("title");
-            }
-            // Strip tooltip attributes from hidden canvas or images injected by the library
-            const targetImg = qrContainerElement.querySelector("img");
-            if (targetImg) targetImg.removeAttribute("title");
-            
-            const targetCanvas = qrContainerElement.querySelector("canvas");
-            if (targetCanvas) targetCanvas.removeAttribute("title");
+            qrEl.removeAttribute("title");
+            const img = qrEl.querySelector("img");
+            if (img) img.removeAttribute("title");
+            const canvas = qrEl.querySelector("canvas");
+            if (canvas) canvas.removeAttribute("title");
         }, 10);
 
         document.getElementById('displayItem').innerText = itemName;
         document.getElementById('setupState').classList.add('d-none');
         document.getElementById('qrState').classList.remove('d-none');
 
-        // ========================================================
-        // MULTI-ORDER CONCURRENCY-PROOF REAL-TIME HANDSHAKE STREAM
-        // ========================================================
-        const targetCollection = collection(db, 'artifacts', appId, 'public', 'data', 'orders');
-        const liveQuery = query(targetCollection, where('listing_id', '==', refId));
-        
-        // Keeps the session open until an active buyer physically scans and claims it
+        // Live order stream
+        const targetCollection = db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('orders');
+        const liveQuery = targetCollection.where('listing_id', '==', refId);
         let activeOrderId = null;
         
-        const unsubscribe = onSnapshot(liveQuery, (snapshot) => {
+        const unsubscribe = liveQuery.onSnapshot((snapshot) => {
             snapshot.forEach((doc) => {
                 const orderData = doc.data();
                 const currentStatus = orderData.status;
 
                 const glowOverlay = document.getElementById('qrGlowOverlay');
                 const pulseLabel  = document.getElementById('statusPulseText');
-                const headerLabel = document.getElementById('statusHeaderLabel');
 
-                // 1. DYNAMIC SESSION LOCK: Only anchor to a document when a buyer actively scans it
                 if (!activeOrderId && currentStatus === 'buyer_reviewing') {
                     activeOrderId = doc.id;
-                    console.log(`🔒 Session dynamically locked onto active buyer order: ${activeOrderId}`);
                 }
 
-                // 2. STATE MANAGER
-                // If no buyer has scanned this session yet, maintain the default yellow waiting view
                 if (!activeOrderId) {
                     glowOverlay.style.background = 'radial-gradient(circle at 50% 50%, #FFEB3B 0%, transparent 70%)';
-                    headerLabel.style.color = '';
-                    pulseLabel.style.color = '#92400e';
-                    pulseLabel.innerText = 'Awaiting Scan';
-                }
-                
-                // If we are locked onto this specific document, track its visual states precisely
-                else if (doc.id === activeOrderId) {
-                    
-                    // State B: This specific buyer scanned the code and is reviewing the physical item
+                    pulseLabel.style.color = '#92400e'; pulseLabel.innerText = 'Awaiting Scan';
+                } else if (doc.id === activeOrderId) {
                     if (currentStatus === 'buyer_reviewing') {
                         glowOverlay.style.background = 'radial-gradient(circle at 50% 50%, #60a5fa 0%, transparent 70%)';
-                        headerLabel.style.color = '';
-                        pulseLabel.style.color = '#1d4ed8';
-                        pulseLabel.innerText = 'Pending Swipe';
-                    }
-                    
-                    // State C: This specific buyer approved the transfer
-                    else if (currentStatus === 'completed') {
+                        pulseLabel.style.color = '#1d4ed8'; pulseLabel.innerText = 'Pending Swipe';
+                    } else if (currentStatus === 'completed') {
                         glowOverlay.style.background = 'radial-gradient(circle at 50% 50%, #4ade80 0%, transparent 70%)';
-                        headerLabel.style.color = '';
-                        pulseLabel.style.color = '#15803d';
-                        pulseLabel.innerText = 'Confirmed - Payment Pending';
-                        
-                        // Disconnect background listeners safely to wrap up execution
+                        pulseLabel.style.color = '#15803d'; pulseLabel.innerText = 'Confirmed - Payment Pending';
                         unsubscribe();
-                        
-                        // Display the clean success notification overlay panel
                         const completionModal = new bootstrap.Modal(document.getElementById('handshakeSuccessModal'));
                         completionModal.show();
                     }
@@ -336,30 +349,37 @@
     };
 
     window.resetHandshake = () => {
-        if (document.getElementById('qrState')._killStream) {
-            document.getElementById('qrState')._killStream();
-        }
+        if (document.getElementById('qrState')._killStream) document.getElementById('qrState')._killStream();
         document.getElementById('setupState').classList.remove('d-none');
         document.getElementById('qrState').classList.add('d-none');
         document.getElementById('itemSearch').value = "";
         document.getElementById('selectedRefId').value = "";
     };
 
+    // --- MAIN INIT ---
     async function refreshUI() {
         const lastActive = localStorage.getItem('ledgehold_last_active');
         const now = Date.now();
-        if (!currentMerchant || (lastActive && (now - lastActive > SESSION_TIMEOUT))) {
-            handleLogout(); return; 
-        }
+        if (!currentMerchant || (lastActive && (now - lastActive > SESSION_TIMEOUT))) { handleLogout(); return; }
+        
+        try {
+            const mRef = db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('verified_merchants').doc(currentMerchant);
+            const snap = await mRef.get();
+            if (snap.exists) { merchantUniversity = snap.data().university || "Verified Merchant"; }
+        } catch (e) { console.error(e); }
+
         await fetchMerchantListings();
+
+        // Reveal the section first, then animate the badge
         document.getElementById('loadingView').classList.add('d-none');
         document.getElementById('handshakeSection').classList.remove('d-none');
-        document.getElementById('activeMerchantDisplay').innerText = currentMerchant;
+
+        setTimeout(() => { animateMerchantBadge(currentMerchant, merchantUniversity); }, 300);
         resetTimers();
     }
 
-    onAuthStateChanged(auth, (user) => { 
-        if (user) refreshUI(); else signInAnonymously(auth); 
+    auth.onAuthStateChanged((user) => { 
+        if (user) refreshUI(); else auth.signInAnonymously(); 
     });
 </script>
 
@@ -368,23 +388,23 @@
     .bg-primary-subtle { background-color: #e0e7ff !important; }
     .bg-warning-subtle { background-color: #fffbeb !important; }
     .bg-success-subtle { background-color: #dcfce7 !important; }
-    .x-small { font-size: 0.65rem; }
+    .x-small { font-size: 0.75rem; }
     .cursor-pointer { cursor: pointer; }
     .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
     @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .animate-pulse { animation: pulse 2s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    
     .autocomplete-dropdown {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        z-index: 1050;
-        max-height: 250px;
-        overflow-y: auto;
-        margin-top: 5px;
+        position: absolute; top: 100%; left: 0; right: 0; z-index: 1050;
+        max-height: 250px; overflow-y: auto; margin-top: 5px; border-color: #e2e8f0 !important;
     }
     .dropdown-item:hover { background-color: #f8fafc; }
+    .merchant-badge-animation-wrapper { min-height: 70px; overflow: visible !important; margin-bottom: 10px; }
+    .sync-text-fade { animation: syncTextFade 1.2s ease-in-out; }
+    @keyframes syncTextFade {
+        0%, 40% { opacity: 1; }
+        50% { opacity: 0.3; transform: translateY(-2px); }
+        60%, 100% { opacity: 1; transform: translateY(0); }
+    }
 </style>
 {% endblock %}

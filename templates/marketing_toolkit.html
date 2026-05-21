@@ -3,7 +3,6 @@
 {% block title %}Marketing Toolkit | ProlyfiQ{% endblock %}
 
 {% block content %}
-<!-- EXTERNAL ENGINES -->
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
 
@@ -71,39 +70,61 @@
         font-size: 0.75rem;
     }
     .bg-warning-subtle { background-color: #fffbeb !important; }
+
+    /* Standardized Animation Blocks */
+    .merchant-badge-animation-wrapper {
+        min-height: 70px;
+        overflow: visible !important;
+        margin-bottom: 10px;
+    }
+    .sync-text-fade { animation: syncTextFade 1.2s ease-in-out; }
+    @keyframes syncTextFade {
+        0%, 40% { opacity: 1; }
+        50% { opacity: 0.3; transform: translateY(-2px); }
+        60%, 100% { opacity: 1; transform: translateY(0); }
+    }
 </style>
 
-<div class="container py-4" style="min-height: 80vh;">
-    <!-- INITIAL LOADING STATE -->
+<div class="mb-4">
+    <a href="/merchant_dashboard" 
+      style="display: inline-flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 0.875rem; font-weight: bold; color: #64748b; text-decoration: none; transition: all 0.3s ease;"
+      class="hover:text-slate-900"
+    >
+      <div style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background-color: #f1f5f9;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 18-6-6 6-6"/>
+        </svg>
+      </div>
+      <span>Dashboard</span>
+    </a>
+</div>
+
+<div class="container py-2" style="min-height: 80vh;">
     <div id="loadingView" class="text-center py-5">
         <div class="spinner-border text-primary" role="status"></div>
         <p class="mt-3 text-muted small">Synchronizing Marketing Assets...</p>
     </div>
 
-    <!-- MAIN CONTENT -->
     <div id="mainContent" class="d-none animate-in fade-in duration-500">
-        <!-- HEADER -->
-        <div class="mb-5">
-            <a href="/merchant_dashboard" class="text-decoration-none small fw-bold text-muted d-inline-flex align-items-center gap-2">
-                <i class="bi bi-arrow-left"></i> Dashboard
-            </a>
-            <div class="d-flex justify-content-between align-items-end mt-3">
-                <div>
-                    <h4 class="fw-bold text-dark mb-1">Marketing Toolkit</h4>
-                    <p class="text-muted small mb-0">Institutional visual engine for verified merchants.</p>
-                </div>
-                <div class="premium-badge bg-dark text-white px-3 py-1 rounded-pill small fw-bold" style="font-size: 0.65rem; letter-spacing: 1px;">
-                    <i class="bi bi-megaphone-fill me-1"></i> SMART GROWTH
+        
+        <div class="text-center mb-5 pb-3 border-bottom">
+            <h3 class="fw-bold text-dark">Marketing Toolkit</h3>
+            <p class="text-muted small" id="syncText">Institutional visual engine for verified merchants.</p>
+            
+            <div class="merchant-badge-animation-wrapper" style="position: relative; height: 70px; margin-top: 10px;">
+                <div id="merchantBadge" class="merchant-badge-animating" style="position: absolute; top: -40px; left: 50%; transform: translateX(-50%); width: 35px; height: 35px; border-radius: 50%; background-color: #0d6efd; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); z-index: 20;">
+                    <i class="bi bi-megaphone-fill text-white"></i>
                 </div>
             </div>
         </div>
 
         <div class="row g-4">
-            <!-- LEFT COLUMN: EVENT TEMPLATES -->
             <div class="col-lg-7">
-                <!-- STOREFRONT LINK SECTION -->
                 <div class="glass-card p-4 mb-4 shadow-sm border-0">
-                    <h6 class="fw-bold text-primary text-uppercase small mb-3" style="letter-spacing: 1px;">Your Storefront Link</h6>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold text-primary text-uppercase small mb-0" style="letter-spacing: 1px;">Your Storefront Link</h6>
+                        <span class="badge bg-dark rounded-pill px-3">SMART GROWTH</span>
+                    </div>
                     
                     <div class="input-group input-group-lg shadow-sm rounded-pill overflow-hidden border mb-3">
                         <input type="text" id="storefrontLink" class="form-control border-0 bg-white ps-4 small shadow-none" readonly>
@@ -118,20 +139,14 @@
                             <strong>One-Tap Marketing:</strong> Simply paste the copied text into WhatsApp. Wait 2 seconds for the image to load, then send.
                         </div>
                     </div>
-                    
-                    <div class="d-flex align-items-center gap-2 mt-3">
-                        <span class="bg-success rounded-circle animate-pulse" style="width: 8px; height: 8px;"></span>
-                        <p class="x-small text-muted mb-0">Authenticated: <span id="activeMerchantDisplay" class="fw-bold text-dark"></span></p>
-                    </div>
                 </div>
 
-                <h5 class="fw-bold text-dark mb-4">Event-Based Templates</h5>
+                <h5 class="fw-bold text-dark mb-4 ms-2">Event-Based Templates</h5>
                 <div class="d-flex flex-column gap-3">
                     
-                    <!-- EVENT 1: BECOMING A MERCHANT (LAUNCH) -->
                     <div class="card glass-card p-4 border-0 shadow-sm template-card" onclick="copyEventBundle(1)">
                         <div class="d-flex justify-content-between mb-2">
-                            <span class="badge bg-success-subtle text-success rounded-pill px-3">Official Launch</span>
+                            <span class="badge bg-success-subtle text-success rounded-pill px-3 border border-success border-opacity-25">Official Launch</span>
                             <i class="bi bi-patch-check-fill text-muted"></i>
                         </div>
                         <h6 class="fw-bold mb-2">I am now Verified</h6>
@@ -143,10 +158,9 @@
                         </button>
                     </div>
 
-                    <!-- EVENT 2: NEW ITEM LISTING -->
                     <div class="card glass-card p-4 border-0 shadow-sm template-card" onclick="copyEventBundle(2)">
                         <div class="d-flex justify-content-between mb-2">
-                            <span class="badge bg-primary-subtle text-primary rounded-pill px-3">New Stock Alert</span>
+                            <span class="badge bg-primary-subtle text-primary rounded-pill px-3 border border-primary border-opacity-25">New Stock Alert</span>
                             <i class="bi bi-box-seam-fill text-muted"></i>
                         </div>
                         <h6 class="fw-bold mb-2">Fresh Inventory Drop</h6>
@@ -158,10 +172,9 @@
                         </button>
                     </div>
 
-                    <!-- EVENT 3: RANDOM DAY ADVERTISEMENT -->
                     <div class="card glass-card p-4 border-0 shadow-sm template-card" onclick="copyEventBundle(3)">
                         <div class="d-flex justify-content-between mb-2">
-                            <span class="badge bg-warning-subtle text-warning rounded-pill px-3">Daily Promo</span>
+                            <span class="badge bg-warning-subtle text-warning rounded-pill px-3 border border-warning border-opacity-25">Daily Promo</span>
                             <i class="bi bi-megaphone-fill text-muted"></i>
                         </div>
                         <h6 class="fw-bold mb-2">General Awareness</h6>
@@ -176,18 +189,16 @@
                 </div>
             </div>
 
-            <!-- RIGHT COLUMN: LIVE MOCKUP -->
             <div class="col-lg-5">
                 <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100 bg-light sticky-top" style="top: 100px; z-index: 1;">
                     <div class="card-header bg-dark text-white py-3 px-4 border-0 d-flex justify-content-between">
-                        <span class="x-small fw-bold uppercase">Customer View Mockup</span>
+                        <span class="x-small fw-bold text-uppercase">Customer View Mockup</span>
                         <span class="badge bg-primary x-small">LIVE PREVIEW</span>
                     </div>
                     <div class="card-body p-4 d-flex flex-column align-items-center justify-content-center">
                         <p class="x-small text-muted fw-bold text-uppercase mb-3">How it looks on WhatsApp:</p>
                         
                         <div class="wa-bubble-mockup mx-auto">
-                            <!-- LIVE STATIC PREVIEW -->
                             <div class="preview-mockup-window mb-2 shadow-sm">
                                 <img id="staticLivePreview" src="" class="w-100 h-100 object-fit-cover" alt="Brand Asset" onerror="this.src='https://placehold.co/1200x630/0f172a/white?text=Loading+Brand+Asset...'">
                             </div>
@@ -211,7 +222,6 @@
     </div>
 </div>
 
-<!-- AUTO-LOGOUT WARNING MODAL -->
 <div class="modal fade" id="logoutWarningModal" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden p-4 text-center">
@@ -228,7 +238,6 @@
     </div>
 </div>
 
-<!-- TOAST -->
 <div class="position-fixed bottom-0 start-50 translate-middle-x mb-4" style="z-index: 2000;">
     <div id="copyToast" class="toast align-items-center text-white bg-dark border-0 rounded-pill px-3 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
         <div class="d-flex">
@@ -241,6 +250,7 @@
 
 <script>
     let merchantInfo = null;
+    let merchantUniversity = "Verified Merchant";
     let storefrontUrl = "";
     // Using the static asset variable injected from Jinja2 for PREVIEW ONLY
     const staticAssetUrl = STATIC_ASSET_URL;
@@ -285,6 +295,62 @@
 
     ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(e => window.addEventListener(e, resetTimers, true));
 
+    /**
+     * STANDARDIZED MERCHANT BADGE ANIMATION
+     */
+    function animateMerchantBadge(name, campus) {
+        const badge = document.getElementById('merchantBadge');
+        const syncText = document.getElementById('syncText');
+        if (!badge) return;
+        
+        if (syncText) syncText.classList.add('sync-text-fade');
+        
+        setTimeout(() => {
+            badge.style.transition = 'all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
+            badge.style.top = '0';
+            
+            setTimeout(() => {
+                badge.style.transition = 'all 0.15s ease-out';
+                badge.style.top = '-5px';
+                
+                setTimeout(() => {
+                    badge.style.transition = 'all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
+                    badge.style.top = '0';
+                    badge.style.width = 'auto';
+                    badge.style.height = 'auto';
+                    badge.style.padding = '8px 16px 8px 8px';
+                    badge.style.borderRadius = '50px';
+                    badge.style.backgroundColor = '#fff';
+                    badge.style.border = '1px solid #e2e8f0';
+                    badge.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                    badge.style.display = 'flex';
+                    badge.style.alignItems = 'center';
+                    badge.style.gap = '12px';
+                    
+                    const textContainer = document.createElement('div');
+                    textContainer.className = 'text-start';
+                    textContainer.innerHTML = `
+                        <p class="mb-0 fw-bold text-dark x-small">${name}</p>
+                        <p class="mb-0 text-muted" style="font-size: 0.6rem;">${campus}</p>
+                    `;
+                    
+                    setTimeout(() => {
+                        textContainer.style.opacity = '0';
+                        textContainer.style.transform = 'translateX(-10px)';
+                        textContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        badge.appendChild(textContainer);
+                        
+                        setTimeout(() => {
+                            textContainer.style.opacity = '1';
+                            textContainer.style.transform = 'translateX(0)';
+                            if (syncText) syncText.classList.remove('sync-text-fade');
+                        }, 50);
+                    }, 200);
+                }, 150);
+            }, 300);
+        }, 100);
+    }
+
     async function initToolkit() {
         const merchantName = localStorage.getItem('ledgehold_merchant_name');
         const lastActive = localStorage.getItem('ledgehold_last_active');
@@ -304,11 +370,11 @@
             if (!doc.exists) { window.location.replace('/merchant_dashboard'); return; }
 
             merchantInfo = doc.data();
+            merchantUniversity = merchantInfo.university || "Verified Merchant";
             storefrontUrl = `${window.location.origin}/marketplace?merchant=${merchantName.replace(/\s+/g, '+')}`;
             
             // UI Updates
             document.getElementById('storefrontLink').value = storefrontUrl;
-            document.getElementById('activeMerchantDisplay').innerText = merchantName;
             document.getElementById('previewUrlText').innerText = storefrontUrl;
             
             // Set Static Preview Source for the Dashboard
@@ -317,39 +383,32 @@
             document.getElementById('loadingView').classList.add('d-none');
             document.getElementById('mainContent').classList.remove('d-none');
             
+            // Trigger Standardized Identity Animation
+            setTimeout(() => {
+                animateMerchantBadge(merchantName, merchantUniversity);
+            }, 300);
+            
             resetTimers();
         } catch (err) {
             console.error("Identity synchronization failed:", err);
+            animateMerchantBadge(merchantName, "Verified Merchant");
         }
     }
 
-    /**
-     * CACHE-BUSTED LINK GENERATOR
-     * Forces WhatsApp to fetch fresh metadata from base.html
-     */
     function getCacheBustedUrl() {
         const timestamp = Math.floor(Date.now() / 1000);
         return `${storefrontUrl}&v=${timestamp}`;
     }
 
-    /**
-     * UNIFIED EVENT BUNDLE COPIER
-     * Copies CLEAN text + Cache-Busted Link.
-     * Relies on base.html to serve the image preview.
-     */
     window.copyEventBundle = async function(id) {
         const templateText = document.getElementById(`text-${id}`).innerText;
         const bustedUrl = getCacheBustedUrl();
-        
-        // Format: Template Text \n\n Link
-        // NO RAW IMAGE LINK IN TEXT - YouTube Style
         const fullMessage = `${templateText}\n\n${bustedUrl}`;
         
         try {
             await navigator.clipboard.writeText(fullMessage);
             showToast("Marketing bundle copied! Paste in WhatsApp.");
         } catch (err) {
-            // Fallback for older browsers
             const el = document.createElement('textarea');
             el.value = fullMessage;
             document.body.appendChild(el);

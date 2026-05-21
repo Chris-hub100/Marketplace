@@ -3,14 +3,12 @@
 {% block title %}Inventory Management | ProlyfiQ{% endblock %}
 
 {% block content %}
-<!-- FIREBASE COMPAT (Matches Seller Onboarding) -->
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
 
 <script>
-    /** * LEDGEHOLD ENTERPRISE CONFIG & INITIALIZATION
-     */
+    /** * LEDGEHOLD ENTERPRISE CONFIG & INITIALIZATION */
     const __app_id = '{{ __app_id if __app_id else "ledgehold-ghana1" }}';
     const __firebase_config = '{{ __firebase_config | safe if __firebase_config else "{}" }}';
     
@@ -22,6 +20,7 @@
 
     // Session Management
     let currentMerchant = localStorage.getItem('ledgehold_merchant_name');
+    let merchantUniversity = "Verified Merchant"; // Fallback text for the badge
     let inventoryData = [];
     let logoutTimer, warningTimer, countdownInterval;
     const SESSION_TIMEOUT = 120000; // 2 Minutes
@@ -82,21 +81,101 @@
     }
 
     /**
+     * FETCH MERCHANT PROFILE & ANIMATE BADGE
+     */
+    async function initMerchantProfile() {
+        if (!currentMerchant) return;
+        
+        try {
+            const docRef = db.collection('artifacts').doc(__app_id)
+                             .collection('public').doc('data')
+                             .collection('verified_merchants').doc(currentMerchant);
+            
+            const docSnap = await docRef.get();
+            
+            if (docSnap.exists) {
+                merchantUniversity = docSnap.data().university || "Verified Merchant";
+            }
+            
+            // Start badge animation
+            setTimeout(() => {
+                animateMerchantBadge(currentMerchant, merchantUniversity);
+            }, 300);
+
+        } catch (error) {
+            console.error("Failed to fetch merchant details:", error);
+            animateMerchantBadge(currentMerchant, "Verified Merchant");
+        }
+    }
+
+    /**
+     * STANDARDIZED MERCHANT BADGE ANIMATION
+     */
+    function animateMerchantBadge(name, campus) {
+        const badge = document.getElementById('merchantBadge');
+        const syncText = document.getElementById('syncText');
+        if (!badge) return;
+        
+        if (syncText) syncText.classList.add('sync-text-fade');
+        
+        setTimeout(() => {
+            badge.style.transition = 'all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
+            badge.style.top = '0';
+            
+            setTimeout(() => {
+                badge.style.transition = 'all 0.15s ease-out';
+                badge.style.top = '-5px';
+                
+                setTimeout(() => {
+                    badge.style.transition = 'all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
+                    badge.style.top = '0';
+                    badge.style.width = 'auto';
+                    badge.style.height = 'auto';
+                    badge.style.padding = '8px 16px 8px 8px';
+                    badge.style.borderRadius = '50px';
+                    badge.style.backgroundColor = '#fff';
+                    badge.style.border = '1px solid #e2e8f0';
+                    badge.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                    badge.style.display = 'flex';
+                    badge.style.alignItems = 'center';
+                    badge.style.gap = '12px';
+                    
+                    const textContainer = document.createElement('div');
+                    textContainer.className = 'text-start';
+                    textContainer.innerHTML = `
+                        <p class="mb-0 fw-bold text-dark x-small">${name}</p>
+                        <p class="mb-0 text-muted" style="font-size: 0.6rem;">${campus}</p>
+                    `;
+                    
+                    setTimeout(() => {
+                        textContainer.style.opacity = '0';
+                        textContainer.style.transform = 'translateX(-10px)';
+                        textContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        badge.appendChild(textContainer);
+                        
+                        setTimeout(() => {
+                            textContainer.style.opacity = '1';
+                            textContainer.style.transform = 'translateX(0)';
+                            if (syncText) syncText.classList.remove('sync-text-fade');
+                        }, 50);
+                    }, 200);
+                }, 150);
+            }, 300);
+        }, 100);
+    }
+
+    /**
      * INVENTORY FETCHING LOGIC
-     * Updated to target 'market_listings' to match Flask API logic
      */
     function startInventoryListener() {
         if (!currentMerchant) return;
 
-        // Path matches Flask API: artifacts/{appId}/public/data/market_listings
         const colRef = db.collection('artifacts').doc(__app_id)
                          .collection('public').doc('data')
                          .collection('market_listings');
         
         console.log("Syncing with Marketplace Silo:", colRef.path);
-        console.log("Target Merchant:", currentMerchant);
 
-        // Real-time listener
         colRef.onSnapshot((snap) => {
             const loadingEl = document.getElementById('loadingState');
             if (loadingEl) loadingEl.classList.add('d-none');
@@ -106,8 +185,6 @@
 
             snap.forEach(doc => {
                 const data = doc.data();
-                
-                // Normalizing owner detection across multiple possible schemas
                 const dbOwner = (
                     data.merchantId || 
                     data.fullName || 
@@ -117,11 +194,6 @@
                     data.owner || 
                     ""
                 ).toString().trim().toLowerCase();
-                
-                // Logging for local debugging in console
-                if (snap.size < 20) {
-                   console.log(`Checking [${data.itemName || 'Unnamed'}]: DB Owner="${dbOwner}" vs Local Target="${target}"`);
-                }
 
                 if (dbOwner === target && target !== "") {
                     inventoryData.push({ id: doc.id, ...data });
@@ -195,7 +267,7 @@
     }
 
     /**
-     * CRUD ACTIONS (Updated to market_listings)
+     * CRUD ACTIONS 
      */
     window.openEdit = function(id) {
         const item = inventoryData.find(i => i.id === id);
@@ -259,8 +331,7 @@
     window.addEventListener('DOMContentLoaded', () => {
         if (checkAuth()) {
             auth.signInAnonymously().then(() => {
-                const displayEl = document.getElementById('activeMerchantDisplay');
-                if (displayEl) displayEl.innerText = currentMerchant;
+                initMerchantProfile();
                 startInventoryListener();
                 resetTimers();
             }).catch(err => {
@@ -271,24 +342,35 @@
 </script>
 
 <div class="container py-4" style="min-height: 80vh;">
-    <!-- Protected Content Section -->
     <div id="inventorySection" class="d-none animate-in fade-in duration-500">
-        <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
-            <div>
-                <a href="/merchant_dashboard" class="text-decoration-none small fw-bold text-muted d-inline-flex align-items-center gap-2">
-                    <i class="bi bi-arrow-left"></i> Dashboard
-                </a>
-                <h4 class="fw-bold mb-0 text-dark">Marketplace Inventory</h4>
-                <div class="d-flex align-items-center gap-2 mt-1">
-                    <span class="bg-success rounded-circle animate-pulse" style="width: 8px; height: 8px;"></span>
-                    <p class="text-muted small mb-0">Merchant: <span id="activeMerchantDisplay" class="fw-bold text-primary"></span></p>
+        
+        <div class="mb-4">
+            <a href="/merchant_dashboard" 
+              style="display: inline-flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 0.875rem; font-weight: bold; color: #64748b; text-decoration: none; transition: all 0.3s ease;"
+              class="hover:text-slate-900"
+            >
+              <div style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background-color: #f1f5f9;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m15 18-6-6 6-6"/>
+                </svg>
+              </div>
+              <span>Dashboard</span>
+            </a>
+        </div>
+
+        <div class="text-center mb-5 pb-3 border-bottom">
+            <h3 class="fw-bold text-dark">Marketplace Inventory</h3>
+            <p class="text-muted small" id="syncText">Manage and track your active product listings.</p>
+            
+            <div class="merchant-badge-animation-wrapper" style="position: relative; height: 70px; margin-top: 10px;">
+                <div id="merchantBadge" class="merchant-badge-animating" style="position: absolute; top: -40px; left: 50%; transform: translateX(-50%); width: 35px; height: 35px; border-radius: 50%; background-color: #0d6efd; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); z-index: 20;">
+                    <i class="bi bi-box-seam text-white"></i>
                 </div>
             </div>
         </div>
 
-        <!-- SEARCH BAR -->
-        <div class="row mb-4">
-            <div class="col-md-6">
+        <div class="row mb-4 justify-content-center">
+            <div class="col-md-8">
                 <div class="input-group shadow-sm rounded-pill overflow-hidden bg-white border">
                     <span class="input-group-text bg-white border-0 ps-3"><i class="bi bi-search text-muted"></i></span>
                     <input type="text" id="searchInput" class="form-control border-0 py-2 shadow-none" placeholder="Search your catalog..." onkeyup="filterInventory()">
@@ -296,7 +378,6 @@
             </div>
         </div>
 
-        <!-- INVENTORY TABLE -->
         <div class="card border-0 shadow-lg rounded-4 overflow-hidden bg-white">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
@@ -309,12 +390,10 @@
                         </tr>
                     </thead>
                     <tbody id="inventoryList">
-                        <!-- Data injected via JS -->
-                    </tbody>
+                        </tbody>
                 </table>
             </div>
             
-            <!-- EMPTY STATE -->
             <div id="emptyInventory" class="text-center py-5 d-none">
                 <div class="py-5">
                     <div class="bg-light d-inline-flex p-4 rounded-circle mb-4">
@@ -330,7 +409,6 @@
         </div>
     </div>
 
-    <!-- LOADING STATE -->
     <div id="loadingState" class="text-center py-5 mt-5">
         <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
             <span class="visually-hidden">Loading...</span>
@@ -339,7 +417,6 @@
     </div>
 </div>
 
-<!-- EDIT MODAL -->
 <div class="modal fade" id="editItemModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
@@ -375,7 +452,6 @@
     </div>
 </div>
 
-<!-- SESSION ALERT MODAL -->
 <div class="modal fade" id="logoutWarningModal" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden text-center">
@@ -407,5 +483,18 @@
     .hover-scale { transition: transform 0.2s ease; }
     .hover-scale:hover { transform: scale(1.02); }
     .x-small { font-size: 0.75rem; }
+
+    /* Merchant Badge Styles */
+    .merchant-badge-animation-wrapper {
+        min-height: 70px;
+        overflow: visible !important;
+        margin-bottom: 10px;
+    }
+    .sync-text-fade { animation: syncTextFade 1.2s ease-in-out; }
+    @keyframes syncTextFade {
+        0%, 40% { opacity: 1; }
+        50% { opacity: 0.3; transform: translateY(-2px); }
+        60%, 100% { opacity: 1; transform: translateY(0); }
+    }
 </style>
 {% endblock %}

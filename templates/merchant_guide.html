@@ -4,140 +4,346 @@
 
 {% block content %}
 <style>
-    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+    body { 
+        font-family: 'Inter', sans-serif; 
+        background-color: #f1f5f9; 
+    }
     
-    .timeline-card {
-        border-left: 4px solid #e2e8f0;
-        margin-left: 20px;
-        padding-left: 30px;
-        padding-bottom: 40px;
+    .tutorial-card {
+        background: #ffffff;
+        border-radius: 24px;
+        box-shadow: 0 20px 40px -15px rgba(0,0,0,0.05);
+        overflow: hidden;
         position: relative;
+        min-height: 480px;
+        display: flex;
+        flex-direction: column;
     }
-    
-    .timeline-card:last-child {
-        border-left: 4px solid transparent;
-        padding-bottom: 0;
+
+    .step-content {
+        display: none;
+        opacity: 0;
+        transform: translateX(20px);
+        transition: all 0.4s ease-in-out;
+        flex-grow: 1;
     }
-    
-    .timeline-dot {
-        width: 40px;
-        height: 40px;
+    .step-content.active {
+        display: flex;
+        flex-direction: column;
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    .progress-dots {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        margin-bottom: 30px;
+    }
+    .dot {
+        width: 10px;
+        height: 10px;
         border-radius: 50%;
-        background: white;
-        border: 2px solid #0f172a;
-        position: absolute;
-        left: -22px;
-        top: 0;
+        background-color: #e2e8f0;
+        transition: all 0.3s ease;
+    }
+    .dot.active {
+        background-color: #0f172a;
+        width: 24px;
+        border-radius: 10px;
+    }
+
+    .card-icon-wrapper {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-weight: bold;
-        color: #0f172a;
-        z-index: 2;
-    }
-    
-    .timeline-dot.active {
-        background: #0f172a;
-        color: white;
-        box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.2);
+        margin: 0 auto 20px auto;
+        font-size: 2rem;
     }
 
-    .step-title { font-weight: 800; color: #0f172a; font-size: 1.1rem; }
-    .step-desc { font-size: 0.9rem; color: #64748b; line-height: 1.6; }
-    
-    .pro-tip {
-        background: #f0f9ff;
-        border: 1px dashed #0ea5e9;
+    /* Nav buttons: default (mobile) stays inside card */
+    .nav-buttons {
+        padding: 20px 30px;
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    /* On desktop, float buttons to far left/right of viewport */
+    @media (min-width: 992px) {
+        .nav-buttons {
+            display: none; /* hide the in-card nav on desktop */
+        }
+
+        #floatingPrev,
+        #floatingNext {
+            display: flex !important;
+        }
+    }
+
+    /* Floating side buttons (desktop only) */
+    #floatingPrev,
+    #floatingNext {
+        display: none;
+        position: fixed;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 100;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #floatingPrev { left: 24px; }
+    #floatingNext { right: 24px; }
+
+    .floating-btn {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+    .floating-btn:hover {
+        transform: scale(1.08);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.16);
+    }
+    .floating-btn-dark {
+        background: #0f172a;
+        color: #ffffff;
+    }
+    .floating-btn-success {
+        background: #16a34a;
+        color: #ffffff;
+    }
+    .floating-btn-muted {
+        background: #ffffff;
+        color: #64748b;
+        border: 1px solid #e2e8f0;
+    }
+
+    /* Final step: centered finish button inside card (desktop) */
+    .final-nav {
+        display: none;
+        padding: 20px 30px;
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+        justify-content: center;
+    }
+
+    .tip-box {
+        background: #f0fdf4;
+        border: 1px dashed #22c55e;
+        color: #15803d;
         border-radius: 12px;
         padding: 15px;
-        font-size: 0.8rem;
-        color: #0369a1;
-        margin-top: 15px;
+        font-size: 0.85rem;
+        margin-top: auto;
     }
-
-    .gatekeeper-alert {
+    
+    .alert-box {
         background: #fff1f2;
         border: 1px solid #fda4af;
         color: #9f1239;
         border-radius: 12px;
         padding: 15px;
-        font-size: 0.8rem;
-        margin-top: 15px;
+        font-size: 0.85rem;
+        margin-top: auto;
     }
 </style>
 
-<div class="container py-5" style="min-height: 80vh;">
-    <!-- HEADER -->
-    <div class="mb-5">
-        <a href="/merchant_dashboard" class="text-decoration-none small fw-bold text-muted d-inline-flex align-items-center gap-2 mb-3">
-            <i class="bi bi-arrow-left"></i> Dashboard
-        </a>
-        <h3 class="fw-bold text-dark">Operational Blueprint</h3>
-        <p class="text-muted">The 4-Step Standard Operating Procedure (SOP) for verified ProlyfiQ Merchants.</p>
-    </div>
+<!-- Floating side buttons (desktop only) -->
+<button class="floating-btn floating-btn-muted" id="floatingPrev" onclick="changeStep(-1)" aria-label="Previous step" style="visibility: hidden;">
+    <i class="bi bi-chevron-left"></i>
+</button>
+<button class="floating-btn floating-btn-dark" id="floatingNext" onclick="changeStep(1)" aria-label="Next step">
+    <i class="bi bi-chevron-right"></i>
+</button>
 
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="bg-white p-4 p-md-5 rounded-5 shadow-sm border">
+<div class="container py-5 d-flex align-items-center justify-content-center" style="min-height: 85vh;">
+    <div class="w-100" style="max-width: 550px;">
+        
+        <div class="text-center mb-4">
+            <h3 class="fw-bold text-dark mb-1">How Selling Works</h3>
+            <p class="text-muted small">Your quick guide to making money safely on ProlyfiQ.</p>
+        </div>
+
+        <div class="tutorial-card">
+            
+            <div class="p-4 p-md-5 d-flex flex-column flex-grow-1">
                 
-                <!-- STEP 1 -->
-                <div class="timeline-card">
-                    <div class="timeline-dot active">1</div>
-                    <h5 class="step-title">The Listing</h5>
-                    <p class="step-desc">
-                        Your progress starts by listing your inventory in the 'List New Item' on your Dashboard. Ensure your pricing includes your margin, as the 5% Service Fee is deducted automatically at payout.
+                <div class="progress-dots">
+                    <div class="dot active" id="dot-1"></div>
+                    <div class="dot" id="dot-2"></div>
+                    <div class="dot" id="dot-3"></div>
+                    <div class="dot" id="dot-4"></div>
+                </div>
+
+                <div class="step-content active" id="step-1">
+                    <div class="card-icon-wrapper bg-primary bg-opacity-10 text-primary">
+                        <i class="bi bi-basket2"></i>
+                    </div>
+                    <h4 class="fw-bold text-center mb-3">1. Stock Your Store</h4>
+                    <p class="text-center text-muted mb-4" style="line-height: 1.6;">
+                        Add your items using the <b>List New Item</b> page. Make sure you set a fair price, but remember: the system automatically takes a <b>5% service fee</b> when you get paid, so price accordingly!
                     </p>
-                    <div class="pro-tip">
-                        <i class="bi bi-lightbulb-fill me-1"></i> <strong>Marketing:</strong> Once listed, use your <strong>Marketing Toolkit</strong> on your Dashboard to promote your "Official Storefront" link on WhatsApp.
+                    <div class="tip-box mt-4">
+                        <i class="bi bi-lightbulb-fill me-1"></i> <strong>Pro Tip:</strong> Use the <strong>Marketing Toolkit</strong> to easily share your storefront page on WhatsApp statuses and groups so students know what you are selling.
                     </div>
                 </div>
 
-                <!-- STEP 2 -->
-                <div class="timeline-card">
-                    <div class="timeline-dot active">2</div>
-                    <h5 class="step-title">Order Notification (Escrow Lock)</h5>
-                    <p class="step-desc">
-                        When a student buys, you will receive a message on Whatsapp. At that point, Paystack is holding the money safe until you deliver.
+                <div class="step-content" id="step-2">
+                    <div class="card-icon-wrapper bg-warning bg-opacity-10 text-warning">
+                        <i class="bi bi-bell-fill"></i>
+                    </div>
+                    <h4 class="fw-bold text-center mb-3">2. Get an Order</h4>
+                    <p class="text-center text-muted mb-4" style="line-height: 1.6;">
+                        When a buyer wants your item, they pay online. We lock their money safely in the vault and instantly send you a notification with their phone number. 
                     </p>
-                    <div class="bg-light p-3 rounded-3 mt-3 border">
-                        <small class="fw-bold text-dark d-block mb-1">YOUR ACTION:</small>
-                        <small class="text-muted">Pack the item. Contact the buyer (via the number provided in the order details in the received Whatsapp message) to confirm the meeting time at your set Campus Landmark.</small>
+                    <div class="tip-box" style="background: #eff6ff; border-color: #3b82f6; color: #1d4ed8;">
+                        <i class="bi bi-telephone-fill me-1"></i> <strong>Next Move:</strong> Pack the item, call the buyer, and agree on a time to meet at your chosen campus landmark.
                     </div>
                 </div>
 
-                <!-- STEP 3 -->
-                <div class="timeline-card">
-                    <div class="timeline-dot active">3</div>
-                    <h5 class="step-title">The Physical Handshake</h5>
-                    <p class="step-desc">
-                        Meet the buyer at the designated delivery locaton (e.g., Unity Hall Gate). Hand over the item for inspection.
+                <div class="step-content" id="step-3">
+                    <div class="card-icon-wrapper bg-dark text-white">
+                        <i class="bi bi-qr-code-scan"></i>
+                    </div>
+                    <h4 class="fw-bold text-center mb-3">3. Meet & Scan</h4>
+                    <p class="text-center text-muted mb-4" style="line-height: 1.6;">
+                        Meet the buyer and let them inspect the item. If they are happy with it, open your ProlyfiQ Dashboard and show them your <b>QR Code</b>.
                     </p>
-                    <div class="gatekeeper-alert">
-                        <i class="bi bi-shield-lock-fill me-1"></i> <strong>CRITICAL STEP:</strong><br>
-                        When the buyer is satisfied with the item, you <strong>MUST</strong> present your <strong>Transaction QR Code</strong> (found on your dashboard "P.O.D./Withdrawals") for the buyer to scan.
+                    <div class="alert-box mt-4">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i> <strong>CRITICAL:</strong> The buyer <b>MUST</b> scan your QR code with their phone. If they take the item without scanning, the system will not release your money!
                     </div>
                 </div>
 
-                <!-- STEP 4 -->
-                <div class="timeline-card">
-                    <div class="timeline-dot active">4</div>
-                    <h5 class="step-title">Automated Settlement</h5>
-                    <p class="step-desc">
-                        The moment the buyer scans your code, our system marks the order as "Delivered."
+                <div class="step-content" id="step-4">
+                    <div class="card-icon-wrapper bg-success bg-opacity-10 text-success">
+                        <i class="bi bi-wallet2"></i>
+                    </div>
+                    <h4 class="fw-bold text-center mb-3">4. Get Paid Instantly</h4>
+                    <p class="text-center text-muted mb-4" style="line-height: 1.6;">
+                        The moment the buyer scans your code and confirms the delivery, the vault unlocks. 
                     </p>
-                    <div class="pro-tip" style="background: #f0fdf4; border-color: #22c55e; color: #15803d;">
-                        <i class="bi bi-wallet2 me-1"></i> <strong>Payout:</strong> Funds are automatically released to your registered MoMo number within an hour of the scan.
+                    <p class="text-center text-muted mb-4">
+                        We deduct the 5% fee and instantly send the rest of the cash straight to your <b>Mobile Money</b> wallet. No waiting, no stress.
+                    </p>
+                    <div class="text-center mt-auto">
+                        <i class="bi bi-stars text-warning fs-1"></i>
                     </div>
                 </div>
 
             </div>
 
-            <!-- FOOTER CTA -->
-            <div class="text-center mt-5">
-                <a href="/merchant_dashboard" class="btn btn-dark rounded-pill px-5 fw-bold py-3 shadow-lg">Go to Dashboard</a>
+            <!-- Mobile nav (steps 1–3) -->
+            <div class="nav-buttons" id="mobileNav">
+                <button class="btn btn-link text-muted text-decoration-none fw-bold px-0" id="mobilePrevBtn" onclick="changeStep(-1)" style="visibility: hidden;">
+                    <i class="bi bi-chevron-left me-1"></i> Back
+                </button>
+                <button class="btn btn-dark rounded-pill px-4 fw-bold shadow-sm" id="mobileNextBtn" onclick="changeStep(1)">
+                    Next Step <i class="bi bi-chevron-right ms-1"></i>
+                </button>
+            </div>
+
+            <!-- Final step: centered finish button (shown in-card on both mobile & desktop) -->
+            <div class="final-nav" id="finalNav">
+                <button class="btn btn-success rounded-pill px-5 fw-bold shadow-sm" onclick="window.location.href='/merchant_dashboard'">
+                    Finish &amp; Start Selling <i class="bi bi-check2-circle ms-1"></i>
+                </button>
             </div>
 
         </div>
+        
+        <div class="text-center mt-4">
+            <a href="/merchant_dashboard" class="text-decoration-none text-muted small">Skip tutorial &amp; go to Dashboard</a>
+        </div>
+
     </div>
 </div>
+
+<script>
+    let currentStep = 1;
+    const totalSteps = 4;
+    const isDesktop = () => window.innerWidth >= 992;
+
+    function updateUI() {
+        const prevFloating = document.getElementById('floatingPrev');
+        const nextFloating = document.getElementById('floatingNext');
+        const mobileNav    = document.getElementById('mobileNav');
+        const finalNav     = document.getElementById('finalNav');
+        const mobilePrev   = document.getElementById('mobilePrevBtn');
+        const mobileNext   = document.getElementById('mobileNextBtn');
+
+        const isFinal = currentStep === totalSteps;
+
+        /* ── Final step ── */
+        if (isFinal) {
+            /* Desktop: hide floating buttons, show centered finish in card */
+            if (isDesktop()) {
+                prevFloating.style.display = 'none';
+                nextFloating.style.display = 'none';
+                mobileNav.style.display    = 'none';
+            } else {
+                /* Mobile: hide normal nav row, show final nav */
+                mobileNav.style.display = 'none';
+            }
+            finalNav.style.display = 'flex';
+            return;
+        }
+
+        /* ── Non-final steps ── */
+        finalNav.style.display = 'none';
+
+        if (isDesktop()) {
+            mobileNav.style.display = 'none';
+            nextFloating.style.display = 'flex';
+
+            /* Back button: hidden on step 1 */
+            prevFloating.style.display    = 'flex';
+            prevFloating.style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+
+            /* Next button always dark on non-final steps */
+            nextFloating.querySelector('button, .floating-btn').className = 'floating-btn floating-btn-dark';
+        } else {
+            /* Mobile */
+            mobileNav.style.display    = 'flex';
+            prevFloating.style.display = 'none';
+            nextFloating.style.display = 'none';
+
+            mobilePrev.style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+            mobileNext.innerHTML = 'Next Step <i class="bi bi-chevron-right ms-1"></i>';
+            mobileNext.className = 'btn btn-dark rounded-pill px-4 fw-bold shadow-sm';
+            mobileNext.onclick = () => changeStep(1);
+        }
+    }
+
+    function changeStep(direction) {
+        document.getElementById(`step-${currentStep}`).classList.remove('active');
+        document.getElementById(`dot-${currentStep}`).classList.remove('active');
+
+        currentStep += direction;
+
+        document.getElementById(`step-${currentStep}`).classList.add('active');
+        document.getElementById(`dot-${currentStep}`).classList.add('active');
+
+        updateUI();
+    }
+
+    /* Re-evaluate layout on resize (e.g. rotating phone) */
+    window.addEventListener('resize', updateUI);
+
+    /* Initial render */
+    updateUI();
+</script>
 {% endblock %}

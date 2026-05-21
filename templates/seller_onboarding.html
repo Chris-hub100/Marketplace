@@ -3,7 +3,6 @@
 {% block title %}Merchant Onboarding | ProlyfiQ{% endblock %}
 
 {% block content %}
-<!-- Firebase Web SDKs (Compat Version for Secure Tools) -->
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
@@ -37,7 +36,6 @@
 
   /**
    * HELPER: IMAGE COMPRESSION ENGINE
-   * Reduces 5MB photos to ~200KB to maximize free storage.
    */
   async function compressImage(file) {
     return new Promise((resolve, reject) => {
@@ -50,9 +48,8 @@
                 const canvas = document.createElement('canvas');
                 let width = img.width;
                 let height = img.height;
-                const MAX_DIM = 1200; // Standard HD limit
+                const MAX_DIM = 1200;
 
-                // Resize logic
                 if (width > height) {
                     if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; }
                 } else {
@@ -64,7 +61,6 @@
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // Compress to JPEG at 70% quality
                 canvas.toBlob((blob) => {
                     resolve(blob);
                 }, 'image/jpeg', 0.7);
@@ -76,27 +72,19 @@
   }
 
   /**
-   * HELPER: PATH RESOLUTION
-   */
-  function getCol(name) {
-    if (!db) throw new Error("System initialization pending. Please refresh the page.");
-    return db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection(name);
-  }
-
-  /**
    * LIVE PREVIEW LOGIC
    */
   window.previewFile = function(input, targetContainerId, targetImgId) {
       const container = document.getElementById(targetContainerId);
       const img = document.getElementById(targetImgId);
       
-      if (input.files && input.files[0]) {
+      if (input.files && input.files) {
           const reader = new FileReader();
           reader.onload = function(e) {
               if (img) img.src = e.target.result;
               if (container) container.classList.remove('d-none');
           };
-          reader.readAsDataURL(input.files[0]);
+          reader.readAsDataURL(input.files);
       }
   };
 
@@ -109,7 +97,7 @@
   };
 
   /**
-   * MAIN ONBOARDING: KYC Submission
+   * MAIN ONBOARDING: KYC Submission & Automated Email Dispatch
    */
   window.submitOnboarding = async function(event) {
     event.preventDefault();
@@ -119,52 +107,55 @@
     const loadingSpinner = document.getElementById('loadingSpinner');
     const idFileInput = document.getElementById('studentId');
     const selfieFileInput = document.getElementById('selfiePhoto');
+    const errorBox = document.getElementById('errorBox');
     
-    if (!idFileInput || !idFileInput.files[0] || !selfieFileInput || !selfieFileInput.files[0]) {
+    if (!idFileInput || !idFileInput.files || !selfieFileInput || !selfieFileInput.files) {
         alert("Both Student ID and Selfie are required for verification.");
         return;
     }
 
-    // Prevent double submission
+    errorBox.classList.add('d-none');
     if (submitBtn) submitBtn.disabled = true;
     if (loadingSpinner) loadingSpinner.classList.remove('d-none');
     if (submitBtnText) submitBtnText.innerText = 'Optimizing & Sending Request...';
 
     try {
         // 1. Compress & Upload Student ID to Cloudinary
-        const compressedId = await compressImage(idFileInput.files[0]);
+        const compressedId = await compressImage(idFileInput.files);
         const idFormData = new FormData();
         idFormData.append("file", compressedId);
         idFormData.append("upload_preset", UPLOAD_PRESET);
         
         const idResp = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: "POST", body: idFormData });
         const idRes = await idResp.json();
-        if (!idRes.secure_url) throw new Error("ID Upload failed. Check Cloudinary preset.");
+        if (!idRes.secure_url) throw new Error("ID Asset synchronization failed.");
 
         // 2. Compress & Upload Selfie to Cloudinary
-        const compressedSelfie = await compressImage(selfieFileInput.files[0]);
+        const compressedSelfie = await compressImage(selfieFileInput.files);
         const selfieFormData = new FormData();
         selfieFormData.append("file", compressedSelfie);
         selfieFormData.append("upload_preset", UPLOAD_PRESET);
         
         const sResp = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: "POST", body: selfieFormData });
         const sRes = await sResp.json();
-        if (!sRes.secure_url) throw new Error("Selfie Upload failed.");
+        if (!sRes.secure_url) throw new Error("Selfie Asset synchronization failed.");
 
-        // 3. Prepare Data with UNIQUE DISCRIMINATOR
+        // 3. Prepare Data with Unique Discriminator
         const fullName = document.getElementById('fullName').value.trim();
         const momo = document.getElementById('momo').value.trim();
+        const university = document.getElementById('university').value;
+        const course = document.getElementById('course').value.trim();
+        const whatsapp = document.getElementById('whatsapp').value.trim();
         
-        // GATEKEEPER PROTOCOL: Unique ID
         const discriminator = momo.slice(-4);
         const uniqueMerchantId = `${fullName} ${discriminator}`;
 
         const payload = {
             merchantId: uniqueMerchantId, 
             fullName: fullName,          
-            university: document.getElementById('university').value,
-            course: document.getElementById('course').value,
-            whatsapp: document.getElementById('whatsapp').value,
+            university: university,
+            course: course,
+            whatsapp: whatsapp,
             momo: momo,
             idUrl: idRes.secure_url,
             selfieUrl: sRes.secure_url,
@@ -172,19 +163,34 @@
             status: 'pending'
         };
 
-        // 4. Save to Firestore
-        // Using global __app_id variable defined at top
+        // 4. Save to Firestore (Database Backup log)
         await db.collection('artifacts').doc(__app_id)
             .collection('public').doc('data')
             .collection('pending_merchants').add(payload);
 
-        // 5. Success
+        // 5. AUTOMATED INTEGRATION: Dispatch to Universal Switchboard Backend
+        const emailResponse = await fetch('/api/email/dispatch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: "kyc_submitted",
+                payload: payload
+            })
+        });
+
+        if (!emailResponse.ok) {
+            console.warn("Switchboard Notification delayed, but document safely logged in Firestore.");
+        }
+
+        // 6. Launch Success Confirmation Modal
         const successModal = new bootstrap.Modal(document.getElementById('successModal'));
         successModal.show();
 
     } catch (e) {
-        console.error(e);
-        alert(e.message || "Onboarding failed. Check your connection.");
+        console.error("Ledgehold Security Intercept:", e);
+        errorBox.innerText = e.message || "Onboarding pipeline failed. Verify connectivity.";
+        errorBox.classList.remove('d-none');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
         if (submitBtn) submitBtn.disabled = false;
         if (loadingSpinner) loadingSpinner.classList.add('d-none');
@@ -196,8 +202,7 @@
 <div class="container py-5">
     <div class="row justify-content-center">
         <div class="col-lg-7">
-            <!-- Error Box -->
-            <div id="errorBox" class="alert alert-danger d-none rounded-4 border-0 shadow-sm mb-4"></div>
+            <div id="errorBox" class="alert alert-danger d-none rounded-4 border-0 shadow-sm mb-4 fw-bold small"></div>
 
             <div class="text-center mb-5">
                 <h2 class="fw-bold text-dark">Merchant Registry</h2>
@@ -205,23 +210,22 @@
             </div>
 
             <form onsubmit="submitOnboarding(event)">
-                <!-- IDENTITY SECTION -->
                 <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 bg-white border">
-                    <h6 class="fw-bold mb-4 text-primary"><i class="bi bi-person-badge-fill me-2"></i>Institutional Identity</h6>
+                    <h6 class="fw-bold mb-4 text-primary text-uppercase small" style="letter-spacing: 1px;"><i class="bi bi-person-badge-fill me-2"></i>Institutional Identity</h6>
                     
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-muted">FULL NAME (as on Student ID)</label>
-                        <input type="text" id="fullName" class="form-control rounded-pill border-light bg-light py-2 px-3" placeholder="e.g. Kwadwo Nkansah" required>
+                        <input type="text" id="fullName" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" placeholder="e.g. Kwadwo Nkansah" required>
                     </div>
 
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <label class="form-label small fw-bold text-muted">COURSE</label>
-                            <input type="text" id="course" class="form-control rounded-pill border-light bg-light" placeholder="e.g. BSc. Computer Science" required>
+                            <input type="text" id="course" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" placeholder="e.g. BSc. Computer Science" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small fw-bold text-muted">ENROLLED UNIVERSITY</label>
-                            <select id="university" class="form-select rounded-pill border-light bg-light">
+                            <select id="university" class="form-select rounded-pill border-light bg-light py-2 px-4 shadow-none">
                                 <option>UCC</option>
                                 <option>KNUST - Main</option>
                                 <option>UG Legon</option>
@@ -230,7 +234,6 @@
                         </div>
                     </div>
 
-                    <!-- ID PREVIEW & UPLOAD -->
                     <div class="mb-4">
                         <label class="form-label small fw-bold text-muted text-uppercase">Student ID Card (Front)</label>
                         <div id="idPreviewContainer" class="mb-3 d-none">
@@ -247,7 +250,6 @@
                         </button>
                     </div>
 
-                    <!-- SELFIE PREVIEW & UPLOAD -->
                     <div class="mb-2">
                         <label class="form-label small fw-bold text-muted text-uppercase">Live Selfie Verification</label>
                         <div id="selfiePreviewContainer" class="mb-3 d-none text-center">
@@ -265,22 +267,20 @@
                     </div>
                 </div>
 
-                <!-- SETTLEMENT SECTION -->
                 <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 bg-white border">
-                    <h6 class="fw-bold mb-4 text-primary"><i class="bi bi-wallet2 me-2"></i>Settlement Channels</h6>
+                    <h6 class="fw-bold mb-4 text-primary text-uppercase small" style="letter-spacing: 1px;"><i class="bi bi-wallet2 me-2"></i>Settlement Channels</h6>
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label small fw-bold text-muted">WhatsApp Number</label>
-                            <input type="tel" id="whatsapp" class="form-control rounded-pill border-light bg-light" placeholder="0240000000" required>
+                            <input type="tel" id="whatsapp" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" placeholder="0240000000" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small fw-bold text-muted">MoMo Number</label>
-                            <input type="tel" id="momo" class="form-control rounded-pill border-light bg-light" placeholder="0550000000" required>
+                            <input type="tel" id="momo" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" placeholder="0550000000" required>
                         </div>
                     </div>
                 </div>
 
-                <!-- POLICY CARD -->
                 <div class="card bg-dark text-white p-4 mb-4 rounded-4 shadow-lg border-0">
                     <h6 class="fw-bold text-primary small mb-3 text-uppercase" style="letter-spacing: 1px;">Compliance Agreement</h6>
                     <div class="form-check mb-3">
@@ -311,7 +311,6 @@
     </div>
 </div>
 
-<!-- SUCCESS MODAL -->
 <div class="modal fade" id="successModal" data-bs-backdrop="static" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 30px;">
