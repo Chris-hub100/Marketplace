@@ -118,7 +118,7 @@
                 <div class="px-4 py-4">
                     <p class="text-dark mb-3" style="line-height: 1.6; font-size: 0.92rem;">
                         Just like you never share your <strong>MoMo PIN</strong>, never share your
-                        <strong>Delivery PIN</strong> with anyone — not even the seller.
+                        <strong>Delivery PIN</strong> with anyone, not even the seller.
                     </p>
                     <p class="text-muted mb-0" style="line-height: 1.6; font-size: 0.85rem;">
                         Your PIN is secured on our server. Your phone number will be saved so future checkouts are faster.
@@ -212,16 +212,15 @@
         modalPayBtn.disabled = true;
         modalPayBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Securing session...';
 
-        const urlParams  = new URLSearchParams(window.location.search);
-        const listingId  = urlParams.get('id');
+        const urlParams   = new URLSearchParams(window.location.search);
+        const listingId   = urlParams.get('id'); // Only looks for the item ID now
         const phone      = document.getElementById('buyerPhone').value.trim().replace(/\s/g, '');
         const pin        = document.getElementById('deliveryPin').value.trim();
         const price      = "{{ request.args.get('price') }}";
         const item       = "{{ request.args.get('item') }}";
-        const merchantMomo = urlParams.get('momo') || '';
 
         try {
-            // ── STEP 1: Send PIN to OUR server. It never touches Paystack. ──
+            // Send parameters to your server. Zero merchant phone metrics travel through the client screen.
             const initRes = await fetch('/api/checkout/init', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -230,8 +229,7 @@
                     buyerPhone:   phone,
                     plaintextPin: pin,
                     amount:       price,
-                    itemName:     item,
-                    merchantMomo: merchantMomo
+                    itemName:     item
                 })
             });
 
@@ -240,14 +238,13 @@
                 throw new Error(session.error || "Session initialization failed.");
             }
 
-            // ── STEP 2: Clear PIN fields immediately — plaintext gone from DOM ──
+            // Clear volatile form fields instantly
             document.getElementById('deliveryPin').value  = '';
             document.getElementById('confirmPin').value   = '';
 
-            // ── STEP 3: Cache ONLY the phone number for next visit convenience ──
             localStorage.setItem('ledgehold_cached_phone', phone);
 
-            // ── STEP 4: Open Paystack with the safe session token — zero PIN data ──
+            // Open Paystack Inline
             const handler = PaystackPop.setup({
                 key:      PAYSTACK_PUB_KEY,
                 email:    session.secureEmailAnchor,
@@ -267,7 +264,6 @@
                         + "&id=" + listingId;
                 },
                 onClose: function () {
-                    // Payment abandoned — staged session expires automatically in 15 min
                     modalPayBtn.disabled = false;
                     modalPayBtn.innerHTML = '<i class="bi bi-lock-fill me-2 small"></i>Pay GHS ' + price;
                 }

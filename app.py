@@ -555,45 +555,63 @@ def cleanup_staged_sessions():
     return jsonify({"deleted": deleted}), 200
 
 @app.route('/api/checkout/init', methods=['POST'])
-@limiter.limit("10 per minute")
+@limiter.limit("10 per minute")  # Preserves your Upstash rate-limiting layer
 def initialize_secure_checkout():
     data = request.json or {}
- 
+
     plaintext_pin = data.get('plaintextPin')
     buyer_phone   = data.get('buyerPhone')
     listing_id    = data.get('listingId')
     gross_amount  = data.get('amount')
-    merchant_momo = data.get('merchantMomo', '')
     item_name     = data.get('itemName', 'Item')
- 
-    # ── Guard: all required fields must be present ──
+
+    # ── Guard: all core required fields must be present ──
     if not all([plaintext_pin, buyer_phone, listing_id, gross_amount]):
         return jsonify({"success": False, "error": "Missing required checkout parameters."}), 400
- 
-    # ── Guard: PIN must be exactly 4 digits ──
+
+    # ── Guard: PIN validation ──
     pin_str = str(plaintext_pin).strip()
     if not pin_str.isdigit() or len(pin_str) != 4:
         return jsonify({"success": False, "error": "PIN must be exactly 4 digits."}), 400
- 
-    # ── Guard: phone format (basic server-side check) ──
+
+    # ── Guard: Phone formatting entry validation ──
     phone_str = str(buyer_phone).strip().replace(' ', '')
     if not phone_str.startswith('0') or len(phone_str) != 10:
         return jsonify({"success": False, "error": "Invalid phone number format."}), 400
- 
+
     try:
-        # 1. Hash PIN with bcrypt — cost factor makes brute-forcing 10,000
-        #    PIN values take hours rather than milliseconds.
+        # ── RETRIEVE SELLER INFRASTRUCTURE SECURELY FROM FIRESTORE ──
+        # Pull the listing document using the core path your app uses
+        listing_ref = (
+            db.collection('artifacts').document(APP_ID)
+              .collection('public').document('data')
+              .collection('market_listings').document(listing_id)
+        ).get()
+
+        if not listing_ref.exists:
+            print(f"⚠️ CHECKOUT INIT ABORTED: Listing ID {listing_id} not found in database.")
+            return jsonify({"success": False, "error": "The listing you are trying to buy no longer exists."}), 404
+
+        listing_data = listing_ref.to_dict()
+        
+        # Extract the seller's phone number directly from your backend data ledger
+        # Falls back to standard fields or 'momo' keys depending on your onboarding schema
+        merchant_momo = listing_data.get('phone') or listing_data.get('momo') or listing_data.get('merchantPhone')
+
+        if not merchant_momo:
+            print(f"❌ CHECKOUT INIT ERROR: Listing {listing_id} has no linked seller wallet phone identifier.")
+            return jsonify({"success": False, "error": "Seller account configuration is incomplete."}), 400
+
+        # 1. Hash PIN with bcrypt
         hashed_pin = bcrypt.hashpw(pin_str.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
- 
-        # 2. Random UUID session token — carries zero recoverable information.
+
+        # 2. Random UUID session token
         session_token = str(uuid.uuid4())
- 
-        # 3. Expiry timestamp — 15 minutes from now.
+
+        # 3. Expiry timestamp (15 minutes)
         expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=15)
- 
-        # 4. Write the staged session to a private Firestore collection.
-        #    This collection should have Firestore Security Rules set to
-        #    deny ALL client reads and writes — server-only access.
+
+        # 4. Write the staged session to your private collection
         staged_ref = (
             db.collection('artifacts').document(APP_ID)
               .collection('private').document('staged_sessions')
@@ -604,26 +622,25 @@ def initialize_secure_checkout():
             "buyer_phone":  phone_str,
             "listing_id":   listing_id,
             "amount":       float(gross_amount),
-            "momo":         merchant_momo,
+            "momo":         str(merchant_momo).strip(), # Securely locked into private storage mapping
             "item_name":    item_name,
             "expires_at":   expires_at,
             "created_at":   firestore.SERVER_TIMESTAMP,
         })
- 
-        print(f"✅ CHECKOUT INIT: Staged session {session_token} created for listing {listing_id}.")
- 
+
+        print(f"✅ SECURE CHECKOUT INIT: Staged token {session_token} mapped for merchant {merchant_momo}.")
+
         return jsonify({
             "success":          True,
-            "sessionToken":     session_token,
+            "sessionToken":      session_token,
             "amountInPesewas":  int(float(gross_amount) * 100),
-            # Fixed escrow email — does NOT encode listing ID or any real data.
             "secureEmailAnchor": os.getenv("ESCROW_EMAIL", "escrow-node@ledgehold.com"),
         }), 200
- 
+
     except Exception as e:
-        print(f"❌ CHECKOUT INIT ERROR: {str(e)}")
+        print(f"❌ CHECKOUT INIT CRASH: {str(e)}")
         traceback.print_exc()
-        return jsonify({"success": False, "error": "Internal server error during session initialization."}), 500
+        return jsonify({"success": False, "error": "Internal server configuration error."}), 500
     
 @app.route('/paystack/webhook', methods=['POST'])
 def paystack_webhook():
