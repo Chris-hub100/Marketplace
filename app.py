@@ -912,20 +912,26 @@ def gatekeeper_verify():
 
         is_valid = False
 
-        # Independent Track A: Try device token match
-        if token and actual_token == token:
-            is_valid = True
-            print("🔑 VERIFY HANDSHAKE: Validated via seamless device token (Path A).")
+        # Extract PIN bytes safely based on the route's variable name (handoff_pin vs incoming_pin)
+        pin_val = locals().get('handoff_pin') or locals().get('incoming_pin')
+        pin_bytes = str(pin_val).strip().encode('utf-8') if pin_val else b''
 
-        # Independent Track B: Fallback to manual check if Track A hasn't already cleared it
-        if not is_valid and incoming_pin and buyer_phone:
+        # Independent Track A: Try device token match + PIN verification
+        if token and actual_token == token:
+            if stored_pin_hash and bcrypt.checkpw(pin_bytes, stored_pin_hash.encode('utf-8')):
+                is_valid = True
+                print("🔑 VERIFY HANDSHAKE: Validated via seamless device token + PIN (Path A).")
+            else:
+                print("⚠️ TRACK A FAIL: Token matched, but PIN was incorrect.")
+
+        # Independent Track B: Fallback to manual check (Phone + PIN) if Track A failed
+        if not is_valid and buyer_phone and pin_val:
             p = str(buyer_phone).strip()
             phone_variants = list(set([
                 p,
                 '233' + p[1:] if p.startswith('0') else p,
                 '0'   + p[3:] if p.startswith('233') else p,
             ]))
-            pin_bytes = str(incoming_pin).strip().encode('utf-8')
 
             if (actual_buyer_phone in phone_variants and
                     stored_pin_hash and
@@ -1146,18 +1152,25 @@ def gatekeeper_set_review():
             print(f"🛡️ BRUTE-FORCE BLOCKED: Listing {listing_id} is already locked.")
             return jsonify({"success": False, "error": "Listing locked due to multiple failed attempts. Contact Support."}), 403
 
-        # ── 3. CREDENTIAL VALIDATION ──
+        # ── 3. CREDENTIAL VALIDATION (DECOUPLED SAFE FALLBACK) ──
         actual_token       = order_data.get('securityStamp', {}).get('token')
         stored_pin_hash    = order_data.get('securityStamp', {}).get('handoffPin')
         actual_buyer_phone = order_data.get('buyerPhone')
 
         is_valid = False
 
-        # Path A: Seamless device token
-        if token and actual_token == token:
-            is_valid = True
+        # Extract PIN bytes safely based on the review route's exact parameter names
+        pin_bytes = str(handoff_pin).strip().encode('utf-8') if handoff_pin else b''
 
-        # Path B: Manual phone + PIN
+        # Independent Track A: Try device token match + PIN verification
+        if token and actual_token == token:
+            if stored_pin_hash and bcrypt.checkpw(pin_bytes, stored_pin_hash.encode('utf-8')):
+                is_valid = True
+                print("🔑 REVIEW HANDSHAKE: Validated via seamless device token + PIN (Path A).")
+            else:
+                print("⚠️ REVIEW TRACK A FAIL: Token matched, but PIN was missing or incorrect.")
+
+        # Independent Track B: Fallback to manual check (Phone + PIN) if Track A failed
         if not is_valid and buyer_phone and handoff_pin:
             p = str(buyer_phone).strip()
             phone_variants = list(set([
@@ -1165,12 +1178,12 @@ def gatekeeper_set_review():
                 '233' + p[1:] if p.startswith('0') else p,
                 '0'   + p[3:] if p.startswith('233') else p,
             ]))
-            pin_bytes = str(handoff_pin).strip().encode('utf-8')
 
             if (actual_buyer_phone in phone_variants and
                     stored_pin_hash and
                     bcrypt.checkpw(pin_bytes, stored_pin_hash.encode('utf-8'))):
                 is_valid = True
+                print("🔑 REVIEW HANDSHAKE: Validated via manual credentials (Path B).")
 
         # ── 4. HANDLE OUTCOME AND DYNAMIC LOCKING ──
         if not is_valid:

@@ -243,6 +243,7 @@
             document.getElementById('confirmPin').value   = '';
 
             localStorage.setItem('ledgehold_cached_phone', phone);
+            localStorage.setItem('ledgehold_device_token', session.sessionToken);
 
             // Open Paystack Inline
             const handler = PaystackPop.setup({
