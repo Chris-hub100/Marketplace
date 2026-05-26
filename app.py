@@ -864,6 +864,14 @@ def paystack_webhook():
 @app.route('/api/gatekeeper/verify', methods=['POST'])
 def gatekeeper_verify():
     data           = request.json
+
+    # ── 🚨 THE TRUTH LOGS ──
+    print("====== GATEKEEPER REVIEW INCOMING PAYLOAD ======")
+    print(f"RAW DATA: {data}")
+    print(f"Top-level 'token': {data.get('token')}")
+    print(f"Nested 'securityStamp': {data.get('securityStamp')}")
+    print("================================================")
+
     listing_id     = data.get('listingId')
     current_stamp  = data.get('securityStamp') or {}
     token          = current_stamp.get('token') or data.get('token')
@@ -1116,6 +1124,14 @@ def verify_order_landing():
 @app.route('/api/gatekeeper/review', methods=['POST'])
 def gatekeeper_set_review():
     data       = request.json or {}
+
+    # ── 🚨 THE TRUTH LOGS ──
+    print("====== GATEKEEPER REVIEW INCOMING PAYLOAD ======")
+    print(f"RAW DATA: {data}")
+    print(f"Top-level 'token': {data.get('token')}")
+    print(f"Nested 'securityStamp': {data.get('securityStamp')}")
+    print("================================================")
+
     listing_id = data.get('listingId')
     
     # ── THE CRITICAL ALIGNMENT FIX ──
