@@ -1365,6 +1365,53 @@ def guide():
 def success_page():
     return render_template('success.html')
 
+@app.route('/api/order/my-token', methods=['POST'])
+@limiter.limit("20 per minute")
+def get_my_order_token():
+    data = request.json or {}
+    paystack_ref = data.get('ref', '').strip()
+    claimed_phone = data.get('buyerPhone', '').strip()
+    
+    if not paystack_ref or not claimed_phone:
+        return jsonify({"success": False, "error": "Missing parameters."}), 400
+
+    try:
+        order_ref = (
+            db.collection('artifacts').document(APP_ID)
+              .collection('public').document('data')
+              .collection('orders').document(paystack_ref)
+        )
+        order_doc = order_ref.get()
+
+        # Webhook hasn't written the document to Firestore yet
+        if not order_doc.exists:
+            return jsonify({"deviceToken": None, "status": "processing"}), 202
+
+        order_data = order_doc.to_dict()
+        stored_phone = str(order_data.get('buyerPhone', '')).strip()
+
+        # Build structural variations of the incoming phone number to ensure a clean match
+        p = claimed_phone
+        phone_variants = list(set([
+            p,
+            '233' + p[1:] if p.startswith('0') else p,
+            '0'   + p[3:] if p.startswith('233') else p,
+        ]))
+
+        # Enforce two-factor ownership verification gate
+        if stored_phone not in phone_variants:
+            print(f"🛡️ SECURITY FRAUD BLOCKED: Unauthorized attempt on ref {paystack_ref} from phone {p}")
+            return jsonify({"success": False, "error": "Unauthorized order access profile."}), 403
+
+        token = order_data.get('securityStamp', {}).get('token', '')
+        
+        print(f"🔒 API HANDSHAKE SECURED: Verification token delivered for order {paystack_ref}.")
+        return jsonify({"deviceToken": token, "status": "secured"}), 200
+
+    except Exception as e:
+        print(f"🚨 API TOKEN DISTRIBUTION EXCEPTION: {str(e)}")
+        return jsonify({"success": False, "error": "Internal ledger query execution failure."}), 500
+
 @app.route('/about_us')
 def about():
     return render_template('about_us.html')

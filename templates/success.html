@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 
 {% block content %}
-<!-- CUSTOM STYLES FOR THE "BEAUTIFUL" LOOK -->
 <style>
     .success-card {
         background: white;
@@ -21,7 +20,7 @@
         font-weight: 800;
         font-size: 0.8rem;
     }
-    .success-checkmark {
+    .success-icon {
         font-size: 4rem;
         color: #198754;
         animation: scaleIn 0.5s ease-out;
@@ -31,6 +30,9 @@
         80% { transform: scale(1.2); }
         100% { transform: scale(1); }
     }
+    .x-small {
+        font-size: 0.75rem;
+    }
 </style>
 
 <div class="container py-5">
@@ -38,7 +40,6 @@
         <div class="col-lg-6 col-md-8 text-center">
             
             <div class="success-card p-5">
-                <!-- 1. HEADER -->
                 <div class="mb-4">
                     <div class="success-icon">
                         <i class="bi bi-check-lg"></i>
@@ -47,7 +48,6 @@
                     <p class="text-muted">Your funds are now held in <b>Escrow</b>.</p>
                 </div>
 
-                <!-- 2. TRANSACTION SUMMARY -->
                 <div class="bg-light p-4 rounded-4 text-start mb-5 border border-white">
                     <div class="d-flex justify-content-between mb-3">
                         <span class="small text-muted fw-bold">ITEM:</span>
@@ -63,7 +63,6 @@
                     </div>
                 </div>
 
-                <!-- 3. WHAT HAPPENS NEXT (The Roadmap) -->
                 <div class="text-start mb-5">
                     <h6 class="fw-bold text-dark mb-4 px-2">Completion Roadmap</h6>
                     
@@ -92,7 +91,6 @@
                     </div>
                 </div>
 
-                <!-- 4. ACTIONS -->
                 <div class="d-grid gap-2">
                     <a href="/marketplace" class="btn btn-dark rounded-pill fw-bold py-3">
                         Return to Marketplace
@@ -107,18 +105,27 @@
     </div>
 </div>
 
-<!-- SCRIPT TO POPULATE DATA -->
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
         
-        const item = urlParams.get('item') || "Marketplace Purchase";
-        const price = urlParams.get('price') || "0.00";
-        const ref = urlParams.get('ref') || "N/A";
+        const item = urlParams.get('item') || "{{ item }}";
+        const price = urlParams.get('price') || "{{ price }}";
+        const ref = urlParams.get('ref') || "{{ ref }}";
 
         document.getElementById('display-item').innerText = item;
         document.getElementById('display-price').innerText = price;
         document.getElementById('display-ref').innerText = "#" + ref.toUpperCase();
+
+        // ── CRITICAL FIX: OVERWRITE STALE SESSION TOKEN WITH LIVE DEVICE TOKEN ──
+        const liveDeviceToken = "{{ real_device_token }}";
+        
+        if (liveDeviceToken && liveDeviceToken.trim() !== "") {
+            localStorage.setItem('ledgehold_device_token', liveDeviceToken);
+            console.log("🔒 SECURE: Verification token successfully updated in local storage.");
+        } else {
+            console.warn("⚠️ WARNING: Live verification token was not provided by the server context.");
+        }
     });
 </script>
 {% endblock %}
