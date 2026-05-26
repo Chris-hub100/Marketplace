@@ -1115,9 +1115,14 @@ def verify_order_landing():
 
 @app.route('/api/gatekeeper/review', methods=['POST'])
 def gatekeeper_set_review():
-    data       = request.json
+    data       = request.json or {}
     listing_id = data.get('listingId')
-    token      = data.get('token')
+    
+    # ── THE CRITICAL ALIGNMENT FIX ──
+    # Look inside the securityStamp object OR fallback to the top level 
+    current_stamp = data.get('securityStamp') or {}
+    token         = current_stamp.get('token') or data.get('token')
+    
     buyer_phone = data.get('buyerPhone')
     handoff_pin = data.get('handoffPin')
 
