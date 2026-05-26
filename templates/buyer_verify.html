@@ -105,6 +105,7 @@
 <script>
     const SecurityProtocol = {
         async getSignature() {
+            // ALWAYS read fresh at call time
             let token = localStorage.getItem('ledgehold_device_token');
             let ip = 'unknown';
             try {
@@ -116,7 +117,7 @@
         }
     };
 
-    let activeDeviceToken = localStorage.getItem('ledgehold_device_token');
+    // Removed the global module-level activeDeviceToken variable to prevent stale closure snapshots
     let fallbackPhone = null;
     let fallbackPin = null;
 
@@ -127,7 +128,10 @@
         if (!listingId) return;
         document.getElementById('displayRef').innerText = "#" + listingId.toUpperCase();
         
-        if (activeDeviceToken) {
+        // Read directly from storage at initialization time
+        const freshTokenAtLoad = localStorage.getItem('ledgehold_device_token');
+        
+        if (freshTokenAtLoad && freshTokenAtLoad.trim() !== "") {
             document.getElementById('quickIdentityCard').classList.remove('d-none');
         } else {
             document.getElementById('identityCard').classList.remove('d-none');
@@ -150,10 +154,18 @@
         }, 250);
     };
 
+    function triggerLockout(currentCardId) {
+        document.getElementById(currentCardId).classList.add('d-none');
+        document.getElementById('lockedCard').classList.remove('d-none');
+    }
+
     window.submitQuickIdentity = async function() {
         const btn = document.getElementById('quickVerifyBtn');
         const pin = document.getElementById('quickPin').value.trim();
         const errorBox = document.getElementById('quickErrorMsg');
+        
+        // ── LIVE STORAGE READ ON CLICK ──
+        const currentLiveToken = localStorage.getItem('ledgehold_device_token');
         
         errorBox.classList.add('d-none');
         if (!pin) { errorBox.innerText = "Please enter your PIN."; errorBox.classList.remove('d-none'); return; }
@@ -165,9 +177,25 @@
             const res = await fetch('/api/gatekeeper/review', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ listingId: listingId, token: activeDeviceToken, handoffPin: pin })
+                body: JSON.stringify({ 
+                    listingId: listingId, 
+                    token: currentLiveToken, // Pass the fresh token 
+                    handoffPin: pin 
+                })
             });
             const result = await res.json();
+
+            if (res.status === 403) {
+                triggerLockout('quickIdentityCard');
+                return;
+            }
+
+            if (res.status === 404) {
+                errorBox.innerText = "Device token expired or invalid. Switching to manual verification...";
+                errorBox.classList.remove('d-none');
+                setTimeout(() => { switchToManual(); }, 1500);
+                return;
+            }
 
             if (res.ok && result.success) {
                 fallbackPin = pin; 
@@ -205,6 +233,11 @@
             });
             const result = await res.json();
 
+            if (res.status === 403) {
+                triggerLockout('identityCard');
+                return;
+            }
+
             if (res.ok && result.success) {
                 fallbackPhone = phone;
                 fallbackPin = pin;
@@ -212,7 +245,7 @@
                 document.getElementById('verifyCard').classList.remove('d-none');
                 track.dispatchEvent(new CustomEvent('slider-reset'));
             } else {
-                throw new Error("Authentication Failed. Check your details.");
+                throw new Error(result.error || "Authentication Failed. Check your details.");
             }
         } catch(e) {
             errorBox.innerText = e.message;
@@ -228,9 +261,17 @@
 
         try {
             const signature = await SecurityProtocol.getSignature();
+            
+            // ── LIVE STORAGE READ ON SWIPE RELEASE ──
+            const currentLiveToken = localStorage.getItem('ledgehold_device_token');
+            
+            // Reconstruct the signature payload dynamically to protect Track A pipeline stability
             const payload = {
                 listingId: listingId, 
-                securityStamp: signature,
+                securityStamp: {
+                    token: currentLiveToken,
+                    ip: signature.ip
+                },
                 buyerPhone: fallbackPhone,
                 handoffPin: fallbackPin
             };
@@ -242,11 +283,20 @@
             });
             const result = await response.json();
 
+            if (response.status === 403) {
+                triggerLockout('verifyCard');
+                return;
+            }
+
+            if (response.status === 429) {
+                throw new Error(result.error || "Transfer already processing. Please wait.");
+            }
+
             if (response.ok && result.verified) {
                 document.getElementById('verifyCard').classList.add('d-none');
                 document.getElementById('successCard').classList.remove('d-none');
             } else {
-                throw new Error(result.error || "Security Mismatch.");
+                throw new Error(result.error || "Security Mismatch. Please try again.");
             }
         } catch (err) {
             errorMsg.innerText = err.message;
@@ -255,7 +305,7 @@
         }
     }
 
-    // SWIPE SLIDER LOGIC - FIXED VERSION
+    // SWIPE SLIDER LOGIC
     const track = document.getElementById('swipeTrack');
     (function () {
         const thumb    = document.getElementById('swipeThumb');
@@ -293,7 +343,6 @@
             if (track._sliderLocked) return;
             dragging  = true;
             maxTravel = getMaxTravel();
-            // FIXED: Added [0] to access first touch point
             startX    = (e.touches ? e.touches[0].clientX : e.clientX) - currentX;
             thumb.style.transition = 'none';
             fill.style.transition  = 'none';
@@ -303,7 +352,6 @@
         function onMove(e) {
             if (!dragging || track._sliderLocked) return;
             e.preventDefault();
-            // FIXED: Added [0] to access first touch point
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             setPosition(clientX - startX);
         }
