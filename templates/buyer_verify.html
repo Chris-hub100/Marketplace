@@ -105,7 +105,6 @@
 <script>
     const SecurityProtocol = {
         async getSignature() {
-            // ALWAYS read fresh at call time
             let token = localStorage.getItem('ledgehold_device_token');
             let ip = 'unknown';
             try {
@@ -117,28 +116,27 @@
         }
     };
 
-    // Removed the global module-level activeDeviceToken variable to prevent stale closure snapshots
     let fallbackPhone = null;
     let fallbackPin = null;
 
     const urlParams = new URLSearchParams(window.location.search);
-    const listingId = urlParams.get('ref'); 
+    // On this page, the 'ref' parameter contains the unique order/listing reference identifier
+    const orderRef = urlParams.get('ref'); 
 
     document.addEventListener("DOMContentLoaded", async () => {
-        if (!listingId) return;
-        document.getElementById('displayRef').innerText = "#" + listingId.toUpperCase();
+        if (!orderRef) return;
+        document.getElementById('displayRef').innerText = "#" + orderRef.toUpperCase();
         
-        // Read directly from storage at initialization time
-        const freshTokenAtLoad = localStorage.getItem('ledgehold_device_token');
+        // Initial snapshot evaluation for card display routing
+        const initialToken = localStorage.getItem('ledgehold_device_token');
         
-        if (freshTokenAtLoad && freshTokenAtLoad.trim() !== "") {
+        if (initialToken && initialToken.trim() !== "") {
             document.getElementById('quickIdentityCard').classList.remove('d-none');
         } else {
             document.getElementById('identityCard').classList.remove('d-none');
         }
     });
 
-    // SMOOTH MOTION VIEW STATE TOGGLE
     window.switchToManual = function() {
         const quickCard = document.getElementById('quickIdentityCard');
         const manualCard = document.getElementById('identityCard');
@@ -164,22 +162,48 @@
         const pin = document.getElementById('quickPin').value.trim();
         const errorBox = document.getElementById('quickErrorMsg');
         
-        // ── LIVE STORAGE READ ON CLICK ──
-        const currentLiveToken = localStorage.getItem('ledgehold_device_token');
-        
         errorBox.classList.add('d-none');
         if (!pin) { errorBox.innerText = "Please enter your PIN."; errorBox.classList.remove('d-none'); return; }
         
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Verifying...';
         
+        // ── PART 2 FIX: JUST-IN-TIME (JIT) TOKEN SYNC ──
+        try {
+            const cachedPhone = localStorage.getItem('ledgehold_cached_phone') || '';
+            if (orderRef && cachedPhone) {
+                console.log("🔄 JIT: Refreshing verification key from ledger before auth payload compilation...");
+                const syncRes = await fetch('/api/order/my-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        ref: orderRef,          // Fixed: Passes the actual order reference tracking string
+                        buyerPhone: cachedPhone 
+                    })
+                });
+                
+                if (syncRes.status === 200) {
+                    const syncData = await syncRes.json();
+                    if (syncData.deviceToken) {
+                        localStorage.setItem('ledgehold_device_token', syncData.deviceToken);
+                        console.log("🔒 JIT: Verification key synchronized successfully.");
+                    }
+                }
+            }
+        } catch (e) { 
+            console.warn("⚠️ JIT sync bypass. Defaulting to existing local storage cache tokens:", e);
+        }
+
+        // Read directly from storage after the token freshness sync has resolved
+        const currentLiveToken = localStorage.getItem('ledgehold_device_token');
+        
         try {
             const res = await fetch('/api/gatekeeper/review', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    listingId: listingId, 
-                    token: currentLiveToken, // Pass the fresh token 
+                    listingId: orderRef, 
+                    token: currentLiveToken, 
                     handoffPin: pin 
                 })
             });
@@ -229,7 +253,7 @@
             const res = await fetch('/api/gatekeeper/review', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ listingId: listingId, buyerPhone: phone, handoffPin: pin })
+                body: JSON.stringify({ listingId: orderRef, buyerPhone: phone, handoffPin: pin })
             });
             const result = await res.json();
 
@@ -261,13 +285,10 @@
 
         try {
             const signature = await SecurityProtocol.getSignature();
-            
-            // ── LIVE STORAGE READ ON SWIPE RELEASE ──
             const currentLiveToken = localStorage.getItem('ledgehold_device_token');
             
-            // Reconstruct the signature payload dynamically to protect Track A pipeline stability
             const payload = {
-                listingId: listingId, 
+                listingId: orderRef, 
                 securityStamp: {
                     token: currentLiveToken,
                     ip: signature.ip
