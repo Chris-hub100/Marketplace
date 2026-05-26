@@ -38,7 +38,7 @@
                         <i class="bi bi-person-badge fs-2"></i>
                     </div>
                     <h4 class="fw-bold text-dark mb-1">Verify Identity</h4>
-                    <p class="text-muted small px-2">Secure session not found. Enter your checkout details.</p>
+                    <p class="text-muted small px-2">We couldn't detect your secure session. Enter your checkout details.</p>
                 </div>
                 
                 <div class="mb-3 text-start">
@@ -88,23 +88,6 @@
                 <div id="errorMsg" class="alert alert-danger d-none small rounded-3"></div>
             </div>
 
-            <div id="lockedCard" class="card border-0 shadow-lg p-5 rounded-4 bg-white d-none animate-slide-up">
-                <div class="mb-4 text-center">
-                    <div class="bg-danger-subtle text-danger rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
-                        <i class="bi bi-shield-x-fill fs-1"></i>
-                    </div>
-                    <h3 class="fw-bold text-dark mb-2">Security Lockout</h3>
-                    <p class="text-muted small">This transaction has been locked due to multiple failed verification attempts.</p>
-                </div>
-                <div class="alert alert-danger border-0 rounded-4 text-start mb-4">
-                    <p class="small mb-0" style="line-height: 1.5;">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                        For your protection, funds cannot be released. Please contact <strong>Ledgehold Support</strong> to verify your identity and unlock this listing.
-                    </p>
-                </div>
-                <a href="/marketplace" class="btn btn-outline-danger rounded-pill w-100 fw-bold">Return to Dashboard</a>
-            </div>
-
             <div id="successCard" class="card border-0 shadow-lg p-5 rounded-4 bg-white d-none animate-slide-up">
                 <div class="mb-4">
                     <div class="bg-success-subtle text-success rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
@@ -151,6 +134,7 @@
         }
     });
 
+    // SMOOTH MOTION VIEW STATE TOGGLE
     window.switchToManual = function() {
         const quickCard = document.getElementById('quickIdentityCard');
         const manualCard = document.getElementById('identityCard');
@@ -165,11 +149,6 @@
             manualCard.style.transform = 'translateY(0)';
         }, 250);
     };
-
-    function triggerLockout(currentCardId) {
-        document.getElementById(currentCardId).classList.add('d-none');
-        document.getElementById('lockedCard').classList.remove('d-none');
-    }
 
     window.submitQuickIdentity = async function() {
         const btn = document.getElementById('quickVerifyBtn');
@@ -189,20 +168,6 @@
                 body: JSON.stringify({ listingId: listingId, token: activeDeviceToken, handoffPin: pin })
             });
             const result = await res.json();
-
-            // ── HANDLE NEW LOCKOUT STATE ──
-            if (res.status === 403) {
-                triggerLockout('quickIdentityCard');
-                return;
-            }
-
-            // ── HANDLE STALE TOKEN GRACEFULLY ──
-            if (res.status === 404) {
-                errorBox.innerText = "Device token expired or invalid. Switching to manual verification...";
-                errorBox.classList.remove('d-none');
-                setTimeout(() => { switchToManual(); }, 1500);
-                return;
-            }
 
             if (res.ok && result.success) {
                 fallbackPin = pin; 
@@ -240,12 +205,6 @@
             });
             const result = await res.json();
 
-            // ── HANDLE NEW LOCKOUT STATE ──
-            if (res.status === 403) {
-                triggerLockout('identityCard');
-                return;
-            }
-
             if (res.ok && result.success) {
                 fallbackPhone = phone;
                 fallbackPin = pin;
@@ -253,7 +212,7 @@
                 document.getElementById('verifyCard').classList.remove('d-none');
                 track.dispatchEvent(new CustomEvent('slider-reset'));
             } else {
-                throw new Error(result.error || "Authentication Failed. Check your details.");
+                throw new Error("Authentication Failed. Check your details.");
             }
         } catch(e) {
             errorBox.innerText = e.message;
@@ -283,22 +242,11 @@
             });
             const result = await response.json();
 
-            // ── HANDLE NEW LOCKOUT STATE MID-SWIPE ──
-            if (response.status === 403) {
-                triggerLockout('verifyCard');
-                return;
-            }
-
-            // ── HANDLE DUPLICATE PAYOUT RATE LIMIT ──
-            if (response.status === 429) {
-                throw new Error(result.error || "Transfer already processing. Please wait.");
-            }
-
             if (response.ok && result.verified) {
                 document.getElementById('verifyCard').classList.add('d-none');
                 document.getElementById('successCard').classList.remove('d-none');
             } else {
-                throw new Error(result.error || "Security Mismatch. Please try again.");
+                throw new Error(result.error || "Security Mismatch.");
             }
         } catch (err) {
             errorMsg.innerText = err.message;
@@ -307,7 +255,7 @@
         }
     }
 
-    // SWIPE SLIDER LOGIC
+    // SWIPE SLIDER LOGIC - FIXED VERSION
     const track = document.getElementById('swipeTrack');
     (function () {
         const thumb    = document.getElementById('swipeThumb');
@@ -345,7 +293,8 @@
             if (track._sliderLocked) return;
             dragging  = true;
             maxTravel = getMaxTravel();
-            startX    = (e.touches ? e.touches.clientX : e.clientX) - currentX;
+            // FIXED: Added [0] to access first touch point
+            startX    = (e.touches ? e.touches[0].clientX : e.clientX) - currentX;
             thumb.style.transition = 'none';
             fill.style.transition  = 'none';
             track.classList.add('is-dragging');
@@ -354,7 +303,8 @@
         function onMove(e) {
             if (!dragging || track._sliderLocked) return;
             e.preventDefault();
-            const clientX = e.touches ? e.touches.clientX : e.clientX;
+            // FIXED: Added [0] to access first touch point
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             setPosition(clientX - startX);
         }
 
@@ -418,7 +368,6 @@
     .bg-success-subtle { background-color: #dcfce7 !important; }
     .bg-warning-subtle { background-color: #fef3c7 !important; }
     .bg-primary-subtle { background-color: #cce0ff !important; }
-    .bg-danger-subtle  { background-color: #fee2e2 !important; }
     .animate-slide-up  { animation: slideUp 0.5s ease-out; }
     @keyframes slideUp {
         from { transform: translateY(30px); opacity: 0; }
