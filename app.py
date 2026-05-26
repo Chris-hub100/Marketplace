@@ -10,7 +10,11 @@ import hmac
 import hashlib
 import uuid
 import traceback
+import bcrypt
+import redis as redis_client
 import json
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from base64 import b64encode
 from firebase_admin import credentials, firestore, initialize_app
 from dotenv import load_dotenv
@@ -22,6 +26,15 @@ load_dotenv(override=True)
 resend.api_key = os.getenv("RESEND_API_KEY")
 
 app = Flask(__name__)
+
+redis_storage_url = os.getenv("REDIS_URL")
+
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    storage_uri=redis_storage_url or "memory://",
+    default_limits=["200 per day"]
+)
 
 # Hubtel SMS Auth
 HUB_ID = os.getenv('HUBTEL_CLIENT_ID')
@@ -519,342 +532,435 @@ def execute_takedown():
 def financial_vault():
     """Serves the isolated Financial Intelligence & Dispute Resolution Node"""
     return render_template('financial_view.html', **get_firebase_context())
+
+# Example: run this daily via a cron endpoint or Cloud Scheduler
+@app.route('/admin/cleanup-staged-sessions', methods=['POST'])
+def cleanup_staged_sessions():
+    # Protect this endpoint — call only from your cron job with a secret header
+    if request.headers.get('X-Cron-Secret') != os.getenv('CRON_SECRET'):
+        return "Unauthorized", 401
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    col = (db.collection('artifacts').document(APP_ID)
+             .collection('private').document('staged_sessions')
+             .collection('tokens'))
+
+    expired = col.where(filter=FieldFilter('expires_at', '<', now)).stream()
+    deleted = 0
+    for doc in expired:
+        doc.reference.delete()
+        deleted += 1
+
+    print(f"🧹 Cleanup: deleted {deleted} expired staged sessions.")
+    return jsonify({"deleted": deleted}), 200
+
+@app.route('/api/checkout/init', methods=['POST'])
+@limiter.limit("10 per minute")
+def initialize_secure_checkout():
+    data = request.json or {}
+ 
+    plaintext_pin = data.get('plaintextPin')
+    buyer_phone   = data.get('buyerPhone')
+    listing_id    = data.get('listingId')
+    gross_amount  = data.get('amount')
+    merchant_momo = data.get('merchantMomo', '')
+    item_name     = data.get('itemName', 'Item')
+ 
+    # ── Guard: all required fields must be present ──
+    if not all([plaintext_pin, buyer_phone, listing_id, gross_amount]):
+        return jsonify({"success": False, "error": "Missing required checkout parameters."}), 400
+ 
+    # ── Guard: PIN must be exactly 4 digits ──
+    pin_str = str(plaintext_pin).strip()
+    if not pin_str.isdigit() or len(pin_str) != 4:
+        return jsonify({"success": False, "error": "PIN must be exactly 4 digits."}), 400
+ 
+    # ── Guard: phone format (basic server-side check) ──
+    phone_str = str(buyer_phone).strip().replace(' ', '')
+    if not phone_str.startswith('0') or len(phone_str) != 10:
+        return jsonify({"success": False, "error": "Invalid phone number format."}), 400
+ 
+    try:
+        # 1. Hash PIN with bcrypt — cost factor makes brute-forcing 10,000
+        #    PIN values take hours rather than milliseconds.
+        hashed_pin = bcrypt.hashpw(pin_str.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+ 
+        # 2. Random UUID session token — carries zero recoverable information.
+        session_token = str(uuid.uuid4())
+ 
+        # 3. Expiry timestamp — 15 minutes from now.
+        expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=15)
+ 
+        # 4. Write the staged session to a private Firestore collection.
+        #    This collection should have Firestore Security Rules set to
+        #    deny ALL client reads and writes — server-only access.
+        staged_ref = (
+            db.collection('artifacts').document(APP_ID)
+              .collection('private').document('staged_sessions')
+              .collection('tokens').document(session_token)
+        )
+        staged_ref.set({
+            "hashed_pin":   hashed_pin,
+            "buyer_phone":  phone_str,
+            "listing_id":   listing_id,
+            "amount":       float(gross_amount),
+            "momo":         merchant_momo,
+            "item_name":    item_name,
+            "expires_at":   expires_at,
+            "created_at":   firestore.SERVER_TIMESTAMP,
+        })
+ 
+        print(f"✅ CHECKOUT INIT: Staged session {session_token} created for listing {listing_id}.")
+ 
+        return jsonify({
+            "success":          True,
+            "sessionToken":     session_token,
+            "amountInPesewas":  int(float(gross_amount) * 100),
+            # Fixed escrow email — does NOT encode listing ID or any real data.
+            "secureEmailAnchor": os.getenv("ESCROW_EMAIL", "escrow-node@ledgehold.com"),
+        }), 200
+ 
+    except Exception as e:
+        print(f"❌ CHECKOUT INIT ERROR: {str(e)}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": "Internal server error during session initialization."}), 500
     
 @app.route('/paystack/webhook', methods=['POST'])
 def paystack_webhook():
-    # ========================================================
-    # 1. CRYPTOGRAPHIC SIGNATURE VALIDATION (ANTI-SPOOFING)
-    # ========================================================
+    # ── 1. CRYPTOGRAPHIC SIGNATURE VALIDATION ──
     paystack_signature = request.headers.get('x-paystack-signature')
-    
     if not paystack_signature:
-        print("🛡️ SECURITY ALERT: Missing Paystack signature header! Request dropped.")
+        print("🛡️ SECURITY ALERT: Missing Paystack signature header.")
         return "Unauthorized", 401
-
-    # Compute expected signature using local secret key and incoming raw request bytes
+ 
     computed_signature = hmac.new(
         bytes(PAYSTACK_SECRET_KEY, 'utf-8'),
-        request.data,  # Essential: Use raw bytes to preserve original serialization
+        request.data,
         hashlib.sha512
     ).hexdigest()
-
-    # Time-constant comparison protects the server from targeted timing analysis
+ 
     if not hmac.compare_digest(computed_signature, paystack_signature):
-        print("🛡️ SECURITY ALERT: Invalid Webhook Signature! Verification handshake failed.")
+        print("🛡️ SECURITY ALERT: Invalid webhook signature.")
         return "Unauthorized", 401
-
-    # ========================================================
-    # 2. SIGNATURE SECURED: SAFE TO UNPACK THE ENVELOPE
-    # ========================================================
-    data = request.json
+ 
+    data       = request.json
     event_type = data.get('event')
     print(f"WEBHOOK RECEIVED: {event_type}")
-
-    # --------------------------------------------------------
-    # CASE A: INBOUND ESCROW DEPOSIT (Customer Charged)
-    # --------------------------------------------------------
+ 
+    # ── CASE A: INBOUND ESCROW DEPOSIT ──
     if event_type == "charge.success":
         payload = data['data']
-        meta = payload.get('metadata', {}).get('custom_fields', [])
-        
+        meta    = payload.get('metadata', {}).get('custom_fields', [])
+        order_id = payload['reference']
+ 
         try:
-            # 1. EXTRACT DATA
-            listing_id = next((f['value'] for f in meta if f['variable_name'] == 'listing_id'), None)
-            buyer_phone = next((f['value'] for f in meta if f['variable_name'] == 'phone'), "Unknown")
-            device_token = next((f['value'] for f in meta if f['variable_name'] == 'device_token'), "None")
-            item_name = next((f['value'] for f in meta if f['variable_name'] == 'item_name'), "Item")
-            
-            # Extract and immediately hash the buyer's custom Delivery PIN
-            user_defined_pin = next((f['value'] for f in meta if f['variable_name'] == 'delivery_pin'), None)
-            
-            hashed_handoff_pin = None
-            if user_defined_pin:
-                hashed_handoff_pin = hashlib.sha256(str(user_defined_pin).strip().encode('utf-8')).hexdigest()
-            
-            # Extract the Seller's Phone Number
-            seller_momo = next((f['value'] for f in meta if f['variable_name'] == 'seller_phone'), None)
-            
-            if not listing_id:
-                print("❌ WEBHOOK ERROR: No listing_id found in metadata.")
-                return "Missing ID", 400
-
-            # 2. SAVE TO FIRESTORE (Using Paystack Reference as Doc Name)
-            order_id = payload['reference'] 
-            order_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders').document(order_id)
-            
-            order_ref.set({
-                "status": "paid_in_escrow",
-                "listing_id": listing_id,
+            # ── IDEMPOTENCY GUARD: skip if this order already exists ──
+            orders_col = (
+                db.collection('artifacts').document(APP_ID)
+                  .collection('public').document('data')
+                  .collection('orders')
+            )
+            existing = orders_col.document(order_id).get()
+            if existing.exists:
+                print(f"⚠️ IDEMPOTENCY: Order {order_id} already exists. Skipping duplicate webhook.")
+                return "OK", 200
+ 
+            # ── RESOLVE SESSION TOKEN ──
+            session_token = next(
+                (f['value'] for f in meta if f['variable_name'] == 'session_token'), None
+            )
+            listing_id_fallback = next(
+                (f['value'] for f in meta if f['variable_name'] == 'listing_id'), None
+            )
+ 
+            if not session_token:
+                print(f"❌ WEBHOOK ERROR: No session_token in metadata for order {order_id}.")
+                return "Missing session token", 400
+ 
+            # ── LOOK UP STAGED SESSION ──
+            staged_ref = (
+                db.collection('artifacts').document(APP_ID)
+                  .collection('private').document('staged_sessions')
+                  .collection('tokens').document(session_token)
+            )
+            staged_doc = staged_ref.get()
+ 
+            if not staged_doc.exists:
+                print(f"❌ WEBHOOK ERROR: Staged session {session_token} not found.")
+                return "Session not found", 400
+ 
+            staged = staged_doc.to_dict()
+ 
+            # ── ENFORCE EXPIRY ──
+            if staged['expires_at'] < datetime.datetime.now(datetime.timezone.utc):
+                print(f"⚠️ WEBHOOK: Staged session {session_token} has expired.")
+                staged_ref.delete()
+                return "Session expired", 400
+ 
+            # ── WRITE ORDER TO PRODUCTION COLLECTION ──
+            # A new random device token is generated server-side here —
+            # it is NOT derived from the PIN or phone number.
+            device_token = str(uuid.uuid4())
+ 
+            orders_col.document(order_id).set({
+                "status":        "paid_in_escrow",
+                "listing_id":    staged['listing_id'],
                 "securityStamp": {
-                    "token": device_token,
-                    "ip": payload.get('ip_address'),
-                    "handoffPin": hashed_handoff_pin
+                    "token":      device_token,
+                    "ip":         payload.get('ip_address'),
+                    # bcrypt hash — not reversible, not crackable in milliseconds
+                    "handoffPin": staged['hashed_pin'],
                 },
-                "item": item_name,
-                "amount": payload['amount'] / 100,
-                "buyerPhone": buyer_phone,
-                "momo": seller_momo,  
-                "paystack_ref": order_id, 
-                "createdAt": firestore.SERVER_TIMESTAMP,
-                "payout_status": "AWAITING_HANDSHAKE"
+                "item":          staged['item_name'],
+                "amount":        staged['amount'],
+                "buyerPhone":    staged['buyer_phone'],
+                "momo":          staged['momo'],
+                "paystack_ref":  order_id,
+                "createdAt":     firestore.SERVER_TIMESTAMP,
+                "payout_status": "AWAITING_HANDSHAKE",
             })
-            
-            print(f"✅ SECURED: Order {order_id} created. PIN saved. Merchant {seller_momo} linked.")
-
-            # ========================================================
-            # 3. SANITIZE & SEND DUAL SMS NOTIFICATIONS
-            # ========================================================
+ 
+            # ── DELETE STAGED SESSION: no lingering sensitive data ──
+            staged_ref.delete()
+            print(f"✅ SECURED: Order {order_id} created. Staged session {session_token} deleted.")
+ 
+            # ── DUAL SMS NOTIFICATIONS (unchanged logic) ──
             try:
-                def format_gh_phone(raw_phone):
-                    phone_str = str(raw_phone).strip()
-                    if phone_str.startswith('0'):
-                        return '233' + phone_str[1:]
-                    elif not phone_str.startswith('233') and phone_str not in ["Unknown", "None"]:
-                        return '233' + phone_str
-                    return phone_str
-
-                clean_buyer_phone = format_gh_phone(buyer_phone)
-                clean_seller_phone = format_gh_phone(seller_momo)
-
-                print(f"📱 SMS ROUTING LOG:")
-                print(f"   Buyer: {clean_buyer_phone}")
-                print(f"   Seller: {clean_seller_phone}")
-
-                # SMS #1: TO THE BUYER
-                if clean_buyer_phone != "Unknown":
-                    if clean_seller_phone not in ["Unknown", "None"]:
-                        seller_display = f"0{clean_seller_phone[3:]}"
-                        buyer_msg = f"Payment for {item_name} secured! Call the seller at {seller_display} to confirm the meetup on campus. Scan their QR code only after you have the item in hand and have inspected it."
+                def format_gh_phone(raw):
+                    s = str(raw).strip()
+                    if s.startswith('0'):
+                        return '233' + s[1:]
+                    elif not s.startswith('233') and s not in ["Unknown", "None"]:
+                        return '233' + s
+                    return s
+ 
+                buyer_phone   = staged['buyer_phone']
+                seller_momo   = staged['momo']
+                item_name     = staged['item_name']
+ 
+                clean_buyer  = format_gh_phone(buyer_phone)
+                clean_seller = format_gh_phone(seller_momo)
+ 
+                if clean_buyer != "Unknown":
+                    seller_display = f"0{clean_seller[3:]}" if clean_seller.startswith('233') else clean_seller
+                    buyer_msg = (
+                        f"Payment for {item_name} secured! Ref: {order_id}. "
+                        f"Call the seller at {seller_display} to confirm your meetup. "
+                        f"Scan their QR code ONLY after you have inspected the item."
+                    )
+                    if send_professional_sms(clean_buyer, buyer_msg):
+                        print("✅ Buyer SMS accepted.")
                     else:
-                        buyer_msg = f"Payment for {item_name} secured! Coordinate with the seller to confirm your meetup on campus. Scan their QR code only after you have the item in hand and have inspected it."
-                    
-                    buyer_sms_sent = send_professional_sms(clean_buyer_phone, buyer_msg)
-                    if buyer_sms_sent: print("✅ Buyer SMS successfully accepted by Hubtel gateway.")
-                    else: print("❌ Buyer SMS failed to dispatch.")
-                else:
-                    print("⚠️ Buyer SMS skipped: Phone number is Unknown.")
-
-                # SMS #2: TO THE MERCHANT
-                if clean_seller_phone not in ["Unknown", "None"]:
-                    if clean_buyer_phone != "Unknown":
-                        buyer_display = f"0{clean_buyer_phone[3:]}"
-                        merchant_msg = f"Great news! Your {item_name} has been paid for. Call the buyer at {buyer_display} to arrange the handover. Let them scan your QR code when you meet so you get your money."
+                        print("❌ Buyer SMS failed.")
+ 
+                if clean_seller not in ["Unknown", "None"]:
+                    buyer_display = f"0{clean_buyer[3:]}" if clean_buyer.startswith('233') else clean_buyer
+                    merchant_msg = (
+                        f"Great news! Your {item_name} has been paid for. Order Ref: {order_id}. "
+                        f"Call the buyer at {buyer_display} to arrange the handover. "
+                        f"Let them scan your QR code when you meet to claim your money."
+                    )
+                    if send_professional_sms(clean_seller, merchant_msg):
+                        print("✅ Merchant SMS accepted.")
                     else:
-                        merchant_msg = f"Great news! Your {item_name} has been paid for. Coordinate with the buyer to arrange the handover. Let them scan your QR code when you meet so you get your money."
-                    
-                    merchant_sms_sent = send_professional_sms(clean_seller_phone, merchant_msg)
-                    if merchant_sms_sent: print("✅ Merchant SMS successfully accepted by Hubtel gateway.")
-                    else: print("❌ Merchant SMS failed to dispatch.")
-                else:
-                    print("⚠️ Merchant SMS skipped: Seller phone number is missing.")
-
+                        print("❌ Merchant SMS failed.")
+ 
             except Exception as sms_err:
-                print(f"⚠️ Dual-SMS Pipeline failed: {str(sms_err)}")
+                print(f"⚠️ Dual-SMS pipeline failed: {str(sms_err)}")
                 traceback.print_exc()
-            
+ 
         except Exception as e:
             print(f"❌ WEBHOOK PROCESSING ERROR: {str(e)}")
             traceback.print_exc()
-
-    # --------------------------------------------------------
-    # CASE B: OUTBOUND PAYOUT SETTLED (Merchant Received Funds)
-    # --------------------------------------------------------
+ 
+    # ── CASE B: OUTBOUND PAYOUT SETTLED ──
     elif event_type == "transfer.success":
-        payload = data['data']
+        payload            = data['data']
         transfer_reference = payload.get('reference')
-        recipient_number = payload.get('recipient', {}).get('details', {}).get('account_number')
-        
+        recipient_number   = payload.get('recipient', {}).get('details', {}).get('account_number')
+ 
         try:
-            orders_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders')
-            query = orders_ref.where(filter=FieldFilter('payout_reference', '==', transfer_reference)).limit(1).get()
-            
+            query = (
+                db.collection('artifacts').document(APP_ID)
+                  .collection('public').document('data').collection('orders')
+                  .where(filter=FieldFilter('payout_reference', '==', transfer_reference))
+                  .limit(1).get()
+            )
             if query:
-                order_doc = query[0]
-                order_doc.reference.update({
-                    "payout_status": "SUCCESS",
-                    "payout_settled_at": payload.get('updated_at') or payload.get('transferred_at'),
+                query[0].reference.update({
+                    "payout_status":       "SUCCESS",
+                    "payout_settled_at":   payload.get('updated_at') or payload.get('transferred_at'),
                     "paystack_transfer_id": payload.get('id'),
-                    "gateway_response": "Funds successfully deposited into merchant wallet balance."
+                    "gateway_response":    "Funds successfully deposited into merchant wallet balance.",
                 })
-                print(f"💸 PAYOUT CONFIRMED: Transfer {transfer_reference} successfully hit wallet {recipient_number}.")
+                print(f"💸 PAYOUT CONFIRMED: {transfer_reference} → {recipient_number}.")
             else:
-                print(f"⚠️ WEBHOOK WARN: Successful transfer reference {transfer_reference} matched no document.")
+                print(f"⚠️ Transfer {transfer_reference} matched no order document.")
         except Exception as e:
-            print(f"❌ Webhook Transfer Success Logging Error: {str(e)}")
+            print(f"❌ Transfer success logging error: {str(e)}")
             traceback.print_exc()
-
-    # --------------------------------------------------------
-    # CASE C: OUTBOUND PAYOUT BOUNCED (Wallet Restrict / Fail)
-    # --------------------------------------------------------
+ 
+    # ── CASE C: OUTBOUND PAYOUT BOUNCED ──
     elif event_type == "transfer.failed":
-        payload = data['data']
+        payload            = data['data']
         transfer_reference = payload.get('reference')
-        
+ 
         try:
-            orders_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders')
-            query = orders_ref.where(filter=FieldFilter('payout_reference', '==', transfer_reference)).limit(1).get()
-            
+            query = (
+                db.collection('artifacts').document(APP_ID)
+                  .collection('public').document('data').collection('orders')
+                  .where(filter=FieldFilter('payout_reference', '==', transfer_reference))
+                  .limit(1).get()
+            )
             if query:
-                order_doc = query[0]
-                # Revert master status to payout_failed so the Atomic Transaction can accept a manual retry sequence
-                order_doc.reference.update({
-                    "status": "payout_failed",
-                    "payout_status": "FAILED",
-                    "gateway_response": payload.get('failures') or "Network settlement timeout / Mobile wallet restriction."
+                query[0].reference.update({
+                    "status":           "payout_failed",
+                    "payout_status":    "FAILED",
+                    "gateway_response": payload.get('failures') or "Network settlement timeout / Mobile wallet restriction.",
                 })
-                print(f"🚨 PAYOUT CRASHED: Transfer {transfer_reference} bounced. Balance retained in escrow.")
+                print(f"🚨 PAYOUT CRASHED: {transfer_reference} bounced.")
             else:
-                print(f"⚠️ WEBHOOK WARN: Failed transfer reference {transfer_reference} matched no document.")
+                print(f"⚠️ Failed transfer {transfer_reference} matched no order document.")
         except Exception as e:
-            print(f"❌ Webhook Transfer Failure Logging Error: {str(e)}")
+            print(f"❌ Transfer failure logging error: {str(e)}")
             traceback.print_exc()
-
+ 
     return "OK", 200
 
 
 @app.route('/api/gatekeeper/verify', methods=['POST'])
 def gatekeeper_verify():
-    data = request.json
-    listing_id = data.get('listingId') 
-    
-    # Path A parameters (Seamless Token)
-    current_stamp = data.get('securityStamp') or {}
-    token = current_stamp.get('token') or data.get('token')
-
-    # Path B parameters (Manual popup fallback)
-    buyer_phone = data.get('buyerPhone')
-    incoming_pin = data.get('handoffPin')
-
+    data           = request.json
+    listing_id     = data.get('listingId')
+    current_stamp  = data.get('securityStamp') or {}
+    token          = current_stamp.get('token') or data.get('token')
+    buyer_phone    = data.get('buyerPhone')
+    incoming_pin   = data.get('handoffPin')
+ 
     if not listing_id:
-        print("Verify Attempt Fail: Missing listingId")
         return jsonify({"success": False, "error": "Missing listing ID."}), 400
-
+ 
     try:
-        # ========================================================
-        # 1. PULL DOCUMENT FIRST
-        # ========================================================
-        orders_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders')
-        
-        query = orders_ref.where(filter=FieldFilter('listing_id', '==', listing_id)) \
-                          .where(filter=FieldFilter('status', 'in', ['paid_in_escrow', 'buyer_reviewing', 'payout_failed', 'processing_payout'])) \
-                          .limit(1).get()
-        
+        orders_ref = (
+            db.collection('artifacts').document(APP_ID)
+              .collection('public').document('data').collection('orders')
+        )
+ 
+        # ── 1. LOCATE ACTIVE ORDER ──
+        query = (
+            orders_ref
+            .where(filter=FieldFilter('listing_id', '==', listing_id))
+            .where(filter=FieldFilter('status', 'in', [
+                'paid_in_escrow', 'buyer_reviewing',
+                'payout_failed',  'processing_payout'
+            ]))
+            .limit(1).get()
+        )
+ 
         if not query:
-            print(f"Verify Attempt Fail: No active escrow for Listing {listing_id}.")
             return jsonify({"success": False, "error": "No active escrow found."}), 404
-
-        target_doc = query[0]
-        order_data = target_doc.to_dict()
+ 
+        target_doc  = query[0]
+        order_data  = target_doc.to_dict()
         paystack_ref = target_doc.id
-        order_ref = target_doc.reference
-        item_name = order_data.get('item') or "your listed item"
-
-        # ========================================================
-        # 2. ANTI-HACKING CIRCUIT BREAKER
-        # ========================================================
+        order_ref   = target_doc.reference
+        item_name   = order_data.get('item') or "your listed item"
+ 
+        # ── 2. BRUTE-FORCE CIRCUIT BREAKER ──
         failed_attempts = order_data.get('failed_attempts', 0)
-        
         if failed_attempts >= 5:
-            print(f"🛡️ BRUTE-FORCE BLOCKED: Listing {listing_id} locked after {failed_attempts} failed attempts.")
+            print(f"🛡️ BRUTE-FORCE BLOCKED: Listing {listing_id} locked after {failed_attempts} attempts.")
             return jsonify({"success": False, "error": "Listing locked due to multiple failed attempts. Contact Support."}), 403
-
-        # ========================================================
-        # 3. CREDENTIAL VALIDATION
-        # ========================================================
-        actual_token = order_data.get('securityStamp', {}).get('token')
-        actual_pin_hash = order_data.get('securityStamp', {}).get('handoffPin')
+ 
+        # ── 3. CREDENTIAL VALIDATION ──
+        actual_token    = order_data.get('securityStamp', {}).get('token')
+        stored_pin_hash = order_data.get('securityStamp', {}).get('handoffPin')
         actual_buyer_phone = order_data.get('buyerPhone')
-        
+ 
         is_valid = False
-
-        # Path A: Seamless Token
+ 
+        # Path A: device token match
         if token and actual_token == token:
             is_valid = True
-            
-        # Path B: Manual Phone + PIN
+ 
+        # Path B: manual phone + PIN via bcrypt
         elif incoming_pin and buyer_phone:
             p = str(buyer_phone).strip()
             phone_variants = list(set([
                 p,
                 '233' + p[1:] if p.startswith('0') else p,
-                '0' + p[3:] if p.startswith('233') else p
+                '0'   + p[3:] if p.startswith('233') else p,
             ]))
-            calculated_hash = hashlib.sha256(str(incoming_pin).strip().encode('utf-8')).hexdigest()
-            if actual_buyer_phone in phone_variants and actual_pin_hash == calculated_hash:
+            pin_bytes = str(incoming_pin).strip().encode('utf-8')
+ 
+            if (actual_buyer_phone in phone_variants and
+                    stored_pin_hash and
+                    bcrypt.checkpw(pin_bytes, stored_pin_hash.encode('utf-8'))):
                 is_valid = True
-            
+ 
         if not is_valid:
             new_failures = failed_attempts + 1
             order_ref.update({"failed_attempts": new_failures})
-            print(f"⚠️ SECURITY: Invalid attempt for Listing {listing_id}. Failures: {new_failures}/5")
+            print(f"⚠️ SECURITY: Invalid attempt for listing {listing_id}. Failures: {new_failures}/5")
             return jsonify({"success": False, "error": "Authentication Failed"}), 404
-
-        # ========================================================
-        # 4. ATOMIC DUPLICATE PAYOUT LOCKOUT (Firestore Transaction)
-        # ========================================================
+ 
+        # ── 4. ATOMIC DUPLICATE PAYOUT LOCKOUT ──
         @firestore.transactional
         def claim_payout_slot(transaction, order_ref):
             snapshot = order_ref.get(transaction=transaction)
-            current_payout_status = snapshot.get('payout_status')
-            if current_payout_status == 'PENDING':
-                return False  # Blocked — transfer already in flight
+            if snapshot.get('payout_status') == 'PENDING':
+                return False
             transaction.update(order_ref, {
-                "status": "processing_payout",
-                "failed_attempts": 0
+                "status":          "processing_payout",
+                "failed_attempts": 0,
             })
             return True
-
-        transaction = db.transaction()
+ 
+        transaction  = db.transaction()
         slot_claimed = claim_payout_slot(transaction, order_ref)
-
+ 
         if not slot_claimed:
-            print(f"🛡️ DUPLICATE PAYOUT BLOCKED: Order {paystack_ref} has a transfer already in flight.")
-            return jsonify({"success": False, "error": "Transfer already processing. Please wait for the network to settle."}), 429
-
+            print(f"🛡️ DUPLICATE PAYOUT BLOCKED: Order {paystack_ref} already has a transfer in flight.")
+            return jsonify({"success": False, "error": "Transfer already processing. Please wait."}), 429
+ 
         print(f"✅ HANDSHAKE SUCCESSFUL: Order {paystack_ref} validated. Engaging payout engine.")
-
-        # ========================================================
-        # 5. HELPER: Phone Formatter
-        # ========================================================
-        def format_gh_phone(raw_phone):
-            phone_str = str(raw_phone).strip() if raw_phone else ""
-            if not phone_str or phone_str in ["Unknown", "None"]:
+ 
+        # ── 5. PHONE FORMATTER HELPER ──
+        def format_gh_phone(raw):
+            s = str(raw).strip() if raw else ""
+            if not s or s in ["Unknown", "None"]:
                 return "Unknown"
-            if phone_str.startswith('0'):
-                return '233' + phone_str[1:]
-            elif not phone_str.startswith('233'):
-                return '233' + phone_str
-            return phone_str
-
-        clean_buyer_phone = format_gh_phone(order_data.get('buyerPhone'))
+            if s.startswith('0'):
+                return '233' + s[1:]
+            elif not s.startswith('233'):
+                return '233' + s
+            return s
+ 
+        clean_buyer_phone    = format_gh_phone(order_data.get('buyerPhone'))
         clean_merchant_phone = format_gh_phone(order_data.get('momo') or order_data.get('merchantPhone'))
-
-        # ========================================================
-        # 6. PAYSTACK TRANSFER PIPELINE
-        # ========================================================
-        raw_merchant_phone = order_data.get('momo') or order_data.get('merchantPhone')
-        merchant_id_string = order_data.get('merchantId', 'Verified Merchant')
-        gross_price_raw = order_data.get('amount', 0.0)
-        
-        payout_successful = False
-
+ 
+        # ── 6. PAYSTACK TRANSFER PIPELINE (unchanged from original) ──
+        raw_merchant_phone  = order_data.get('momo') or order_data.get('merchantPhone')
+        merchant_id_string  = order_data.get('merchantId', 'Verified Merchant')
+        gross_price_raw     = order_data.get('amount', 0.0)
+        payout_successful   = False
+ 
         if raw_merchant_phone and gross_price_raw:
             try:
-                gross_amount = float(gross_price_raw)
-                final_payout_volume = (gross_amount * 0.95) - 0.40  # 5% commission + GHS 0.40 MoMo fee
-
+                gross_amount        = float(gross_price_raw)
+                final_payout_volume = (gross_amount * 0.95) - 0.40
+ 
                 if final_payout_volume > 0:
-                    payout_kobo_integer = int(round(final_payout_volume * 100))
-                    paystack_headers = {
+                    payout_kobo = int(round(final_payout_volume * 100))
+                    headers     = {
                         "Authorization": f"Bearer {PAYSTACK_SECRET_KEY}",
-                        "Content-Type": "application/json"
+                        "Content-Type":  "application/json",
                     }
-
-                    # Network prefix detection — normalize to local format first
+ 
                     momo_str = str(raw_merchant_phone).strip()
                     if momo_str.startswith('233'):
                         momo_str = '0' + momo_str[3:]
-                    
+ 
                     if momo_str.startswith(('024', '054', '055', '059', '025')):
                         bank_code = 'MTN'
                     elif momo_str.startswith(('020', '050')):
@@ -862,99 +968,91 @@ def gatekeeper_verify():
                     elif momo_str.startswith(('027', '057', '026', '056')):
                         bank_code = 'ATL'
                     else:
-                        bank_code = 'MTN'  # Safe default
-
-                    rcp_req = requests.post(
+                        bank_code = 'MTN'
+ 
+                    rcp_res = requests.post(
                         "https://api.paystack.co/transferrecipient",
                         json={
-                            "type": "mobile_money",
-                            "name": merchant_id_string,
+                            "type":           "mobile_money",
+                            "name":           merchant_id_string,
                             "account_number": str(raw_merchant_phone).strip(),
-                            "bank_code": bank_code,
-                            "currency": "GHS"
+                            "bank_code":      bank_code,
+                            "currency":       "GHS",
                         },
-                        headers=paystack_headers
+                        headers=headers,
                     ).json()
-                    
-                    if rcp_req.get('status'):
-                        recipient_code = rcp_req['data']['recipient_code']
-                        payout_tracking_id = str(uuid.uuid4())
-                        
-                        # Log PENDING state before firing transfer
+ 
+                    if rcp_res.get('status'):
+                        recipient_code   = rcp_res['data']['recipient_code']
+                        payout_track_id  = str(uuid.uuid4())
+ 
                         order_ref.update({
-                            "payout_reference": payout_tracking_id,
-                            "payout_status": "PENDING"
+                            "payout_reference": payout_track_id,
+                            "payout_status":    "PENDING",
                         })
-
-                        payout_req = requests.post(
+ 
+                        payout_res = requests.post(
                             "https://api.paystack.co/transfer",
                             json={
-                                "source": "balance",
-                                "amount": payout_kobo_integer,
+                                "source":    "balance",
+                                "amount":    payout_kobo,
                                 "recipient": recipient_code,
-                                "reason": f"Ledgehold Escrow Release. Ref: {paystack_ref}",
-                                "reference": payout_tracking_id
+                                "reason":    f"Ledgehold Escrow Release. Ref: {paystack_ref}",
+                                "reference": payout_track_id,
                             },
-                            headers=paystack_headers
+                            headers=headers,
                         ).json()
-                        
-                        if payout_req.get('status'):
-                            print(f"💸 PIPELINE SUCCESS: GHS {final_payout_volume:.2f} fired to {merchant_id_string}.")
+ 
+                        if payout_res.get('status'):
+                            print(f"💸 PIPELINE SUCCESS: GHS {final_payout_volume:.2f} → {merchant_id_string}.")
                             payout_successful = True
                         else:
-                            print(f"🚨 PAYSTACK TRANSFER REJECTION: {payout_req.get('message')}")
+                            print(f"🚨 TRANSFER REJECTION: {payout_res.get('message')}")
                     else:
-                        print(f"🚨 PAYSTACK RECIPIENT REJECTION: {rcp_req.get('message')}")
+                        print(f"🚨 RECIPIENT REJECTION: {rcp_res.get('message')}")
                 else:
-                    print(f"⚠️ PIPELINE ABORTED: Payout volume GHS {final_payout_volume:.2f} too low.")
+                    print(f"⚠️ PIPELINE ABORTED: Payout GHS {final_payout_volume:.2f} too low.")
+ 
             except Exception as payout_err:
-                print(f"🚨 PAYSTACK PIPELINE CRASH: {str(payout_err)}")
+                print(f"🚨 PAYOUT PIPELINE CRASH: {str(payout_err)}")
         else:
-            print("⚠️ PAYOUT SKIPPED: Missing MoMo details or amount in order document.")
-
-        # ========================================================
-        # 7. FINAL STATUS RESOLUTION
-        # ========================================================
+            print("⚠️ PAYOUT SKIPPED: Missing MoMo details or amount.")
+ 
+        # ── 7. FINAL STATUS RESOLUTION ──
         if payout_successful:
             order_ref.update({"status": "completed"})
         else:
             order_ref.update({"status": "payout_failed"})
-            print(f"⚠️ ESCROW LOCKED: Order {paystack_ref} flagged payout_failed. Requires manual review.")
-
-        # ========================================================
-        # 8. NOTIFICATIONS
-        # ========================================================
+            print(f"⚠️ ESCROW LOCKED: {paystack_ref} → payout_failed. Requires manual review.")
+ 
+        # ── 8. NOTIFICATIONS ──
         try:
-            # Buyer: neutral confirmation — their job is done regardless of payout outcome
             if clean_buyer_phone != "Unknown":
                 send_professional_sms(
                     clean_buyer_phone,
                     f"Handover confirmed for {item_name}! You've successfully released payment to the seller. Thank you for choosing Ledgehold."
                 )
-
-            # Merchant: branched on actual payout outcome
             if clean_merchant_phone != "Unknown":
                 if payout_successful:
-                    merchant_msg = f"Handover complete for {item_name}! Your payment is being processed and will arrive in your MoMo wallet shortly. Thank you for working with Ledgehold."
+                    merchant_msg = f"Handover complete for {item_name}! Your payment is being processed and will arrive in your MoMo wallet shortly."
                 else:
-                    merchant_msg = f"Handover confirmed for {item_name}. We're experiencing a brief network delay on your payout. Your balance is secure and our team is resolving it. Support Ref: {paystack_ref}"
+                    merchant_msg = f"Handover confirmed for {item_name}. We're experiencing a brief network delay. Your balance is secure. Support Ref: {paystack_ref}"
                 send_professional_sms(clean_merchant_phone, merchant_msg)
-
         except Exception as sms_err:
-            print(f"⚠️ SMS Notification Failed: {str(sms_err)}")
-
+            print(f"⚠️ SMS notification failed: {str(sms_err)}")
+ 
         try:
             send_handoff_email(order_data, paystack_ref)
         except Exception as email_err:
-            print(f"⚠️ Email Audit Failed: {str(email_err)}")
-
+            print(f"⚠️ Email audit failed: {str(email_err)}")
+ 
         return jsonify({
-            "success": True,
+            "success":  True,
             "verified": True,
-            "item": item_name,
-            "ref": paystack_ref
+            "item":     item_name,
+            "ref":      paystack_ref,
         }), 200
-
+ 
     except Exception as e:
         print("🚨 CRITICAL CRASH IN VERIFY GATE:")
         traceback.print_exc()
@@ -967,71 +1065,75 @@ def verify_order_landing():
 
 @app.route('/api/gatekeeper/review', methods=['POST'])
 def gatekeeper_set_review():
-    data = request.json
+    data       = request.json
     listing_id = data.get('listingId')
-    
-    # Path A parameters
-    token = data.get('token') 
-    
-    # Path B parameters (Manual popup fallback)
+    token      = data.get('token')
     buyer_phone = data.get('buyerPhone')
     handoff_pin = data.get('handoffPin')
-    
-    # Guard clause: We only strictly require the listingId upfront. 
+ 
     if not listing_id:
-        print("Review Attempt Fail: Missing listingId")
         return jsonify({"success": False, "error": "Missing listing ID."}), 400
-        
+ 
     try:
-        orders_ref = db.collection('artifacts').document(APP_ID).collection('public').document('data').collection('orders')
+        orders_ref = (
+            db.collection('artifacts').document(APP_ID)
+              .collection('public').document('data').collection('orders')
+        )
         docs = []
-
-        # ========================================================
-        # PATH A: Seamless Token Match
-        # ========================================================
+ 
+        # ── PATH A: Seamless device token ──
         if token:
-            query = orders_ref.where(filter=FieldFilter('listing_id', '==', listing_id))\
-                              .where(filter=FieldFilter('status', '==', 'paid_in_escrow'))\
-                              .where(filter=FieldFilter('securityStamp.token', '==', token))\
-                              .limit(1).get()
+            query = (
+                orders_ref
+                .where(filter=FieldFilter('listing_id', '==', listing_id))
+                .where(filter=FieldFilter('status', '==', 'paid_in_escrow'))
+                .where(filter=FieldFilter('securityStamp.token', '==', token))
+                .limit(1).get()
+            )
             docs = list(query)
-
-        # ========================================================
-        # PATH B: Manual Phone + PIN Bypass (Upgraded for Cryptographic Matching)
-        # ========================================================
+ 
+        # ── PATH B: Manual phone + PIN (bcrypt verification) ──
         if not docs and buyer_phone and handoff_pin:
-            print(f"🔄 Identity Bypass: Attempting manual verification for Phone: {buyer_phone}")
-            
-            # Format phone to handle '054...' vs '23354...' safely
+            print(f"🔄 Manual verification: phone {buyer_phone}")
+ 
             p = str(buyer_phone).strip()
-            phone_variants = [p, '233' + p[1:] if p.startswith('0') else p, '0' + p[3:] if p.startswith('233') else p]
-            
-            # CRITICAL SECURITY MATCH: Hash the manual plain text string to challenge the signature in DB
-            raw_pin_string = str(handoff_pin).strip()
-            hashed_pin_signature = hashlib.sha256(raw_pin_string.encode('utf-8')).hexdigest()
-            
-            query = orders_ref.where(filter=FieldFilter('listing_id', '==', listing_id))\
-                              .where(filter=FieldFilter('status', '==', 'paid_in_escrow'))\
-                              .where(filter=FieldFilter('buyerPhone', 'in', phone_variants))\
-                              .where(filter=FieldFilter('securityStamp.handoffPin', '==', hashed_pin_signature))\
-                              .limit(1).get()
-            docs = list(query)
-
-        # Final Identity Gate
+            phone_variants = list(set([
+                p,
+                '233' + p[1:] if p.startswith('0') else p,
+                '0'   + p[3:] if p.startswith('233') else p,
+            ]))
+ 
+            # Fetch candidates matching phone + listing + status, then
+            # verify PIN with bcrypt (cannot use a Firestore hash-equality
+            # query for bcrypt — bcrypt embeds a random salt per hash).
+            candidates = (
+                orders_ref
+                .where(filter=FieldFilter('listing_id', '==', listing_id))
+                .where(filter=FieldFilter('status', '==', 'paid_in_escrow'))
+                .where(filter=FieldFilter('buyerPhone', 'in', phone_variants))
+                .limit(5).get()
+            )
+ 
+            pin_str = str(handoff_pin).strip().encode('utf-8')
+            for doc in candidates:
+                stored_hash = doc.to_dict().get('securityStamp', {}).get('handoffPin', '')
+                if stored_hash and bcrypt.checkpw(pin_str, stored_hash.encode('utf-8')):
+                    docs = [doc]
+                    break
+ 
         if not docs:
-            print(f"Review Sync Fail: No active escrow found for Listing {listing_id} with provided credentials.")
+            print(f"Review fail: no active escrow for listing {listing_id} with given credentials.")
             return jsonify({"success": False, "error": "Authentication Failed"}), 404
-            
+ 
         target_doc = docs[0]
-        
-        # Advance the order state to flip the merchant's UI screen to blue
         target_doc.reference.update({"status": "buyer_reviewing"})
-        print(f"🔒 STATE UPDATE: Order {target_doc.id} shifted to buyer_reviewing state.")
-        
+        print(f"🔒 STATE UPDATE: Order {target_doc.id} → buyer_reviewing.")
+ 
         return jsonify({"success": True}), 200
-        
+ 
     except Exception as e:
-        print(f"🛡️ Security Pipeline Exception inside Review Route: {str(e)}")
+        print(f"🛡️ Review route exception: {str(e)}")
+        traceback.print_exc()
         return jsonify({"success": False, "error": "Internal Processing Error"}), 500
 
 @app.route('/foodrun')
