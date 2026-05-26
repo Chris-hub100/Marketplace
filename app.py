@@ -893,7 +893,7 @@ def gatekeeper_verify():
         if not query:
             return jsonify({"success": False, "error": "No active escrow found."}), 404
 
-        target_doc  = query
+        target_doc  = query[0]
         order_data  = target_doc.to_dict()
         paystack_ref = target_doc.id
         order_ref   = target_doc.reference
@@ -1136,7 +1136,7 @@ def gatekeeper_set_review():
             print(f"Review fail: no active escrow for listing {listing_id}.")
             return jsonify({"success": False, "error": "No active escrow found."}), 404
 
-        target_doc = query
+        target_doc = query[0]
         order_data = target_doc.to_dict()
         order_ref  = target_doc.reference
 
