@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}P.O.D. Handshake | ProlyfiQ{% endblock %}
+{% block title %}P.O.D. Handshake | Ledgehold{% endblock %}
 
 {% block content %}
 <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
@@ -45,7 +45,6 @@
             <h3 class="fw-bold text-dark">P.O.D. Handshake</h3>
             <p class="text-muted small" id="syncText">Generate structural tokens to execute escrow releases at your landmark.</p>
             
-            <!-- MERCHANT PROFILE BADGE — mirrors list_item.html exactly -->
             <div class="merchant-badge-animation-wrapper" style="position: relative; height: 70px; margin-top: 10px;">
                 <div id="merchantBadge" style="position: absolute; top: -40px; left: 50%; transform: translateX(-50%); width: 35px; height: 35px; border-radius: 50%; background-color: #0d6efd; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); z-index: 20;">
                     <i class="bi bi-qr-code-scan text-white"></i>
@@ -106,7 +105,6 @@
     </div>
 </div>
 
-<!-- LOGOUT WARNING MODAL -->
 <div class="modal fade" id="logoutWarningModal" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow-lg rounded-4 p-4 text-center">
@@ -122,7 +120,6 @@
     </div>
 </div>
 
-<!-- HANDSHAKE SUCCESS MODAL -->
 <div class="modal fade" id="handshakeSuccessModal" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content border-0 shadow-lg rounded-4 p-4 text-center bg-white">
@@ -133,6 +130,21 @@
             <p class="text-muted small mb-4">The buyer has approved the handover. Your payment has been authorized and is on its way to your wallet.</p>
             <div class="d-grid">
                 <button type="button" onclick="window.location.href='/merchant_dashboard'" class="btn btn-success rounded-pill fw-bold btn-sm py-2">Back to Dashboard</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="securityLockoutModal" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4 p-4 text-center bg-white">
+            <div class="bg-danger-subtle text-danger rounded-circle d-inline-flex align-items-center justify-content-center mb-3 mx-auto" style="width: 70px; height: 70px;">
+                <i class="bi bi-shield-x-fill fs-1"></i>
+            </div>
+            <h5 class="fw-bold text-dark mb-2">Transaction Locked</h5>
+            <p class="text-muted small mb-4">The buyer entered incorrect credentials too many times. <strong class="text-danger">Do not hand over the item.</strong> Have the buyer contact support to unlock this transaction.</p>
+            <div class="d-grid">
+                <button type="button" onclick="window.location.reload()" class="btn btn-danger rounded-pill fw-bold btn-sm py-2">Reset Scanner</button>
             </div>
         </div>
     </div>
@@ -226,7 +238,7 @@
         document.getElementById('listingDropdown').classList.add('d-none');
     };
 
-    // --- MERCHANT BADGE ANIMATION (mirrors list_item.html) ---
+    // --- MERCHANT BADGE ANIMATION ---
     function animateMerchantBadge(name, campus) {
         const badge = document.getElementById('merchantBadge');
         const syncText = document.getElementById('syncText');
@@ -280,7 +292,7 @@
         }, 100);
     }
 
-    // --- QR GENERATION ---
+    // --- QR GENERATION & LIVE LISTENER ---
     window.generateHandshakeQR = function() {
         const refId = document.getElementById('selectedRefId').value;
         const itemName = document.getElementById('itemSearch').value;
@@ -295,7 +307,7 @@
             colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H
         });
 
-        // Remove tooltip artifacts injected by QRCode lib
+        // Remove tooltip artifacts
         const qrEl = document.getElementById("qrcode");
         qrEl.removeAttribute("title");
         setTimeout(() => {
@@ -334,12 +346,22 @@
                     if (currentStatus === 'buyer_reviewing') {
                         glowOverlay.style.background = 'radial-gradient(circle at 50% 50%, #60a5fa 0%, transparent 70%)';
                         pulseLabel.style.color = '#1d4ed8'; pulseLabel.innerText = 'Pending Swipe';
-                    } else if (currentStatus === 'completed') {
+                    } 
+                    else if (currentStatus === 'completed') {
                         glowOverlay.style.background = 'radial-gradient(circle at 50% 50%, #4ade80 0%, transparent 70%)';
                         pulseLabel.style.color = '#15803d'; pulseLabel.innerText = 'Confirmed - Payment Pending';
                         unsubscribe();
                         const completionModal = new bootstrap.Modal(document.getElementById('handshakeSuccessModal'));
                         completionModal.show();
+                    } 
+                    // ── NEW LOCKOUT LISTENER ──
+                    else if (currentStatus === 'locked') {
+                        glowOverlay.style.background = 'radial-gradient(circle at 50% 50%, #ef4444 0%, transparent 70%)';
+                        pulseLabel.style.color = '#b91c1c'; 
+                        pulseLabel.innerText = 'Security Lockout Triggered';
+                        unsubscribe();
+                        const lockModal = new bootstrap.Modal(document.getElementById('securityLockoutModal'));
+                        lockModal.show();
                     }
                 }
             });
@@ -370,7 +392,6 @@
 
         await fetchMerchantListings();
 
-        // Reveal the section first, then animate the badge
         document.getElementById('loadingView').classList.add('d-none');
         document.getElementById('handshakeSection').classList.remove('d-none');
 
@@ -388,6 +409,7 @@
     .bg-primary-subtle { background-color: #e0e7ff !important; }
     .bg-warning-subtle { background-color: #fffbeb !important; }
     .bg-success-subtle { background-color: #dcfce7 !important; }
+    .bg-danger-subtle  { background-color: #fee2e2 !important; }
     .x-small { font-size: 0.75rem; }
     .cursor-pointer { cursor: pointer; }
     .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }

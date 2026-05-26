@@ -869,16 +869,16 @@ def gatekeeper_verify():
     token          = current_stamp.get('token') or data.get('token')
     buyer_phone    = data.get('buyerPhone')
     incoming_pin   = data.get('handoffPin')
- 
+
     if not listing_id:
         return jsonify({"success": False, "error": "Missing listing ID."}), 400
- 
+
     try:
         orders_ref = (
             db.collection('artifacts').document(APP_ID)
               .collection('public').document('data').collection('orders')
         )
- 
+
         # ── 1. LOCATE ACTIVE ORDER ──
         query = (
             orders_ref
@@ -889,35 +889,36 @@ def gatekeeper_verify():
             ]))
             .limit(1).get()
         )
- 
+
         if not query:
             return jsonify({"success": False, "error": "No active escrow found."}), 404
- 
-        target_doc  = query[0]
+
+        target_doc  = query
         order_data  = target_doc.to_dict()
         paystack_ref = target_doc.id
         order_ref   = target_doc.reference
         item_name   = order_data.get('item') or "your listed item"
- 
+
         # ── 2. BRUTE-FORCE CIRCUIT BREAKER ──
         failed_attempts = order_data.get('failed_attempts', 0)
         if failed_attempts >= 5:
             print(f"🛡️ BRUTE-FORCE BLOCKED: Listing {listing_id} locked after {failed_attempts} attempts.")
             return jsonify({"success": False, "error": "Listing locked due to multiple failed attempts. Contact Support."}), 403
- 
-        # ── 3. CREDENTIAL VALIDATION ──
-        actual_token    = order_data.get('securityStamp', {}).get('token')
-        stored_pin_hash = order_data.get('securityStamp', {}).get('handoffPin')
+
+        # ── 3. CREDENTIAL VALIDATION (DECOUPLED SAFE FALLBACK) ──
+        actual_token       = order_data.get('securityStamp', {}).get('token')
+        stored_pin_hash    = order_data.get('securityStamp', {}).get('handoffPin')
         actual_buyer_phone = order_data.get('buyerPhone')
- 
+
         is_valid = False
- 
-        # Path A: device token match
+
+        # Independent Track A: Try device token match
         if token and actual_token == token:
             is_valid = True
- 
-        # Path B: manual phone + PIN via bcrypt
-        elif incoming_pin and buyer_phone:
+            print("🔑 VERIFY HANDSHAKE: Validated via seamless device token (Path A).")
+
+        # Independent Track B: Fallback to manual check if Track A hasn't already cleared it
+        if not is_valid and incoming_pin and buyer_phone:
             p = str(buyer_phone).strip()
             phone_variants = list(set([
                 p,
@@ -925,18 +926,28 @@ def gatekeeper_verify():
                 '0'   + p[3:] if p.startswith('233') else p,
             ]))
             pin_bytes = str(incoming_pin).strip().encode('utf-8')
- 
+
             if (actual_buyer_phone in phone_variants and
                     stored_pin_hash and
                     bcrypt.checkpw(pin_bytes, stored_pin_hash.encode('utf-8'))):
                 is_valid = True
- 
+                print("🔑 VERIFY HANDSHAKE: Validated via manual credentials (Path B).")
+
+        # ── THE SECURE CIRCUIT BREAKER UPDATE ──
         if not is_valid:
             new_failures = failed_attempts + 1
-            order_ref.update({"failed_attempts": new_failures})
-            print(f"⚠️ SECURITY: Invalid attempt for listing {listing_id}. Failures: {new_failures}/5")
-            return jsonify({"success": False, "error": "Authentication Failed"}), 404
- 
+            if new_failures >= 5:
+                order_ref.update({
+                    "failed_attempts": new_failures,
+                    "status": "locked"
+                })
+                print(f"🚨 SECURITY SHUTDOWN: Order {paystack_ref} has been set to LOCKED status.")
+                return jsonify({"success": False, "error": "Listing locked due to multiple failed attempts. Contact Support."}), 403
+            else:
+                order_ref.update({"failed_attempts": new_failures})
+                print(f"⚠️ SECURITY: Invalid attempt for listing {listing_id}. Failures: {new_failures}/5")
+                return jsonify({"success": False, "error": "Authentication Failed"}), 404
+
         # ── 4. ATOMIC DUPLICATE PAYOUT LOCKOUT ──
         @firestore.transactional
         def claim_payout_slot(transaction, order_ref):
@@ -948,16 +959,16 @@ def gatekeeper_verify():
                 "failed_attempts": 0,
             })
             return True
- 
+
         transaction  = db.transaction()
         slot_claimed = claim_payout_slot(transaction, order_ref)
- 
+
         if not slot_claimed:
             print(f"🛡️ DUPLICATE PAYOUT BLOCKED: Order {paystack_ref} already has a transfer in flight.")
             return jsonify({"success": False, "error": "Transfer already processing. Please wait."}), 429
- 
+
         print(f"✅ HANDSHAKE SUCCESSFUL: Order {paystack_ref} validated. Engaging payout engine.")
- 
+
         # ── 5. PHONE FORMATTER HELPER ──
         def format_gh_phone(raw):
             s = str(raw).strip() if raw else ""
@@ -968,32 +979,32 @@ def gatekeeper_verify():
             elif not s.startswith('233'):
                 return '233' + s
             return s
- 
+
         clean_buyer_phone    = format_gh_phone(order_data.get('buyerPhone'))
         clean_merchant_phone = format_gh_phone(order_data.get('momo') or order_data.get('merchantPhone'))
- 
-        # ── 6. PAYSTACK TRANSFER PIPELINE (unchanged from original) ──
+
+        # ── 6. PAYSTACK TRANSFER PIPELINE ──
         raw_merchant_phone  = order_data.get('momo') or order_data.get('merchantPhone')
         merchant_id_string  = order_data.get('merchantId', 'Verified Merchant')
         gross_price_raw     = order_data.get('amount', 0.0)
         payout_successful   = False
- 
+
         if raw_merchant_phone and gross_price_raw:
             try:
                 gross_amount        = float(gross_price_raw)
                 final_payout_volume = (gross_amount * 0.95) - 0.40
- 
+
                 if final_payout_volume > 0:
                     payout_kobo = int(round(final_payout_volume * 100))
                     headers     = {
                         "Authorization": f"Bearer {PAYSTACK_SECRET_KEY}",
                         "Content-Type":  "application/json",
                     }
- 
+
                     momo_str = str(raw_merchant_phone).strip()
                     if momo_str.startswith('233'):
                         momo_str = '0' + momo_str[3:]
- 
+
                     if momo_str.startswith(('024', '054', '055', '059', '025')):
                         bank_code = 'MTN'
                     elif momo_str.startswith(('020', '050')):
@@ -1002,7 +1013,7 @@ def gatekeeper_verify():
                         bank_code = 'ATL'
                     else:
                         bank_code = 'MTN'
- 
+
                     rcp_res = requests.post(
                         "https://api.paystack.co/transferrecipient",
                         json={
@@ -1014,16 +1025,16 @@ def gatekeeper_verify():
                         },
                         headers=headers,
                     ).json()
- 
+
                     if rcp_res.get('status'):
                         recipient_code   = rcp_res['data']['recipient_code']
                         payout_track_id  = str(uuid.uuid4())
- 
+
                         order_ref.update({
                             "payout_reference": payout_track_id,
                             "payout_status":    "PENDING",
                         })
- 
+
                         payout_res = requests.post(
                             "https://api.paystack.co/transfer",
                             json={
@@ -1035,7 +1046,7 @@ def gatekeeper_verify():
                             },
                             headers=headers,
                         ).json()
- 
+
                         if payout_res.get('status'):
                             print(f"💸 PIPELINE SUCCESS: GHS {final_payout_volume:.2f} → {merchant_id_string}.")
                             payout_successful = True
@@ -1045,19 +1056,19 @@ def gatekeeper_verify():
                         print(f"🚨 RECIPIENT REJECTION: {rcp_res.get('message')}")
                 else:
                     print(f"⚠️ PIPELINE ABORTED: Payout GHS {final_payout_volume:.2f} too low.")
- 
+
             except Exception as payout_err:
                 print(f"🚨 PAYOUT PIPELINE CRASH: {str(payout_err)}")
         else:
             print("⚠️ PAYOUT SKIPPED: Missing MoMo details or amount.")
- 
+
         # ── 7. FINAL STATUS RESOLUTION ──
         if payout_successful:
             order_ref.update({"status": "completed"})
         else:
             order_ref.update({"status": "payout_failed"})
             print(f"⚠️ ESCROW LOCKED: {paystack_ref} → payout_failed. Requires manual review.")
- 
+
         # ── 8. NOTIFICATIONS ──
         try:
             if clean_buyer_phone != "Unknown":
@@ -1073,19 +1084,19 @@ def gatekeeper_verify():
                 send_professional_sms(clean_merchant_phone, merchant_msg)
         except Exception as sms_err:
             print(f"⚠️ SMS notification failed: {str(sms_err)}")
- 
+
         try:
             send_handoff_email(order_data, paystack_ref)
         except Exception as email_err:
             print(f"⚠️ Email audit failed: {str(email_err)}")
- 
+
         return jsonify({
             "success":  True,
             "verified": True,
             "item":     item_name,
             "ref":      paystack_ref,
         }), 200
- 
+
     except Exception as e:
         print("🚨 CRITICAL CRASH IN VERIFY GATE:")
         traceback.print_exc()
@@ -1103,67 +1114,85 @@ def gatekeeper_set_review():
     token      = data.get('token')
     buyer_phone = data.get('buyerPhone')
     handoff_pin = data.get('handoffPin')
- 
+
     if not listing_id:
         return jsonify({"success": False, "error": "Missing listing ID."}), 400
- 
+
     try:
         orders_ref = (
             db.collection('artifacts').document(APP_ID)
               .collection('public').document('data').collection('orders')
         )
-        docs = []
- 
-        # ── PATH A: Seamless device token ──
-        if token:
-            query = (
-                orders_ref
-                .where(filter=FieldFilter('listing_id', '==', listing_id))
-                .where(filter=FieldFilter('status', '==', 'paid_in_escrow'))
-                .where(filter=FieldFilter('securityStamp.token', '==', token))
-                .limit(1).get()
-            )
-            docs = list(query)
- 
-        # ── PATH B: Manual phone + PIN (bcrypt verification) ──
-        if not docs and buyer_phone and handoff_pin:
-            print(f"🔄 Manual verification: phone {buyer_phone}")
- 
+
+        # ── 1. ISOLATE THE ACTIVE ORDER FIRST ──
+        query = (
+            orders_ref
+            .where(filter=FieldFilter('listing_id', '==', listing_id))
+            .where(filter=FieldFilter('status', 'in', ['paid_in_escrow', 'buyer_reviewing']))
+            .limit(1).get()
+        )
+
+        if not query:
+            print(f"Review fail: no active escrow for listing {listing_id}.")
+            return jsonify({"success": False, "error": "No active escrow found."}), 404
+
+        target_doc = query
+        order_data = target_doc.to_dict()
+        order_ref  = target_doc.reference
+
+        # ── 2. CHECK CIRCUIT BREAKER ──
+        failed_attempts = order_data.get('failed_attempts', 0)
+        if failed_attempts >= 5:
+            print(f"🛡️ BRUTE-FORCE BLOCKED: Listing {listing_id} is already locked.")
+            return jsonify({"success": False, "error": "Listing locked due to multiple failed attempts. Contact Support."}), 403
+
+        # ── 3. CREDENTIAL VALIDATION ──
+        actual_token       = order_data.get('securityStamp', {}).get('token')
+        stored_pin_hash    = order_data.get('securityStamp', {}).get('handoffPin')
+        actual_buyer_phone = order_data.get('buyerPhone')
+
+        is_valid = False
+
+        # Path A: Seamless device token
+        if token and actual_token == token:
+            is_valid = True
+
+        # Path B: Manual phone + PIN
+        if not is_valid and buyer_phone and handoff_pin:
             p = str(buyer_phone).strip()
             phone_variants = list(set([
                 p,
                 '233' + p[1:] if p.startswith('0') else p,
                 '0'   + p[3:] if p.startswith('233') else p,
             ]))
- 
-            # Fetch candidates matching phone + listing + status, then
-            # verify PIN with bcrypt (cannot use a Firestore hash-equality
-            # query for bcrypt — bcrypt embeds a random salt per hash).
-            candidates = (
-                orders_ref
-                .where(filter=FieldFilter('listing_id', '==', listing_id))
-                .where(filter=FieldFilter('status', '==', 'paid_in_escrow'))
-                .where(filter=FieldFilter('buyerPhone', 'in', phone_variants))
-                .limit(5).get()
-            )
- 
-            pin_str = str(handoff_pin).strip().encode('utf-8')
-            for doc in candidates:
-                stored_hash = doc.to_dict().get('securityStamp', {}).get('handoffPin', '')
-                if stored_hash and bcrypt.checkpw(pin_str, stored_hash.encode('utf-8')):
-                    docs = [doc]
-                    break
- 
-        if not docs:
-            print(f"Review fail: no active escrow for listing {listing_id} with given credentials.")
-            return jsonify({"success": False, "error": "Authentication Failed"}), 404
- 
-        target_doc = docs[0]
-        target_doc.reference.update({"status": "buyer_reviewing"})
+            pin_bytes = str(handoff_pin).strip().encode('utf-8')
+
+            if (actual_buyer_phone in phone_variants and
+                    stored_pin_hash and
+                    bcrypt.checkpw(pin_bytes, stored_pin_hash.encode('utf-8'))):
+                is_valid = True
+
+        # ── 4. HANDLE OUTCOME AND DYNAMIC LOCKING ──
+        if not is_valid:
+            new_failures = failed_attempts + 1
+            if new_failures >= 5:
+                order_ref.update({
+                    "failed_attempts": new_failures,
+                    "status": "locked"
+                })
+                print(f"🚨 SECURITY SHUTDOWN: Order {target_doc.id} set to LOCKED on review screen.")
+                return jsonify({"success": False, "error": "Listing locked due to multiple failed attempts. Contact Support."}), 403
+            else:
+                order_ref.update({"failed_attempts": new_failures})
+                print(f"⚠️ REVIEW SECURITY: Invalid attempt for listing {listing_id}. Failures: {new_failures}/5")
+                return jsonify({"success": False, "error": "Authentication Failed"}), 404
+
+        # ── 5. SUCCESSFUL REVIEW ──
+        order_ref.update({"status": "buyer_reviewing"})
         print(f"🔒 STATE UPDATE: Order {target_doc.id} → buyer_reviewing.")
- 
+
         return jsonify({"success": True}), 200
- 
+
     except Exception as e:
         print(f"🛡️ Review route exception: {str(e)}")
         traceback.print_exc()
