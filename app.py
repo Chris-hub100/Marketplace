@@ -580,8 +580,7 @@ def initialize_secure_checkout():
         return jsonify({"success": False, "error": "Invalid phone number format."}), 400
 
     try:
-        # ── RETRIEVE SELLER INFRASTRUCTURE SECURELY FROM FIRESTORE ──
-        # Pull the listing document using the core path your app uses
+        # ── STEP 1: FETCH THE CORE MARKETPLACE LISTING DOCUMENT ──
         listing_ref = (
             db.collection('artifacts').document(APP_ID)
               .collection('public').document('data')
@@ -589,29 +588,45 @@ def initialize_secure_checkout():
         ).get()
 
         if not listing_ref.exists:
-            print(f"⚠️ CHECKOUT INIT ABORTED: Listing ID {listing_id} not found in database.")
+            print(f"⚠️ CHECKOUT INIT ABORTED: Listing ID {listing_id} not found.")
             return jsonify({"success": False, "error": "The listing you are trying to buy no longer exists."}), 404
 
         listing_data = listing_ref.to_dict()
         
-        # Extract the seller's phone number directly from your backend data ledger
-        # Falls back to standard fields or 'momo' keys depending on your onboarding schema
-        merchant_momo = listing_data.get('phone') or listing_data.get('momo') or listing_data.get('merchantPhone')
+        # Extract the relational identifier linking the item to its owner
+        merchant_id = listing_data.get('merchantId')
+
+        if not merchant_id:
+            print(f"❌ CHECKOUT INIT ERROR: Listing {listing_id} is missing a merchantId foreign key mapping.")
+            return jsonify({"success": False, "error": "This listing is detached from a valid merchant profile."}), 400
+
+        # ── STEP 2: CROSS-REFERENCE INSIDE THE VERIFIED_MERCHANTS TREE ──
+        # Use the isolated merchantId parameter to pluck the true account details
+        merchant_ref = (
+            db.collection('artifacts').document(APP_ID)
+              .collection('public').document('data')
+              .collection('verified_merchants').document(str(merchant_id).strip())
+        ).get()
+
+        if not merchant_ref.exists:
+            print(f"❌ CHECKOUT INIT ERROR: Merchant ID {merchant_id} not found inside 'verified_merchants'.")
+            return jsonify({"success": False, "error": "The owner of this listing does not have a verified account."}), 400
+
+        merchant_data = merchant_ref.to_dict()
+        
+        # Robust fallback tracking for your merchant profile schema fields
+        merchant_momo = merchant_data.get('phone') or merchant_data.get('momo') or merchant_data.get('merchantPhone')
 
         if not merchant_momo:
-            print(f"❌ CHECKOUT INIT ERROR: Listing {listing_id} has no linked seller wallet phone identifier.")
-            return jsonify({"success": False, "error": "Seller account configuration is incomplete."}), 400
+            print(f"❌ CHECKOUT INIT ERROR: Merchant {merchant_id} profile lacks a valid mobile wallet number.")
+            return jsonify({"success": False, "error": "Merchant payout settings are incomplete."}), 400
 
-        # 1. Hash PIN with bcrypt
+        # ── STEP 3: STAGE THE SECURE WORKSPACE DATA ──
+        # The remainder of your builder's secure token generation logic continues seamlessly below...
         hashed_pin = bcrypt.hashpw(pin_str.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-        # 2. Random UUID session token
         session_token = str(uuid.uuid4())
-
-        # 3. Expiry timestamp (15 minutes)
         expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=15)
 
-        # 4. Write the staged session to your private collection
         staged_ref = (
             db.collection('artifacts').document(APP_ID)
               .collection('private').document('staged_sessions')
@@ -621,14 +636,15 @@ def initialize_secure_checkout():
             "hashed_pin":   hashed_pin,
             "buyer_phone":  phone_str,
             "listing_id":   listing_id,
+            "merchant_id":  merchant_id,  # Useful metric trace to keep
             "amount":       float(gross_amount),
-            "momo":         str(merchant_momo).strip(), # Securely locked into private storage mapping
+            "momo":         str(merchant_momo).strip(), # Secure wallet path sealed away
             "item_name":    item_name,
             "expires_at":   expires_at,
             "created_at":   firestore.SERVER_TIMESTAMP,
         })
 
-        print(f"✅ SECURE CHECKOUT INIT: Staged token {session_token} mapped for merchant {merchant_momo}.")
+        print(f"✅ SECURE RELATIONAL INIT: Staged token {session_token} generated via relational merchant profile lookup.")
 
         return jsonify({
             "success":          True,
