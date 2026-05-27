@@ -1157,14 +1157,17 @@ def gatekeeper_set_review():
             '0'   + p[3:] if p.startswith('233') else p,
         ])
 
+        # ── 🚨 PLACE THE DEBUG ENGINE HERE (BEFORE THE RETURN STATEMENTS) ──
+        print("====== 📱 GATEKEEPER DEBUG PHONE MATCH ======")
+        print(f"  stored_phone from DB:   '{stored_phone}' (Length: {len(stored_phone)})")
+        print(f"  claimed_phone from local: '{buyer_phone}' (Length: {len(str(buyer_phone))})")
+        print(f"  phone_variants compiled: {phone_variants}")
+        print(f"  Is stored inside variants? {stored_phone in phone_variants}")
+        print("=============================================")
+
         if stored_phone not in phone_variants:
             return jsonify({"success": False, "requires_manual": True}), 202
         
-        print(f"DEBUG PHONE MATCH:")
-        print(f"  stored_phone: '{stored_phone}'")
-        print(f"  claimed_phone: '{buyer_phone}'")
-        print(f"  phone_variants: {phone_variants}")
-        print(f"  match: {stored_phone in phone_variants}")
 
         # ── PIN CHECK ──
         stored_pin_hash = order_data.get('securityStamp', {}).get('handoffPin')
