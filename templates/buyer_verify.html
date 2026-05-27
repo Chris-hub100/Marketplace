@@ -120,17 +120,17 @@
     let fallbackPin = null;
 
     const urlParams = new URLSearchParams(window.location.search);
-    // On this page, the 'ref' parameter contains the unique order/listing reference identifier
     const orderRef = urlParams.get('ref'); 
 
+    // ── INITIAL CARDS ROUTING ENTRY VIA PHONE CACHE CHECK ──
     document.addEventListener("DOMContentLoaded", async () => {
         if (!orderRef) return;
         document.getElementById('displayRef').innerText = "#" + orderRef.toUpperCase();
         
-        // Initial snapshot evaluation for card display routing
-        const initialToken = localStorage.getItem('ledgehold_device_token');
+        // Read the stable phone number from checkout cache instead of erratic tokens
+        const cachedPhone = localStorage.getItem('ledgehold_cached_phone') || '';
         
-        if (initialToken && initialToken.trim() !== "") {
+        if (cachedPhone && cachedPhone.trim() !== "") {
             document.getElementById('quickIdentityCard').classList.remove('d-none');
         } else {
             document.getElementById('identityCard').classList.remove('d-none');
@@ -154,48 +154,37 @@
 
     function triggerLockout(currentCardId) {
         document.getElementById(currentCardId).classList.add('d-none');
-        document.getElementById('lockedCard').classList.remove('d-none');
+        // Fallback protection element just in case 'lockedCard' structure handles layout overrides
+        const lockContainer = document.getElementById('lockedCard');
+        if (lockContainer) {
+            lockContainer.classList.remove('d-none');
+        } else {
+            alert("This device access session has been permanently locked out. Contact customer support.");
+        }
     }
 
+    // ── QUICK VALIDATION ACTION ENGINE (PATH A) ──
     window.submitQuickIdentity = async function() {
         const btn = document.getElementById('quickVerifyBtn');
         const pin = document.getElementById('quickPin').value.trim();
         const errorBox = document.getElementById('quickErrorMsg');
+        const cachedPhone = localStorage.getItem('ledgehold_cached_phone') || '';
         
         errorBox.classList.add('d-none');
-        if (!pin) { errorBox.innerText = "Please enter your PIN."; errorBox.classList.remove('d-none'); return; }
+        if (!pin) { 
+            errorBox.innerText = "Please enter your PIN."; 
+            errorBox.classList.remove('d-none'); 
+            return; 
+        }
+        
+        // If device context cache drops off mid-session, bypass instantly to Manual Form
+        if (!cachedPhone) {
+            switchToManual();
+            return;
+        }
         
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Verifying...';
-        
-        // ── PART 2 FIX: JUST-IN-TIME (JIT) TOKEN SYNC ──
-        try {
-            const cachedPhone = localStorage.getItem('ledgehold_cached_phone') || '';
-            if (orderRef && cachedPhone) {
-                console.log("🔄 JIT: Refreshing verification key from ledger before auth payload compilation...");
-                const syncRes = await fetch('/api/order/my-token', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        ref: orderRef,          // Fixed: Passes the actual order reference tracking string
-                        buyerPhone: cachedPhone 
-                    })
-                });
-                
-                if (syncRes.status === 200) {
-                    const syncData = await syncRes.json();
-                    if (syncData.deviceToken) {
-                        localStorage.setItem('ledgehold_device_token', syncData.deviceToken);
-                        console.log("🔒 JIT: Verification key synchronized successfully.");
-                    }
-                }
-            }
-        } catch (e) { 
-            console.warn("⚠️ JIT sync bypass. Defaulting to existing local storage cache tokens:", e);
-        }
-
-        // Read directly from storage after the token freshness sync has resolved
-        const currentLiveToken = localStorage.getItem('ledgehold_device_token');
         
         try {
             const res = await fetch('/api/gatekeeper/review', {
@@ -203,40 +192,48 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     listingId: orderRef, 
-                    token: currentLiveToken, 
+                    buyerPhone: cachedPhone,  // Enforces lookups via stable phone caching string
                     handoffPin: pin 
                 })
             });
             const result = await res.json();
 
-            if (res.status === 403) {
-                triggerLockout('quickIdentityCard');
-                return;
+            if (res.status === 403) { 
+                triggerLockout('quickIdentityCard'); 
+                return; 
             }
-
-            if (res.status === 404) {
-                errorBox.innerText = "Device token expired or invalid. Switching to manual verification...";
+            
+            if (res.status === 202) { 
+                switchToManual(); 
+                return; 
+            }
+            
+            if (res.status === 401) {
+                errorBox.innerText = "Incorrect PIN. Please try again.";
                 errorBox.classList.remove('d-none');
-                setTimeout(() => { switchToManual(); }, 1500);
+                btn.disabled = false;
+                btn.innerHTML = 'Unlock Handoff';
                 return;
             }
 
             if (res.ok && result.success) {
                 fallbackPin = pin; 
+                fallbackPhone = cachedPhone; // Explicitly set parameters to support the slider track
                 document.getElementById('quickIdentityCard').classList.add('d-none');
                 document.getElementById('verifyCard').classList.remove('d-none');
                 track.dispatchEvent(new CustomEvent('slider-reset'));
             } else {
-                throw new Error("Invalid PIN or expired session.");
+                throw new Error("Session mismatch evaluation failure.");
             }
         } catch(e) {
-            errorBox.innerText = e.message;
+            errorBox.innerText = "Network link failure. Please try again.";
             errorBox.classList.remove('d-none');
             btn.disabled = false;
             btn.innerHTML = 'Unlock Handoff';
         }
     };
 
+    // ── MANUAL VALIDATION ACTION ENGINE (PATH B) ──
     window.submitManualIdentity = async function() {
         const btn = document.getElementById('verifyIdentityBtn');
         const phone = document.getElementById('verifyPhone').value.trim();
@@ -244,7 +241,11 @@
         const errorBox = document.getElementById('identityErrorMsg');
         
         errorBox.classList.add('d-none');
-        if (!phone || !pin) { errorBox.innerText = "Please enter both Phone and PIN."; errorBox.classList.remove('d-none'); return; }
+        if (!phone || !pin) { 
+            errorBox.innerText = "Please enter both Phone and PIN."; 
+            errorBox.classList.remove('d-none'); 
+            return; 
+        }
         
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Verifying...';
@@ -253,7 +254,11 @@
             const res = await fetch('/api/gatekeeper/review', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ listingId: orderRef, buyerPhone: phone, handoffPin: pin })
+                body: JSON.stringify({ 
+                    listingId: orderRef, 
+                    buyerPhone: phone, 
+                    handoffPin: pin 
+                })
             });
             const result = await res.json();
 
@@ -279,6 +284,7 @@
         }
     };
 
+    // ── FINAL SWIPE RELEASE CAPTURE FLOW ──
     async function initiateGatekeeperMatch() {
         const errorMsg = document.getElementById('errorMsg');
         errorMsg.classList.add('d-none');
