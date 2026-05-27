@@ -1159,6 +1159,12 @@ def gatekeeper_set_review():
 
         if stored_phone not in phone_variants:
             return jsonify({"success": False, "requires_manual": True}), 202
+        
+        print(f"DEBUG PHONE MATCH:")
+        print(f"  stored_phone: '{stored_phone}'")
+        print(f"  claimed_phone: '{buyer_phone}'")
+        print(f"  phone_variants: {phone_variants}")
+        print(f"  match: {stored_phone in phone_variants}")
 
         # ── PIN CHECK ──
         stored_pin_hash = order_data.get('securityStamp', {}).get('handoffPin')
