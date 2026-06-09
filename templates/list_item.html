@@ -811,10 +811,9 @@
 
         const computedCheckoutValue = unitPrice * multiplier;
 
-        let commissionRate = 0.04;
-        if (computedCheckoutValue >= 2000.00) commissionRate = 0.02;
-        else if (computedCheckoutValue >= 1000.00) commissionRate = 0.03;
-        else if (computedCheckoutValue >= 501.00) commissionRate = 0.035;
+        let commissionRate = 0.035;
+        if (computedCheckoutValue >= 2000.00) commissionRate = 0.025;
+        else if (computedCheckoutValue >= 500.00) commissionRate = 0.03;
 
         let transferFee = 0.40;
         if (computedCheckoutValue <= 25.00) transferFee = 0.80;
