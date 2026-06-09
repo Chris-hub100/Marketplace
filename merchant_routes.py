@@ -597,10 +597,56 @@ def join_endorsement_waitlist():
             "status": "pending_audit"
         })
         
-        print(f"⭐ Endorsement waitlist joined: {merchant_id}")
+        print(f"Endorsement waitlist joined: {merchant_id}")
         return jsonify({"success": True, "message": "You've been added to the waitlist."}), 200
         
     except Exception as e:
         print(f"❌ Waitlist join error: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "error": "An internal error occurred."}), 500
+    
+# ── CMS PIN ACTIVATION ──
+@merchant_bp.route('/api/merchant/activate-pin', methods=['POST'])
+def activate_merchant_pin():
+    """
+    Sets a merchant's PIN during CMS self-onboarding.
+    Only works if the merchant is approved and doesn't already have a PIN.
+    """
+    data = request.json or {}
+    merchant_id = data.get('merchantId')
+    pin_hash = data.get('pinHash')
+    
+    if not merchant_id or not pin_hash:
+        return jsonify({"success": False, "error": "Missing required fields."}), 400
+    
+    try:
+        merchant_ref = (
+            db.collection('artifacts').document(APP_ID)
+              .collection('public').document('data')
+              .collection('verified_merchants').document(merchant_id)
+        )
+        
+        merchant_doc = merchant_ref.get()
+        if not merchant_doc.exists:
+            return jsonify({"success": False, "error": "Invalid Merchant ID. Please check and try again."}), 404
+        
+        merchant_data = merchant_doc.to_dict()
+        
+        if not merchant_data.get('isApproved'):
+            return jsonify({"success": False, "error": "Your application is still under review."}), 403
+        
+        if merchant_data.get('pin'):
+            return jsonify({"success": False, "error": "This account has already been activated."}), 409
+        
+        merchant_ref.update({
+            "pin": pin_hash,
+            "activated_at": firestore.SERVER_TIMESTAMP,
+            "setup_complete": True
+        })
+        
+        return jsonify({"success": True, "message": "PIN activated successfully."}), 200
+        
+    except Exception as e:
+        print(f"❌ CMS PIN activation error: {e}")
         traceback.print_exc()
         return jsonify({"success": False, "error": "An internal error occurred."}), 500

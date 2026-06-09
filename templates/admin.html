@@ -854,15 +854,33 @@
     /**
      * ADMIN SYSTEM
      */
-    window.handleAdminLogin = () => { 
+    window.handleAdminLogin = async () => { 
       const id = document.getElementById('adminIdInput').value.trim();
       const pin = document.getElementById('adminPinInput').value.trim();
-      if (id && pin) { 
-        currentAdmin = id; 
-        localStorage.setItem('ledgehold_admin_id', id);
-        window._adminPin = pin;
-        resetAdminTimers();
-        refreshUI(); 
+      
+      if (!id || !pin) return;
+      
+      try {
+        const resp = await fetch('/admin-auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, pin })
+        });
+        const result = await resp.json();
+        
+        if (result.success) {
+          currentAdmin = id; 
+          localStorage.setItem('ledgehold_admin_id', id);
+          window._adminPin = pin;
+          resetAdminTimers();
+          refreshUI();
+        } else {
+          document.getElementById('errorMsg').innerText = 'Invalid credentials.';
+          document.getElementById('loginError').classList.remove('d-none');
+        }
+      } catch (err) {
+        document.getElementById('errorMsg').innerText = 'Authorization server error.';
+        document.getElementById('loginError').classList.remove('d-none');
       }
   };
     window.handleLogout = () => { 

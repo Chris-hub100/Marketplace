@@ -135,12 +135,21 @@
         // 4. Hash the PIN for one-way storage
         const secureHash = await hashPin(generatedPin);
 
-        // 5. Update the existing document with the PIN (Vault Activation)
-        await merchantRef.update({
-            pin: secureHash,
-            activated_at: firebase.firestore.FieldValue.serverTimestamp(),
-            setup_complete: true
+        // 5. Send PIN hash to server for secure storage
+        const response = await fetch('/api/merchant/activate-pin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                merchantId: merchantId,
+                pinHash: secureHash
+            })
         });
+        
+        const result = await response.json();
+        
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || 'PIN activation failed.');
+        }
 
         // 6. Display Success & PIN
         // FIX: Added 'color: #000000 !important' to force dark text

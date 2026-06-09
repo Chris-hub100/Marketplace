@@ -1236,7 +1236,7 @@ def universal_email_dispatch():
             <p><b>Merchant ID:</b> {merchant_id}</p>
             <p><b>Institution:</b> {university}</p>
             <br/>
-            <p><a href="https://market-place-gx9a.onrender.com/admin_controls" style="background: #0f172a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 13px;">Open Admin Command Center</a></p>
+            <p><a href="https://prolyfiq.store/admin_controls" style="background: #0f172a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 13px;">Open Admin Command Center</a></p>
         </div>
         """
 
@@ -1365,7 +1365,7 @@ def universal_email_dispatch():
             </table>
             
             <p style="text-align: center; margin-top: 30px;">
-                <a href="https://market-place-gx9a.onrender.com/financial_view" 
+                <a href="https://prolyfiq.store/financial_view" 
                 style="background: #0f172a; color: white; padding: 12px 28px; text-decoration: none; border-radius: 30px; font-weight: bold; font-size: 13px; display: inline-block;">
                     Review in Finance Panel
                 </a>
