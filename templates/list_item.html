@@ -323,7 +323,7 @@
                         <span id="btnText">Loading...</span>
                     </button>
                     <p class="text-center text-muted mt-2" style="font-size: 0.65rem;">
-                        <i class="bi bi-shield-check me-1"></i> Your listing is subject to institutional audits.
+                        <i class="bi bi-shield-check me-1"></i> Your listing is subject to safety audits.
                     </p>
                 </div>
             </form>
@@ -717,15 +717,6 @@
             landmarkSelect.appendChild(option);
         });
         
-        // Show security note when a location is selected
-        landmarkSelect.addEventListener('change', function() {
-            const note = document.getElementById('landmarkSecurityNote');
-            if (this.value) {
-                note.classList.remove('d-none');
-            } else {
-                note.classList.add('d-none');
-            }
-        });
     }
 
     // ─── SUBMIT STATE ─────────────────────────────────────────────────────
@@ -822,7 +813,7 @@
         const netPayoutValue = parseFloat((computedCheckoutValue - platformCommission - transferFee).toFixed(2));
 
         document.getElementById('ledgerCheckoutValue').innerText = computedCheckoutValue.toFixed(2);
-        document.getElementById('ledgerCommissionPercent').innerText = (commissionRate * 100) + '%';
+        document.getElementById('ledgerCommissionPercent').innerText = (commissionRate * 100).toFixed(1).replace(/\.0$/, '') + '%';
         document.getElementById('ledgerCommissionGHS').innerText = `- GHS ${platformCommission.toFixed(2)}`;
         document.getElementById('ledgerTransferFeeGHS').innerText = `- GHS ${transferFee.toFixed(2)}`;
         document.getElementById('ledgerNetPayoutGHS').innerText = `GHS ${netPayoutValue.toFixed(2)}`;
@@ -1047,7 +1038,7 @@
                 if (availability === 'Ready for Instant Pickup') {
                     const days = document.getElementById('pickupDays').value;
                     const time = document.getElementById('pickupTime').value;
-                    if (!days || !time) throw new Error('Schedule incomplete.');
+                    if (!days || !time) throw new Error('Delivery Schedule incomplete.');
                     finalSchedule = `${days} | ${time}`;
                 }
 
