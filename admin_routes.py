@@ -134,7 +134,7 @@ def approve_merchant():
         # Send SMS invitation
         try:
             import os
-            cms_link = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', 'market-place-gx9a.onrender.com')}/cms?token={token}"
+            cms_link = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', 'prolyfiq.store')}/cms?token={token}"
             message = f"Hello {full_name}, your Merchant Account has been approved! ID: {merchant_id}. Setup your Account PIN here to log into your dashboard: {cms_link}"
             
             if phone:

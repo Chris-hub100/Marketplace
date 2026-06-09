@@ -791,10 +791,11 @@ def gatekeeper_verify():
             clean_merchant_phone = format_gh_phone(raw_merchant_phone)
 
             if clean_buyer_phone != "Unknown":
-                send_professional_sms(
-                    clean_buyer_phone,
-                    f"Handover confirmed for {item_name}! You've successfully released payment to the seller. Thank you for choosing Ledgehold."
-                )
+                if payout_successful:
+                    buyer_msg = f"Handover confirmed for {item_name}! You've successfully released payment to the seller. Thank you for choosing Ledgehold."
+                else:
+                    buyer_msg = f"Handover confirmed for {item_name}. We're processing your release and will notify you once the transfer is complete. Ref: {paystack_ref}"
+                send_professional_sms(clean_buyer_phone, buyer_msg)
             if clean_merchant_phone != "Unknown":
                 if payout_successful:
                     merchant_msg = f"Handover complete for {item_name}! Your payment of GHS {float(final_payout_volume):.2f} is processing and will arrive shortly."
