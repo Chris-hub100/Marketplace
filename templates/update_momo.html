@@ -1,0 +1,569 @@
+{% extends "base.html" %}
+
+{% block title %}Update MoMo Number | ProlyfiQ{% endblock %}
+
+{% block content %}
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+<script>
+  var __app_id = '{{ __app_id if __app_id else "ledgehold-ghana1" }}';
+  var __firebase_config = '{{ __firebase_config | safe if __firebase_config else "{}" }}';
+  
+  const CLOUD_NAME = 'dze9o4ymx';
+  const UPLOAD_PRESET = 'ledgehold_uploads'; 
+  
+  let db = null;
+  const config = JSON.parse(__firebase_config);
+  if (config && config.apiKey) { 
+      try {
+          if (!firebase.apps.length) firebase.initializeApp(config);
+          db = firebase.firestore();
+      } catch (initErr) {
+          console.error("Firebase Setup Failed:", initErr);
+      }
+  }
+
+  const merchantName = localStorage.getItem('ledgehold_merchant_name');
+  let currentMomo = '';
+
+  if (!merchantName) {
+      window.location.replace('/merchant_dashboard');
+  }
+
+  // ─── FETCH CURRENT MOMO ─────────────────────────────────────────
+  async function loadCurrentMoMo() {
+      try {
+          const docRef = db.collection('artifacts').doc(__app_id)
+              .collection('public').doc('data')
+              .collection('verified_merchants').doc(merchantName);
+          const doc = await docRef.get();
+          if (doc.exists) {
+              currentMomo = doc.data().momo || 'Not set';
+              document.getElementById('currentMomoDisplay').innerText = 
+                  currentMomo !== 'Not set' ? `0${currentMomo.slice(-9)}` : 'Not set';
+          }
+      } catch (e) {
+          console.error("Failed to load MoMo:", e);
+      }
+  }
+
+  // ─── PHONE VALIDATION ───────────────────────────────────────────
+  function validateGhanaPhone(number, fieldLabel) {
+    const cleaned = number.replace(/\s/g, '');
+    if (!/^\d+$/.test(cleaned)) return `${fieldLabel} must contain only digits.`;
+    if (cleaned.length !== 10) return `${fieldLabel} must be exactly 10 digits.`;
+    if (!cleaned.startsWith('0')) return `${fieldLabel} must start with 0 (e.g. 0240000000).`;
+    return null;
+  }
+
+  function attachPhoneValidation(inputId, fieldLabel) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.addEventListener('blur', function() {
+      const val = this.value.trim();
+      if (!val) return;
+      const err = validateGhanaPhone(val, fieldLabel);
+      const existing = document.getElementById(inputId + '_err');
+      if (existing) existing.remove();
+      if (err) {
+        const msg = document.createElement('div');
+        msg.id = inputId + '_err';
+        msg.className = 'text-danger small mt-1 px-2';
+        msg.innerHTML = `<i class="bi bi-exclamation-circle-fill me-1"></i>${err}`;
+        this.parentNode.appendChild(msg);
+        this.classList.add('border-danger');
+      } else {
+        this.classList.remove('border-danger');
+      }
+    });
+    input.addEventListener('input', function() {
+      const existing = document.getElementById(inputId + '_err');
+      if (existing) existing.remove();
+      this.classList.remove('border-danger');
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    loadCurrentMoMo();
+    attachPhoneValidation('newMomo', 'New MoMo Number');
+  });
+
+  // ─── IMAGE COMPRESSION ──────────────────────────────────────────
+  async function compressImage(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width, height = img.height;
+                const MAX_DIM = 1200;
+                if (width > height) {
+                    if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; }
+                } else {
+                    if (height > MAX_DIM) { width *= MAX_DIM / height; height = MAX_DIM; }
+                }
+                canvas.width = width; canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob(resolve, 'image/jpeg', 0.7);
+            };
+            img.onerror = reject;
+        };
+        reader.onerror = reject;
+    });
+  }
+
+  // ─── IMAGE PREVIEW ──────────────────────────────────────────────
+  window.previewFile = function(input, targetContainerId, targetImgId) {
+      const container = document.getElementById(targetContainerId);
+      const img = document.getElementById(targetImgId);
+      if (input.files && input.files[0]) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+              if (img) img.src = e.target.result;
+              if (container) container.classList.remove('d-none');
+          };
+          reader.readAsDataURL(input.files[0]);
+      }
+  };
+
+  window.retakePhoto = function(inputId, containerId) {
+      const input = document.getElementById(inputId);
+      const container = document.getElementById(containerId);
+      if (input) input.value = "";
+      if (container) container.classList.add('d-none');
+      if (input) input.click();
+  };
+
+  // ─── SUBMISSION ─────────────────────────────────────────────────
+  window.submitMomoChange = async function(event) {
+    event.preventDefault();
+
+    const errorBox = document.getElementById('errorBox');
+    errorBox.classList.add('d-none');
+
+    const newMomo = document.getElementById('newMomo').value.trim();
+    const momoErr = validateGhanaPhone(newMomo, 'New MoMo Number');
+    
+    if (momoErr) {
+      errorBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>${momoErr}`;
+      errorBox.classList.remove('d-none');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (newMomo === currentMomo) {
+      errorBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>Your new MoMo number must be different from your current one.`;
+      errorBox.classList.remove('d-none');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    const idFileInput = document.getElementById('studentId');
+    const livenessData = document.getElementById('livenessImageData').value;
+
+    if (!idFileInput || !idFileInput.files || idFileInput.files.length === 0) {
+    errorBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>Please scan your Student ID for verification.`;
+    errorBox.classList.remove('d-none');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+    }
+
+    if (!livenessData) {
+    errorBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>Please complete the live selfie verification before submitting.`;
+    errorBox.classList.remove('d-none');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+    }
+
+    const btn = document.getElementById('submitBtn');
+    const btnText = document.getElementById('submitBtnText');
+    const spinner = document.getElementById('submitSpinner');
+
+    btn.disabled = true;
+    spinner.classList.remove('d-none');
+    btnText.innerText = 'Uploading & Submitting...';
+
+    try {
+        // 1. Upload Student ID
+        const compressedId = await compressImage(idFileInput.files[0]);
+        const idFormData = new FormData();
+        idFormData.append("file", compressedId);
+        idFormData.append("upload_preset", UPLOAD_PRESET);
+        const idResp = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: "POST", body: idFormData });
+        const idRes = await idResp.json();
+        if (!idRes.secure_url) throw new Error("ID upload failed.");
+
+        // 2. Upload Selfie (from liveness capture)
+        const livenessResponse = await fetch(livenessData);
+        const selfieBlob = await livenessResponse.blob();
+        const compressedSelfie = await compressImage(selfieBlob);
+        const selfieFormData = new FormData();
+        selfieFormData.append("file", compressedSelfie);
+        selfieFormData.append("upload_preset", UPLOAD_PRESET);
+        const sResp = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: "POST", body: selfieFormData });
+        const sRes = await sResp.json();
+        if (!sRes.secure_url) throw new Error("Selfie upload failed.");
+
+        // 3. Submit to server
+        const response = await fetch('/api/merchant/request-momo-change', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                merchantId: merchantName,
+                oldMomo: currentMomo,
+                newMomo: newMomo,
+                idUrl: idRes.secure_url,
+                selfieUrl: sRes.secure_url
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+            successModal.show();
+        } else {
+            throw new Error(result.error || 'Submission failed.');
+        }
+
+    } catch (e) {
+        console.error("MoMo Change Error:", e);
+        errorBox.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-2"></i>${e.message || "Submission failed. Please try again."}`;
+        errorBox.classList.remove('d-none');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
+        btn.disabled = false;
+        spinner.classList.add('d-none');
+        btnText.innerText = 'Submit Request';
+    }
+  };
+  // ── LIVENESS CONTROLLER ──────────────────────────────────────────────
+(function () {
+    'use strict';
+ 
+    let detector = null;
+    const REQUIRED_CHALLENGES = 2;
+ 
+    window.startLivenessCheck = function () {
+        document.getElementById('livenessContainer').classList.remove('d-none');
+        document.getElementById('selfieTriggerSection').classList.add('d-none');
+        document.getElementById('livenessErrorOverlay').classList.add('d-none');
+        document.getElementById('livenessErrorOverlay').classList.remove('d-flex');
+ 
+        _setProgress(0, REQUIRED_CHALLENGES);
+        document.getElementById('livenessInstructionText').textContent =
+            'Position your face in the frame…';
+        document.getElementById('livenessStatusText').textContent =
+            'Complete ' + REQUIRED_CHALLENGES + ' challenges to verify';
+ 
+        detector = new LivenessDetector({
+            requiredChallenges: REQUIRED_CHALLENGES,
+            modelUrl: '/static/models',
+ 
+            onProgress: function (data) {
+                document.getElementById('livenessInstructionText').textContent =
+                    data.instruction;
+                document.getElementById('livenessStatusText').textContent =
+                    'Challenge ' + data.completed + ' / ' + data.total + ' complete';
+                _setProgress(data.completed, data.total);
+            },
+ 
+            onComplete: function (imageDataUrl) {
+                document.getElementById('livenessImageData').value = imageDataUrl;
+                document.getElementById('selfiePreviewImg').src = imageDataUrl;
+                document.getElementById('selfiePreviewContainer').classList.remove('d-none');
+                document.getElementById('livenessContainer').classList.add('d-none');
+                document.getElementById('selfieTriggerSection').classList.remove('d-none');
+                document.getElementById('startSelfieBtn').classList.add('d-none');
+                detector = null;
+            },
+ 
+            onFail: function (message) {
+                _showError(message);
+                detector = null;
+            }
+        });
+ 
+        detector.start(document.getElementById('livenessVideoContainer'));
+    };
+ 
+    window.cancelLiveness = function () {
+        if (detector) { detector.stop(); detector = null; }
+        _clearVideoContainer();
+        document.getElementById('livenessContainer').classList.add('d-none');
+        document.getElementById('selfieTriggerSection').classList.remove('d-none');
+        document.getElementById('startSelfieBtn').classList.remove('d-none');
+    };
+ 
+    window.retakeSelfie = function () {
+        document.getElementById('livenessImageData').value = '';
+        document.getElementById('selfiePreviewImg').src = '';
+        document.getElementById('selfiePreviewContainer').classList.add('d-none');
+        document.getElementById('startSelfieBtn').classList.remove('d-none');
+        document.getElementById('livenessErrorOverlay').classList.add('d-none');
+        document.getElementById('livenessErrorOverlay').classList.remove('d-flex');
+        document.getElementById('livenessContainer').classList.add('d-none');
+        startLivenessCheck();
+    };
+ 
+    function _setProgress(completed, total) {
+        const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+        const bar = document.getElementById('livenessProgressBar');
+        bar.style.width = pct + '%';
+        bar.setAttribute('aria-valuenow', pct);
+    }
+ 
+    function _showError(message) {
+        if (detector) { detector.stop(); detector = null; }
+        _clearVideoContainer();
+        document.getElementById('livenessErrorText').textContent =
+            message || 'Something went wrong. Please try again.';
+        const overlay = document.getElementById('livenessErrorOverlay');
+        overlay.classList.remove('d-none');
+        overlay.classList.add('d-flex');
+        document.getElementById('livenessContainer').classList.remove('d-none');
+        document.getElementById('selfieTriggerSection').classList.add('d-none');
+    }
+ 
+    function _clearVideoContainer() {
+        const vc = document.getElementById('livenessVideoContainer');
+        while (vc.firstChild) vc.removeChild(vc.firstChild);
+    }
+}());
+</script>
+
+<div class="mb-4">
+    <a href="/merchant_dashboard" 
+      style="display: inline-flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 0.875rem; font-weight: bold; color: #64748b; text-decoration: none; transition: all 0.3s ease;">
+      <div style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background-color: #f1f5f9;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 18-6-6 6-6"/>
+        </svg>
+      </div>
+      <span>Dashboard</span>
+    </a>
+</div>
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div id="errorBox" class="alert alert-danger d-none rounded-4 border-0 shadow-sm mb-4 fw-bold small"></div>
+
+            <div class="text-center mb-5">
+                <h2 class="fw-bold text-dark">Update Beneficiary Number</h2>
+                <p class="text-muted small">For your financial security, changing your payout number requires identity re-verification.</p>
+            </div>
+
+            <form onsubmit="submitMomoChange(event)">
+                
+                <!-- ── CURRENT MOMO DISPLAY ── -->
+                <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 bg-white border">
+                    <h6 class="fw-bold mb-3 text-primary text-uppercase small" style="letter-spacing: 1px;">
+                        <i class="bi bi-phone me-2"></i>Current Beneficiary Number
+                    </h6>
+                    <div class="d-flex align-items-center gap-3 p-3 rounded-4" style="background: #f8fafc; border: 1px solid #e9ecef;">
+                        <div>
+                            <p class="text-muted small mb-0">Currently receiving payouts to</p>
+                            <p class="fw-bold text-dark mb-0 fs-6" id="currentMomoDisplay">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── NEW MOMO ── -->
+                <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 bg-white border" style="border-left: 5px solid #f59e0b !important;">
+                    <h6 class="fw-bold mb-4 text-warning text-uppercase small" style="letter-spacing: 1px;">
+                        <i class="bi bi-pencil-square me-2"></i>New Beneficiary Number
+                    </h6>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">NEW MOMO NUMBER</label>
+                        <input type="tel" id="newMomo" class="form-control rounded-pill border-light bg-light py-3 px-4 shadow-none fw-bold" 
+                               placeholder="0550000000" maxlength="10" required>
+                        <p class="text-muted mt-2 mb-0 px-1" style="font-size: 0.7rem;">
+                            <i class="bi bi-info-circle me-1"></i>Must be 10 digits starting with 0. All future payouts will go to this number.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- ── IDENTITY RE-VERIFICATION ── -->
+                <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 bg-white border">
+                    <h6 class="fw-bold mb-4 text-primary text-uppercase small" style="letter-spacing: 1px;">
+                        <i class="bi bi-person-badge-fill me-2"></i>Identity Re-verification
+                    </h6>
+                    
+                    <div class="alert bg-info bg-opacity-10 border border-info border-opacity-25 rounded-4 p-3 mb-4 small text-dark">
+                        <i class="bi bi-info-circle-fill text-info me-2"></i>
+                        For your protection, we require your Student ID and a live selfie to confirm this change. This is the same process as your original onboarding.
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted text-uppercase">Student ID Card (Front)</label>
+                        <div id="idPreviewContainer" class="mb-3 d-none">
+                            <div class="position-relative d-inline-block w-100">
+                                <img id="idPreviewImg" src="" class="rounded-3 border shadow-sm w-100" style="max-height: 250px; object-fit: contain; background: #f8fafc;">
+                                <button type="button" onclick="retakePhoto('studentId', 'idPreviewContainer')" class="btn btn-dark btn-sm rounded-pill position-absolute top-0 end-0 m-2 shadow">
+                                    <i class="bi bi-camera-fill me-1"></i> Retake
+                                </button>
+                            </div>
+                        </div>
+                        <input type="file" id="studentId" accept="image/*" capture="environment" class="d-none" onchange="previewFile(this, 'idPreviewContainer', 'idPreviewImg')">
+                        <button type="button" onclick="document.getElementById('studentId').click()" class="btn btn-outline-primary w-100 rounded-pill py-3 fw-bold border-2">
+                            <i class="bi bi-card-image me-2"></i> Scan Student ID
+                        </button>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label small fw-bold text-muted text-uppercase">Live Selfie Verification</label>
+
+                        <!-- ── Liveness UI (hidden until started) ─────────────────────────── -->
+                        <div id="livenessContainer" class="d-none mb-3">
+                            <div class="position-relative rounded-4 overflow-hidden shadow-lg" style="background:#000;">
+                                <div id="livenessVideoContainer" style="min-height:320px;"></div>
+
+                                <!-- Instruction overlay -->
+                                <div id="livenessInstructions"
+                                    class="position-absolute bottom-0 start-0 w-100 p-4 text-center"
+                                    style="background:linear-gradient(transparent, rgba(0,0,0,0.82));">
+                                    <p id="livenessInstructionText"
+                                    class="text-white fw-bold mb-2"
+                                    style="font-size:1.1rem;">
+                                        Position your face in the frame
+                                    </p>
+                                    <!-- Progress bar -->
+                                    <div class="progress mb-2"
+                                        style="height:6px; background:rgba(255,255,255,0.2);">
+                                        <div id="livenessProgressBar"
+                                            class="progress-bar bg-success"
+                                            role="progressbar"
+                                            aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"
+                                            style="width:0%; transition:width 0.3s ease;"></div>
+                                    </div>
+                                    <p id="livenessStatusText"
+                                    class="text-white-50 mb-0"
+                                    style="font-size:0.8rem;">
+                                        Complete 2 challenges to verify
+                                    </p>
+                                </div>
+
+                                <!-- Error overlay (hidden by default) -->
+                                <div id="livenessErrorOverlay"
+                                    class="position-absolute top-0 start-0 w-100 h-100 d-none
+                                            align-items-center justify-content-center flex-column text-center p-4"
+                                    style="background:rgba(0,0,0,0.75);">
+                                    <i class="bi bi-exclamation-triangle-fill text-warning fs-1 mb-2"></i>
+                                    <p id="livenessErrorText" class="text-white fw-semibold mb-3">
+                                        Something went wrong.
+                                    </p>
+                                    <button type="button"
+                                            class="btn btn-warning btn-sm rounded-pill px-4"
+                                            onclick="retakeSelfie()">
+                                        Try Again
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Cancel button -->
+                            <button type="button"
+                                    onclick="cancelLiveness()"
+                                    class="btn btn-outline-secondary btn-sm rounded-pill mt-2">
+                                <i class="bi bi-x-circle me-1"></i> Cancel
+                            </button>
+                        </div>
+
+                        <!-- ── Trigger + preview section (shown before / after liveness) ──── -->
+                        <div id="selfieTriggerSection">
+                            <!-- Captured selfie preview (hidden until a photo is taken) -->
+                            <div id="selfiePreviewContainer" class="mb-3 d-none text-center">
+                                <div class="position-relative d-inline-block">
+                                    <img id="selfiePreviewImg"
+                                        src=""
+                                        alt="Captured selfie"
+                                        class="rounded-circle border border-4 border-white shadow"
+                                        style="width:180px; height:180px; object-fit:cover;">
+                                    <!-- Green verified badge -->
+                                    <span class="position-absolute top-0 end-0
+                                                bg-success text-white rounded-circle d-flex
+                                                align-items-center justify-content-center shadow"
+                                        style="width:32px; height:32px;">
+                                        <i class="bi bi-check-lg"></i>
+                                    </span>
+                                    <button type="button"
+                                            onclick="retakeSelfie()"
+                                            class="btn btn-dark btn-sm rounded-pill
+                                                position-absolute bottom-0 end-0 shadow">
+                                        <i class="bi bi-arrow-clockwise"></i>
+                                    </button>
+                                </div>
+                                <p class="text-success small mt-2 mb-0 fw-semibold">
+                                     Verified
+                                </p>
+                            </div>
+
+                            <button type="button"
+                                    id="startSelfieBtn"
+                                    onclick="startLivenessCheck()"
+                                    class="btn btn-outline-primary w-100 rounded-pill py-3 fw-bold border-2">
+                                <i class="bi bi-person-bounding-box me-2"></i> Take Live Selfie
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Hidden input that carries the captured JPEG (base64) to the form -->
+                    <input type="hidden" id="livenessImageData" name="livenessImageData" value="">
+                </div>
+
+                <div class="d-grid gap-4">
+                    <button type="submit" id="submitBtn" class="btn btn-warning btn-lg rounded-pill fw-bold py-3 shadow-lg text-dark">
+                        <span id="submitSpinner" class="spinner-border spinner-border-sm d-none me-2" role="status"></span>
+                        <span id="submitBtnText">Submit Request</span>
+                    </button>
+                    <a href="/merchant_dashboard" class="btn btn-outline-secondary rounded-pill fw-bold py-2">Cancel</a>
+                    <p class="text-center text-muted mt-2" style="font-size: 0.65rem;">
+                        <i class="bi bi-lock-fill me-1"></i> Your sensitive documents are encrypted during transfer.
+                    </p>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SUCCESS MODAL                                                      -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="successModal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 30px;">
+            <div class="modal-body p-5 text-center">
+                <div class="bg-warning bg-opacity-10 text-warning rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px;">
+                    <i class="bi bi-hourglass-split fs-1"></i>
+                </div>
+                <h4 class="fw-bold text-dark">Request Submitted</h4>
+                <p class="text-secondary small mb-4">
+                    Your beneficiary number change request has been submitted for review. Our compliance team will verify your documents. 
+                    You'll receive an <strong>SMS notification</strong> once the change is approved.
+                </p>
+                <p class="text-muted small mb-4" style="font-size: 0.75rem;">
+                    <i class="bi bi-clock me-1"></i> Typical review time: under 24 hours
+                </p>
+                <a href="/merchant_dashboard" class="btn btn-dark w-100 rounded-pill fw-bold py-3">Return to Dashboard</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    body { background-color: #f8fafc; }
+    .form-control:focus, .form-select:focus { 
+        border-color: #0d6efd; 
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.05); 
+        background-color: #fff !important;
+    }
+    .btn-outline-primary:hover { color: #fff !important; }
+</style>
+{% endblock %}

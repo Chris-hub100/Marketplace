@@ -1,0 +1,1645 @@
+{% extends "base.html" %}
+
+{% block title %}Finance | ProlyfiQ{% endblock %}
+
+{% block content %}
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<script>
+  var __app_id = '{{ __app_id }}';
+  var __firebase_config = '{{ __firebase_config | safe }}';
+</script>
+
+<style>
+  /* Hide public-facing chrome */
+  #mainFooter, #mobileBottomNav { display: none !important; }
+  *, *::before, *::after { box-sizing: border-box; }
+
+  /* Screens */
+  .lh-screen { display: none; flex-direction: column; min-height: 72vh; }
+  .lh-screen.active { display: flex; }
+  .lh-screen.centered { align-items: center; justify-content: center; }
+
+  /* Top Bar */
+  #lhTopBar {
+    display: none; align-items: center; justify-content: space-between;
+    padding: 14px 0 14px; margin-bottom: 4px; border-bottom: 1px solid #e8e8e8;
+  }
+  #lhTopBar.visible { display: flex; }
+  .tab-group { display: flex; gap: 2px; background: #f2f2f2; border-radius: 8px; padding: 3px; flex-wrap: wrap; }
+  .tab-btn { font-size: 13px; font-weight: 500; padding: 5px 14px; border: none; background: transparent; border-radius: 6px; color: #666; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .tab-btn.active { background: #fff; color: #111; box-shadow: 0 1px 4px rgba(0,0,0,0.10); }
+  #sessionBtn { font-size: 12px; padding: 6px 16px; border: 1px solid #e0e0e0; background: #fff; border-radius: 20px; color: #c0392b; cursor: pointer; font-weight: 500; }
+  #sessionBtn:hover { background: #fdf2f0; }
+
+  /* Loading & Auth */
+  .lh-spinner { width: 22px; height: 22px; border: 2px solid #e0e0e0; border-top-color: #111; border-radius: 50%; animation: lhspin 0.8s linear infinite; }
+  @keyframes lhspin { to { transform: rotate(360deg); } }
+  .login-box { width: 320px; text-align: center; }
+  .login-box h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.4px; color: #111; margin-bottom: 6px; }
+  .login-box p { font-size: 13px; color: #999; margin-bottom: 24px; }
+  .login-err { font-size: 13px; color: #c0392b; margin-bottom: 12px; display: none; }
+  .login-box input { width: 100%; padding: 11px 16px; border: 1px solid #e0e0e0; border-radius: 10px; font-size: 14px; margin-bottom: 12px; outline: none; }
+  .btn-auth { width: 100%; padding: 12px; background: #111; color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+
+  /* Buyer Search */
+  .search-center { width: 560px; max-width: 100%; text-align: center; }
+  .search-logo { font-size: 32px; font-weight: 700; letter-spacing: -1.2px; color: #111; margin-bottom: 24px; }
+  .search-logo span { color: #bbb; font-weight: 300; }
+  .search-bar-wrap { display: flex; align-items: center; border: 1.5px solid #dfe1e5; border-radius: 28px; padding: 10px 18px; gap: 10px; background: #fff; }
+  .search-bar-wrap input { flex: 1; border: none; outline: none; font-size: 15px; color: #111; background: transparent; }
+  .search-bar-wrap button { background: #111; color: #fff; border: none; border-radius: 20px; padding: 8px 20px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .search-err { font-size: 13px; color: #c0392b; margin-top: 10px; display: none; }
+
+  /* Shared UI */
+  .lh-back { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: #555; background: none; border: 1px solid #e8e8e8; border-radius: 20px; padding: 6px 16px; cursor: pointer; margin-bottom: 24px; width: fit-content; }
+  .lh-back:hover { background: #f7f7f7; color: #111; }
+  .lh-page-title { font-size: 19px; font-weight: 600; letter-spacing: -0.3px; color: #111; margin-bottom: 4px; }
+  .lh-page-sub { font-size: 13px; color: #999; margin-bottom: 20px; font-family: monospace; }
+
+  /* Tables */
+  .ledge-table { width: 100%; border-collapse: collapse; }
+  .ledge-table thead th { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #aaa; padding: 10px 14px; border-bottom: 1px solid #f0f0f0; text-align: left; }
+  .ledge-table tbody tr { border-bottom: 1px solid #f5f5f5; cursor: pointer; transition: background 0.1s; }
+  .ledge-table tbody tr:hover { background: #fafafa; }
+  .ledge-table tbody td { padding: 14px; font-size: 14px; color: #333; vertical-align: middle; }
+  .ledge-table tbody td.td-primary { font-weight: 600; color: #111; }
+  .ledge-table tbody td.td-mono { font-family: monospace; font-size: 12px; color: #888; }
+
+  /* Badges */
+  .pb { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; padding: 3px 9px; border-radius: 10px; }
+  .pb-success { background: #e8f5ee; color: #1e7e45; }
+  .pb-pending  { background: #fff8e0; color: #9a6c00; }
+  .pb-failed   { background: #fdecea; color: #a93226; }
+  .pb-held     { background: #f2f2f2; color: #666; }
+  .pb-audit    { background: #fef3cd; color: #856404; }
+
+  /* Detail Card */
+  .detail-card { border: 1px solid #ececec; border-radius: 14px; padding: 36px 40px; background: #fff; }
+  .detail-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; margin-bottom: 24px; border-bottom: 1px solid #f0f0f0; flex-wrap: wrap; gap: 12px; }
+  .detail-header h2 { font-size: 21px; font-weight: 600; color: #111; margin-bottom: 6px; }
+  .detail-amount { font-size: 24px; font-weight: 700; color: #27ae60; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 40px; margin-bottom: 28px; }
+  .detail-field label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #bbb; display: block; margin-bottom: 5px; }
+  .detail-field p { font-size: 14px; font-weight: 500; color: #111; font-family: monospace; margin: 0; }
+
+  /* Ledger Breakdown Box */
+  .ledger-breakdown { border: 1px solid #e8f4fd; background: #f8fcff; border-radius: 10px; padding: 18px 22px; margin-bottom: 20px; }
+  .ledger-breakdown label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #4a90b8; display: block; margin-bottom: 12px; }
+  .ledger-breakdown-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; }
+  .ledger-breakdown-item strong { font-size: 10px; font-weight: 600; text-transform: uppercase; color: #999; display: block; margin-bottom: 3px; }
+  .ledger-breakdown-item span { font-size: 14px; font-weight: 600; font-family: monospace; color: #111; }
+  .ledger-breakdown-item.net span { color: #27ae60; font-size: 16px; }
+  .ledger-breakdown-item.deduction span { color: #c0392b; }
+
+  /* Gateway Response Block */
+  .gateway-block { background: #f9f9f9; border: 1px solid #eee; border-radius: 10px; padding: 16px 20px; margin-bottom: 28px; }
+  .gateway-block label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #bbb; display: block; margin-bottom: 8px; }
+  .gateway-block p { font-size: 12px; font-family: monospace; color: #333; margin: 0; line-height: 1.6; }
+
+  /* Detail Actions Row */
+  .detail-actions-row { display: flex; justify-content: flex-end; margin-bottom: 20px; }
+  .btn-download-receipt { display: inline-flex; align-items: center; gap: 8px; padding: 9px 20px; background: #111; color: #fff; border: none; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-download-receipt:hover { background: #333; }
+
+  .override-box { background: #fdf8f8; border: 1px solid #f5e0de; border-radius: 10px; padding: 22px 26px; text-align: center; }
+  .override-box h6 { font-size: 13px; font-weight: 600; color: #c0392b; margin-bottom: 8px; }
+  .override-box p { font-size: 12px; color: #999; margin-bottom: 16px; max-width: 460px; margin-left: auto; margin-right: auto; }
+  .btn-reverse { background: none; border: 1.5px solid #c0392b; color: #c0392b; border-radius: 20px; padding: 9px 26px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+  /* Merchant Grid */
+  .merchant-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+  .merchant-card { border: 1px solid #ececec; border-radius: 12px; padding: 18px 20px; background: #fff; cursor: pointer; transition: transform 0.15s; }
+  .merchant-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-2px); }
+  .merchant-avatar { width: 38px; height: 38px; background: #111; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+  .merchant-name { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Merchant Profile */
+  .profile-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+  .stat-box { border: 1px solid #e8e8e8; border-radius: 12px; padding: 20px; background: #fff; }
+  .stat-box label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #aaa; display: block; margin-bottom: 8px; }
+  .stat-box .val { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+
+  .btn-download { display: inline-flex; align-items: center; gap: 8px; padding: 9px 20px; background: #111; color: #fff; border: none; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; margin-bottom: 0; }
+
+  /* Treasury Tab */
+  .treasury-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .treasury-card { border: 1px solid #e8e8e8; border-radius: 12px; padding: 22px 24px; background: #fff; }
+  .treasury-card label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #aaa; display: block; margin-bottom: 10px; }
+  .treasury-card .t-val { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; color: #111; }
+  .treasury-card .t-val.green { color: #27ae60; }
+  .treasury-card .t-val.blue { color: #2980b9; }
+  .treasury-card .t-val.orange { color: #e67e22; }
+  .treasury-loading { display: flex; align-items: center; gap: 10px; color: #aaa; font-size: 13px; padding: 40px 0; }
+
+  /* Transactions Tab */
+  .txn-table-wrap { overflow-x: auto; }
+
+  /* Audit Queue Tab */
+  .audit-item { border: 1px solid #f5e0de; border-radius: 10px; padding: 16px 20px; margin-bottom: 12px; cursor: pointer; background: #fff; transition: background 0.1s; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .audit-item:hover { background: #fdf8f8; }
+  .audit-item-left .audit-ref { font-family: monospace; font-size: 12px; color: #999; }
+  .audit-item-left .audit-item-name { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 2px; }
+  .audit-item-right { text-align: right; }
+  .audit-item-right .audit-amount { font-size: 16px; font-weight: 700; color: #c0392b; }
+  .audit-item-right .audit-status { font-size: 11px; color: #999; font-family: monospace; margin-top: 2px; }
+  .audit-empty { color: #aaa; font-size: 14px; padding: 40px 0; text-align: center; }
+
+  /* Reversal Confirmation Modal */
+  #reversalModal {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6); z-index: 9999; padding: 20px;
+    align-items: center; justify-content: center;
+  }
+  #reversalModal.open { display: flex; }
+  .reversal-modal-box { background: #fff; border-radius: 16px; padding: 32px 36px; max-width: 480px; width: 100%; }
+  .reversal-modal-box h4 { font-size: 16px; font-weight: 700; color: #c0392b; margin-bottom: 8px; }
+  .reversal-modal-box .reversal-msg { font-size: 14px; color: #333; line-height: 1.6; margin-bottom: 24px; background: #fdf8f8; border: 1px solid #f5e0de; border-radius: 8px; padding: 14px 16px; }
+  .reversal-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .btn-confirm-reverse { background: #c0392b; color: #fff; border: none; border-radius: 20px; padding: 10px 24px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-cancel-reverse { background: none; border: 1px solid #ddd; color: #666; border-radius: 20px; padding: 10px 24px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+  /* PDF Preview Modal */
+  #pdfPreviewModal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 10000;
+    padding: 20px;
+    overflow: auto;
+  }
+  .pdf-preview-container {
+    max-width: 900px;
+    margin: 20px auto;
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .pdf-preview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #eee;
+  }
+  .pdf-preview-header h3 { margin: 0; font-size: 15px; font-weight: 600; }
+  .btn-confirm-download {
+    background: #27ae60; color: #fff; border: none;
+    padding: 8px 20px; border-radius: 6px; margin-right: 10px; cursor: pointer;
+    font-size: 13px; font-weight: 600;
+  }
+  .btn-close-preview {
+    background: #e74c3c; color: #fff; border: none;
+    padding: 8px 20px; border-radius: 6px; cursor: pointer;
+    font-size: 13px; font-weight: 600;
+  }
+  .pdf-preview-content {
+    max-height: 70vh;
+    overflow: auto;
+    border: 1px solid #ddd;
+    background: #fff;
+  }
+
+  /* Shared PDF document styles */
+  .lh-pdf-doc {
+    width: 100%; max-width: 800px; margin: 0 auto; padding: 40px;
+    background: #fff; color: #111;
+    font-family: Arial, Helvetica, sans-serif; font-size: 13px; line-height: 1.55;
+  }
+  .lh-pdf-doc * {
+    font-family: Arial, Helvetica, sans-serif; font-size: 13px;
+    line-height: 1.55; box-sizing: border-box;
+  }
+  .lh-pdf-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 18px; margin-bottom: 22px; }
+  .lh-pdf-header-left h2 { font-size: 18px; font-weight: 700; margin: 0 0 4px 0; color: #111; }
+  .lh-pdf-header-left p  { margin: 0; color: #666; }
+  .lh-pdf-header-right   { text-align: right; }
+  .lh-pdf-header-right h4 { font-size: 13px; font-weight: 700; text-transform: uppercase; margin: 0 0 2px 0; color: #111; }
+  .lh-pdf-header-right p  { margin: 2px 0 0; color: #888; }
+  .lh-pdf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; margin-bottom: 22px; }
+  .lh-pdf-grid-cell strong { display: block; color: #666; font-weight: 600; margin-bottom: 2px; }
+  .lh-pdf-grid-cell span   { color: #111; }
+  .lh-pdf-panel { background: #f9f9f9; border: 1px solid #e5e5e5; border-radius: 6px; padding: 14px 16px; margin-bottom: 18px; }
+  .lh-pdf-panel-label { font-weight: 700; text-transform: uppercase; color: #888; margin-bottom: 8px; display: block; }
+  .lh-pdf-panel-inner-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+  .lh-pdf-panel-inner-grid strong { display: block; color: #555; font-weight: 600; margin-bottom: 2px; }
+  .lh-pdf-reversal { border: 1px solid #e8b4b0; border-radius: 6px; padding: 14px 16px; margin-top: 14px; background: #fdf5f4; }
+  .lh-pdf-reversal-title { font-weight: 700; color: #a93226; text-transform: uppercase; margin-bottom: 6px; display: block; }
+  .lh-pdf-reversal-body  { color: #333; }
+  .lh-pdf-reversal-body strong { display: block; font-weight: 600; color: #555; margin-bottom: 2px; }
+  .lh-pdf-ledger-breakdown { border: 1px solid #cce4f7; border-radius: 6px; padding: 14px 16px; margin-bottom: 18px; background: #f8fcff; }
+  .lh-pdf-ledger-breakdown-label { font-weight: 700; text-transform: uppercase; color: #4a90b8; margin-bottom: 10px; display: block; }
+  .lh-pdf-ledger-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #e8f4fd; }
+  .lh-pdf-ledger-row:last-child { border-bottom: none; font-weight: 700; }
+  .lh-pdf-ledger-row .lh-pdf-ledger-label { color: #555; }
+  .lh-pdf-ledger-row .lh-pdf-ledger-val { color: #111; font-weight: 600; }
+  .lh-pdf-ledger-row.net .lh-pdf-ledger-val { color: #27ae60; }
+  .lh-pdf-status-reversed { color: #a93226; font-weight: 700; }
+  .lh-pdf-status-ok       { color: #1e7e45; font-weight: 700; }
+  .lh-pdf-table    { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .lh-pdf-table th { padding: 8px 10px; border-bottom: 1.5px solid #111; text-align: left; font-weight: 700; color: #111; }
+  .lh-pdf-table td { padding: 9px 10px; border-bottom: 1px solid #eeeeee; color: #333; vertical-align: top; }
+  .lh-pdf-stats         { display: flex; gap: 16px; margin-bottom: 22px; }
+  .lh-pdf-stat-box      { flex: 1; padding: 14px 16px; border: 1px solid #ddd; border-radius: 6px; }
+  .lh-pdf-stat-box strong { display: block; text-transform: uppercase; color: #888; font-weight: 600; margin-bottom: 6px; }
+  .lh-pdf-stat-box span   { font-size: 18px; font-weight: 700; }
+  .lh-pdf-footer { border-top: 1px solid #ccc; padding-top: 12px; margin-top: 36px; display: flex; justify-content: space-between; color: #999; }
+</style>
+
+<!-- TOP BAR: now with 5 tabs -->
+<div id="lhTopBar" style="position: relative;">
+  <div class="tab-group">
+    <button class="tab-btn active" id="tab-treasury"      onclick="switchTab('treasury')">Treasury</button>
+    <button class="tab-btn"        id="tab-transactions"  onclick="switchTab('transactions')">Transactions</button>
+    <button class="tab-btn"        id="tab-audit"         onclick="switchTab('audit')">Audit Queue</button>
+    <button class="tab-btn"        id="tab-buyers"        onclick="switchTab('buyers')">Buyers</button>
+    <button class="tab-btn"        id="tab-merchants"     onclick="switchTab('merchants')">Merchants</button>
+    <button class="tab-btn"        id="tab-momo"          onclick="switchTab('momo')">MoMo Changes</button>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 12px; position: relative;">
+
+    <div id="vaultCalcDrawer" style="display: none; align-items: center; gap: 8px; background: #fff; border: 1px solid #e8e8e8; border-radius: 20px; padding: 4px 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+      <span style="font-size: 11px; font-weight: 600; color: #27ae60; user-select: none;">MERCHANT PAYOUT</span>
+      <div style="height: 12px; width: 1px; background: #ddd;"></div>
+      <input type="number" id="calcGrossInput" placeholder="Gross GHS" step="0.01" min="0" oninput="calculateVaultMath()" style="width: 80px; border: none; outline: none; font-size: 13px; font-family: monospace; font-weight: 600; padding: 0; margin: 0; background: transparent;">
+      <div style="height: 12px; width: 1px; background: #ddd;"></div>
+      <span style="font-size: 11px; font-weight: 700; color: #666;">NET:</span>
+      <span id="calcNetOutput" style="font-size: 13px; font-family: monospace; font-weight: 700; color: #111;">GHS 0.00</span>
+    </div>
+
+    <button id="calcTriggerBtn" onclick="toggleCalcDrawer()" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid #e0e0e0; background: #fff; border-radius: 50%; color: #555; cursor: pointer;">
+      <i class="bi bi-chevron-left" id="calcArrowIcon" style="font-size: 14px; transition: transform 0.2s;"></i>
+    </button>
+
+    <button id="sessionBtn" onclick="handleVaultLogout()">End Session</button>
+  </div>
+</div>
+
+<!-- SCREENS -->
+
+<div class="lh-screen centered active" id="screen-loading">
+  <div class="lh-spinner"></div>
+</div>
+
+<div class="lh-screen centered" id="screen-login">
+  <div class="login-box">
+    <h2>Ledgehold Finance</h2>
+    <p>Secure officer access only</p>
+    <div class="login-err" id="loginErr">Invalid credentials. Please try again.</div>
+    <input type="text" id="adminIdInput" placeholder="Officer ID" autocomplete="off">
+    <input type="password" id="adminPinInput" maxlength="6" placeholder="6-digit PIN" inputmode="numeric">
+    <button class="btn-auth" onclick="handleVaultLogin()">Authorise</button>
+  </div>
+</div>
+
+<!-- TREASURY (default landing) -->
+<div class="lh-screen" id="screen-treasury">
+  <div class="lh-page-title" style="margin-bottom: 6px;">Treasury Overview</div>
+  <div class="lh-page-sub" style="margin-bottom: 24px;">Platform financials across all orders</div>
+  <div id="treasuryLoadingState" class="treasury-loading">
+    <div class="lh-spinner"></div> Loading treasury data…
+  </div>
+  <div id="treasuryContent" style="display:none;">
+    <div class="treasury-grid">
+      <div class="treasury-card">
+        <label>Total Platform Commission</label>
+        <div class="t-val green">GHS <span id="treasuryCommission">0.00</span></div>
+        <div style="font-size:12px; color:#aaa; margin-top:4px;">Sum of merchant fees deducted (completed)</div>
+      </div>
+      <div class="treasury-card">
+        <label>Total Escrow Premiums</label>
+        <div class="t-val blue">GHS <span id="treasuryPremiums">0.00</span></div>
+        <div style="font-size:12px; color:#aaa; margin-top:4px;">Option 1 (2% premium) orders</div>
+      </div>
+      <div class="treasury-card">
+        <label>Active Escrow Float</label>
+        <div class="t-val orange">GHS <span id="treasuryFloat">0.00</span></div>
+        <div style="font-size:12px; color:#aaa; margin-top:4px;">Sum of total collected (paid in escrow)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TRANSACTIONS (Global Ledger) -->
+<div class="lh-screen" id="screen-transactions">
+  <div class="lh-page-title" style="margin-bottom: 6px;">Global Transaction Ledger</div>
+  <div class="lh-page-sub" style="margin-bottom: 20px;">Most recent 100 orders across all merchants</div>
+  <div id="transactionsLoadingState" class="treasury-loading">
+    <div class="lh-spinner"></div> Fetching global ledger…
+  </div>
+  <div class="txn-table-wrap" id="transactionsTableWrap" style="display:none;">
+    <table class="ledge-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Ref ID</th>
+          <th>Item</th>
+          <th>Base Amount</th>
+          <th>Net Remitted</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="transactionsTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- AUDIT QUEUE -->
+<div class="lh-screen" id="screen-audit">
+  <div class="lh-page-title" style="margin-bottom: 6px;">Audit Queue</div>
+  <div class="lh-page-sub" style="margin-bottom: 20px;">Orders requiring manual intervention</div>
+  <div id="auditLoadingState" class="treasury-loading">
+    <div class="lh-spinner"></div> Scanning for flagged orders…
+  </div>
+  <div id="auditListContainer" style="display:none;"></div>
+</div>
+
+<!-- BUYER SEARCH -->
+<div class="lh-screen centered" id="screen-buyer-search">
+  <div class="search-center">
+    <div class="search-logo">Ledgehold <span>Finance</span></div>
+    <div class="search-bar-wrap">
+      <i class="bi bi-search"></i>
+      <input type="text" id="buyerSearchInput" placeholder="Enter buyer phone number or reference..." onkeydown="if(event.key==='Enter') searchBuyerOrders()">
+      <button onclick="searchBuyerOrders()">Search</button>
+    </div>
+    <div class="search-err" id="buyerSearchError">No records found for this number.</div>
+  </div>
+</div>
+
+<!-- BUYER LIST -->
+<div class="lh-screen" id="screen-buyer-list">
+  <button class="lh-back" onclick="goTo('screen-buyer-search')"><i class="bi bi-arrow-left"></i> New search</button>
+  <div class="lh-page-title">Transaction history</div>
+  <div class="lh-page-sub" id="buyerListPhoneDisplay"></div>
+  <table class="ledge-table">
+    <thead>
+      <tr><th>Item</th><th>Reference</th><th>Status</th><th>Date</th></tr>
+    </thead>
+    <tbody id="buyerListTableBody"></tbody>
+  </table>
+</div>
+
+<!-- MERCHANT LIST -->
+<div class="lh-screen" id="screen-merchant-list">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px;">
+    <div class="lh-page-title" style="margin-bottom: 6px;">All merchants</div>
+    <input class="merchant-filter-input" type="text" id="merchantSearchFilter" placeholder="Search ID or number..." oninput="localFilterMerchants()" style="border: 1px solid #e8e8e8; border-radius: 20px; padding: 7px 16px; outline: none;">
+  </div>
+  <div class="merchant-grid" id="merchantGridContainer"></div>
+</div>
+
+<!-- MERCHANT PROFILE -->
+<div class="lh-screen" id="screen-merchant-profile">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px;">
+    <button class="lh-back" style="margin-bottom:0;" onclick="goTo('screen-merchant-list')"><i class="bi bi-arrow-left"></i> All merchants</button>
+    <button class="btn-download" onclick="triggerPDFDownload()"><i class="bi bi-file-earmark-pdf"></i> Download legal report</button>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+    <div>
+      <div class="lh-page-title" id="profileMerchantName">Merchant Name</div>
+      <div class="lh-page-sub" style="margin-bottom:0;">MoMo: <span id="profileMerchantPhone">0XXXXXXXXX</span></div>
+    </div>
+    <div style="width: 320px; max-width: 100%;">
+      <div class="search-bar-wrap" style="padding: 6px 14px; border-radius: 20px;">
+        <i class="bi bi-search" style="font-size: 14px;"></i>
+        <input type="text" id="merchantProfileOrderSearch" placeholder="Look up Order Reference..." onkeydown="if(event.key==='Enter') searchMerchantOrderDirectly()" style="font-size: 13px;">
+        <button onclick="searchMerchantOrderDirectly()" style="padding: 4px 14px; font-size: 11px; border-radius: 14px;">Search</button>
+      </div>
+      <div id="profileOrderSearchError" class="text-danger font-monospace text-center mt-1 d-none" style="font-size: 11px;">Reference not in this ledger.</div>
+    </div>
+  </div>
+
+  <div class="profile-stats">
+    <div class="stat-box">
+      <label>Lifetime settled revenue</label>
+      <div class="val" style="color:#27ae60;">GHS <span id="profileRevenue">0.00</span></div>
+    </div>
+    <div class="stat-box">
+      <label>Active escrow (Pending handoff)</label>
+      <div class="val text-dark"><span id="profileActiveEscrow">0</span> orders</div>
+    </div>
+  </div>
+
+  <div class="lh-page-title" style="font-size: 15px;">Remittance Ledger</div>
+  <table class="ledge-table mt-2">
+    <thead>
+      <tr><th>Item</th><th>Buyer Phone</th><th>Status</th><th>Date</th></tr>
+    </thead>
+    <tbody id="merchantOrdersTableBody"></tbody>
+  </table>
+</div>
+
+<!-- MOMO CHANGE REQUESTS -->
+<div class="lh-screen" id="screen-momo">
+  <div class="lh-page-title" style="margin-bottom: 6px;">MoMo Change Requests</div>
+  <div class="lh-page-sub" style="margin-bottom: 20px;">Pending beneficiary number changes requiring admin review</div>
+  <div id="momoLoadingState" class="treasury-loading">
+    <div class="lh-spinner"></div> Loading pending requests…
+  </div>
+  <div id="momoListContainer" style="display:none;"></div>
+</div>
+
+<!-- ORDER DETAIL -->
+<div class="lh-screen" id="screen-order-detail">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px;">
+    <button class="lh-back" style="margin-bottom:0;" id="btnBackOrderDetail"><i class="bi bi-arrow-left"></i> Back</button>
+    <button class="btn-download-receipt" id="btnDownloadReceipt"><i class="bi bi-file-earmark-pdf"></i> Download receipt</button>
+  </div>
+
+  <div class="detail-card">
+    <div class="detail-header">
+      <div class="left">
+        <span class="status-badge pb" id="detailBadge">STATUS</span>
+        <h2 id="detailItemName">Item</h2>
+        <div class="ref-mono" id="detailRef" style="font-family:monospace; font-size:12px; color:#aaa; margin-top:4px;">REF: —</div>
+      </div>
+      <div class="detail-amount" id="detailAmount">GHS 0.00</div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="detail-field">
+        <label>Created</label>
+        <p id="detailCreatedAt">—</p>
+      </div>
+      <div class="detail-field">
+        <label>Counterparty Phone</label>
+        <p id="detailCounterpartyPhone">—</p>
+      </div>
+      <div class="detail-field">
+        <label>Protection Option</label>
+        <p id="detailProtectionOption">—</p>
+      </div>
+      <div class="detail-field">
+        <label>Payout status</label>
+        <p id="detailPayoutStatus">—</p>
+      </div>
+      <div class="detail-field">
+        <label>Settled at / API Ref</label>
+        <p id="detailSettledAt">—</p>
+      </div>
+    </div>
+
+    <!-- Ledger Breakdown (new) -->
+    <div class="ledger-breakdown" id="detailLedgerBreakdown" style="display:none;">
+      <label><i class="bi bi-receipt me-1"></i>Ledger Breakdown</label>
+      <div class="ledger-breakdown-grid">
+        <div class="ledger-breakdown-item">
+          <strong>Base Listing Price</strong>
+          <span id="lbAmount">GHS 0.00</span>
+        </div>
+        <div class="ledger-breakdown-item">
+          <strong>Total Collected (Buyer Paid)</strong>
+          <span id="lbTotalCollected">GHS 0.00</span>
+        </div>
+        <div class="ledger-breakdown-item deduction">
+          <strong>Platform Commission Deducted</strong>
+          <span id="lbFeeDeducted">GHS 0.00</span>
+        </div>
+        <div class="ledger-breakdown-item deduction">
+          <strong>Transfer Fee (Merchant)</strong>
+          <span id="lbTransferFee">GHS 0.00</span>
+        </div>
+        <div class="ledger-breakdown-item net">
+          <strong>Net Payout Remitted</strong>
+          <span id="lbNetPayout">GHS 0.00</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="gateway-block">
+      <label>Gateway Infrastructure Response</label>
+      <p id="detailGatewayResponse">No network exceptions logged.</p>
+    </div>
+
+    <div class="override-box" id="detailActionArea" style="display:none;">
+      <h6><i class="bi bi-shield-lock me-2"></i>Administrative override</h6>
+      <p>Reversing this escrow halts all automated payouts and marks the order as refunded. This action is permanently logged.</p>
+      <button class="btn-reverse" id="btnReverseEscrow">Force reverse escrow</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reversal Confirmation Modal -->
+<div id="reversalModal">
+  <div class="reversal-modal-box">
+    <h4><i class="bi bi-exclamation-triangle me-2"></i>Confirm Escrow Reversal</h4>
+    <div class="reversal-msg" id="reversalMsgContent">Loading...</div>
+    <div style="margin-bottom: 16px;">
+      <label style="font-size: 12px; font-weight: 600; color: #666; display: block; margin-bottom: 6px;">
+        ENTER ADMIN PIN TO CONFIRM
+      </label>
+      <input type="password" id="reversalPinInput" maxlength="6" 
+             style="width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; text-align: center; letter-spacing: 6px;"
+             placeholder="••••••" inputmode="numeric">
+    </div>
+    <div class="reversal-modal-actions">
+      <button class="btn-cancel-reverse" onclick="closeReversalModal()">Cancel</button>
+      <button class="btn-confirm-reverse" id="btnConfirmReversal">Confirm Reversal</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF Preview Modal -->
+<div id="pdfPreviewModal">
+  <div class="pdf-preview-container">
+    <div class="pdf-preview-header">
+      <h3>PDF Preview</h3>
+      <div>
+        <button class="btn-confirm-download" id="confirmPdfDownload">Download PDF</button>
+        <button class="btn-close-preview" id="closePdfPreview">Close</button>
+      </div>
+    </div>
+    <div class="pdf-preview-content" id="pdfPreviewContent"></div>
+  </div>
+</div>
+
+<script type="module">
+  const config = JSON.parse(__firebase_config);
+  if (!firebase.apps.length) firebase.initializeApp(config);
+  const db = firebase.firestore();
+
+  let currentOfficer       = localStorage.getItem('ledgehold_vault_officer');
+  let vaultLogoutTimer, vaultWarningTimer, vaultCountdownInterval;
+  const VAULT_SESSION_TIMEOUT = 360000;   // 6 minutes
+  const VAULT_WARNING_THRESHOLD = 350000; // Warning at 5 minutes 50 seconds
+  let cachedBuyerOrders    = [];
+  let cachedMerchantOrders = [];
+  let cachedMerchants      = [];
+  let activeOrderObject    = null;
+  let merchantSnapshotUnsub = null;
+
+  // Pending reversal state
+  let pendingReversalOrderId   = null;
+  let pendingReversalContext   = null;
+
+  // ── NAVIGATION ──
+  window.goTo = (screenId) => {
+    document.querySelectorAll('.lh-screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+  };
+
+  window.switchTab = (tab) => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+
+    if (tab === 'treasury') {
+      loadTreasury();
+      goTo('screen-treasury');
+    } else if (tab === 'transactions') {
+      loadTransactions();
+      goTo('screen-transactions');
+    } else if (tab === 'audit') {
+      loadAuditQueue();
+      goTo('screen-audit');
+    } else if (tab === 'buyers') {
+      document.getElementById('buyerSearchInput').value = '';
+      document.getElementById('buyerSearchError').style.display = 'none';
+      goTo('screen-buyer-search');
+    } else if (tab === 'momo') {
+      loadMomoChangeRequests();
+      goTo('screen-momo');
+    } else {
+      loadAllMerchants();
+      goTo('screen-merchant-list');
+    }
+  };
+
+    window.checkVaultUI = () => {
+      const lastActive = localStorage.getItem('ledgehold_vault_last_active');
+      const now = Date.now();
+      
+      // Check session expiry
+      if (currentOfficer && lastActive && (now - lastActive > VAULT_SESSION_TIMEOUT)) {
+        handleVaultLogout();
+        return;
+      }
+      
+      // If officer ID exists but no PIN in memory, force re-login
+      if (currentOfficer && !window._adminPin) {
+        localStorage.removeItem('ledgehold_vault_officer');
+        localStorage.removeItem('ledgehold_vault_last_active');
+        currentOfficer = null;
+        goTo('screen-login');
+        return;
+      }
+      
+      if (currentOfficer && window._adminPin) {
+        document.getElementById('lhTopBar').classList.add('visible');
+        resetVaultTimers();
+        
+        document.getElementById('tab-buyers').classList.add('active');
+        document.querySelectorAll('.tab-btn').forEach(b => {
+          if (b.id !== 'tab-buyers') b.classList.remove('active');
+        });
+        
+        document.getElementById('buyerSearchInput').value = '';
+        document.getElementById('buyerSearchError').style.display = 'none';
+        
+        goTo('screen-buyer-search');
+      } else {
+        goTo('screen-login');
+      }
+    };
+
+  // ── AUTH ──
+  window.handleVaultLogin = async () => {
+    const id  = document.getElementById('adminIdInput').value.trim();
+    const pin = document.getElementById('adminPinInput').value.trim();
+    if (!id || !pin) return;
+    try {
+      const resp = await fetch('/admin-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, pin })
+      });
+      const result = await resp.json();
+      if (result.success) {
+        currentOfficer = id;
+        window._adminPin = pin; 
+        localStorage.setItem('ledgehold_vault_officer', id);
+        document.getElementById('loginErr').style.display = 'none';
+        document.getElementById('lhTopBar').classList.add('visible');
+        resetVaultTimers();
+        loadTreasury();
+        goTo('screen-treasury');
+      } else {
+        document.getElementById('loginErr').style.display = 'block';
+      }
+    } catch (err) { alert('Authorization server error.'); }
+  };
+
+  window.handleVaultLogout = () => {
+    const warning = document.getElementById('vaultSessionWarning');
+    if (warning) warning.remove();
+    clearTimeout(vaultLogoutTimer);
+    clearTimeout(vaultWarningTimer);
+    clearInterval(vaultCountdownInterval);
+    localStorage.removeItem('ledgehold_vault_officer');
+    localStorage.removeItem('ledgehold_vault_last_active');
+    location.reload();
+  };
+
+  function resetVaultTimers() {
+    if (!currentOfficer) return;
+    clearTimeout(vaultLogoutTimer);
+    clearTimeout(vaultWarningTimer);
+    clearInterval(vaultCountdownInterval);
+    localStorage.setItem('ledgehold_vault_last_active', Date.now());
+    vaultWarningTimer = setTimeout(showVaultWarning, VAULT_WARNING_THRESHOLD);
+    vaultLogoutTimer = setTimeout(handleVaultLogout, VAULT_SESSION_TIMEOUT);
+  }
+
+  function showVaultWarning() {
+    if (!currentOfficer) return;
+    const warningBox = document.createElement('div');
+    warningBox.id = 'vaultSessionWarning';
+    warningBox.style.cssText = `
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: #0f172a; color: #fff; padding: 28px 32px; border-radius: 18px;
+      z-index: 10000; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      max-width: 380px; width: 90%;
+    `;
+    warningBox.innerHTML = `
+      <div class="bg-warning rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
+           style="width: 55px; height: 55px; background: #f59e0b !important;">
+        <i class="bi bi-hourglass-split text-white fs-4"></i>
+      </div>
+      <h6 class="fw-bold text-white mb-2">Session Expiring</h6>
+      <p class="text-white-50 small mb-4">You will be logged out in <strong id="vaultCountdown" class="text-warning">10</strong> seconds due to inactivity.</p>
+      <div class="d-flex gap-2 justify-content-center">
+        <button onclick="stayInVault()" class="btn btn-light btn-sm rounded-pill fw-bold px-4">Stay Signed In</button>
+        <button onclick="handleVaultLogout()" class="btn btn-outline-light btn-sm rounded-pill px-4">Log Out</button>
+      </div>
+    `;
+    document.body.appendChild(warningBox);
+    
+    let countdown = 10;
+    document.getElementById('vaultCountdown').innerText = countdown;
+    vaultCountdownInterval = setInterval(() => {
+      countdown--;
+      const el = document.getElementById('vaultCountdown');
+      if (el) el.innerText = countdown;
+      if (countdown <= 0) {
+        clearInterval(vaultCountdownInterval);
+        handleVaultLogout();
+      }
+    }, 1000);
+  }
+
+  window.stayInVault = function() {
+    const warning = document.getElementById('vaultSessionWarning');
+    if (warning) warning.remove();
+    clearInterval(vaultCountdownInterval);
+    resetVaultTimers();
+  };
+
+  ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
+    window.addEventListener(evt, resetVaultTimers, true);
+  });
+
+  // ── STATUS BADGE ──
+  function statusBadgeClass(status) {
+    if (status === 'completed')  return 'pb-success';
+    if (['paid_in_escrow','buyer_reviewing','processing_payout'].includes(status)) return 'pb-pending';
+    if (['payout_failed','refunded'].includes(status)) return 'pb-failed';
+    if (status === 'locked') return 'pb-audit';
+    return 'pb-held';
+  }
+
+  // ── TIERED COMMISSION CALCULATOR MECHANICS ──
+  function platformCommissionRate(amount) {
+    if (amount >= 2000) return 0.025;
+    if (amount >= 500)  return 0.03;
+    return 0.035;
+}
+
+  function merchantTransferFee(amount) {
+    return amount <= 25 ? 0.80 : 0.40;
+  }
+
+  // ── FLOATING CALCULATOR (Phase 1 — updated tiers) ──
+  let activeCalcMode = 'MERCHANT';
+
+  // ── FLOATING CALCULATOR (Merchant Ledger Quoter) ──
+  window.toggleCalcDrawer = () => {
+    const drawer = document.getElementById('vaultCalcDrawer');
+    const icon   = document.getElementById('calcArrowIcon');
+    const input  = document.getElementById('calcGrossInput');
+    
+    if (drawer.style.display === 'none' || !drawer.style.display) {
+      drawer.style.display = 'flex';
+      icon.style.transform = 'rotate(180deg)';
+      input.value = '';
+      document.getElementById('calcNetOutput').innerText = 'GHS 0.00';
+      input.focus();
+    } else {
+      drawer.style.display = 'none';
+      icon.style.transform = 'rotate(0deg)';
+    }
+  };
+
+  window.calculateVaultMath = () => {
+    const grossRaw   = document.getElementById('calcGrossInput').value;
+    const outputEl   = document.getElementById('calcNetOutput');
+    
+    if (!grossRaw || isNaN(grossRaw) || parseFloat(grossRaw) <= 0) {
+      outputEl.innerText = 'GHS 0.00';
+      return;
+    }
+    
+    const g    = parseFloat(grossRaw);
+    const rate = platformCommissionRate(g);
+    const fee  = g * rate;
+    const transferFee = merchantTransferFee(g);
+    
+    const net = g - fee - transferFee;
+    outputEl.innerText = `GHS ${Math.max(0, net).toFixed(2)}`;
+  };
+
+  // ── PHASE 2A: TREASURY ──
+  window.loadTreasury = () => {
+    const loadingEl = document.getElementById('treasuryLoadingState');
+    const contentEl = document.getElementById('treasuryContent');
+    loadingEl.style.display = 'flex';
+    contentEl.style.display = 'none';
+
+    db.collection('artifacts').doc(__app_id)
+      .collection('public').doc('data').collection('orders')
+      .get().then(snap => {
+        let totalCommission = 0;
+        let totalPremiums   = 0;
+        let activeFloat     = 0;
+
+        snap.forEach(doc => {
+          const o = doc.data();
+          if (o.status === 'completed') {
+            totalCommission += parseFloat(o.merchant_fee_deducted || 0);
+          }
+          if (parseInt(o.protection_option) === 1) {
+            const collected = parseFloat(o.total_collected || 0);
+            const base      = parseFloat(o.amount || 0);
+            totalPremiums  += Math.max(0, collected - base);
+          }
+          if (o.status === 'paid_in_escrow') {
+            activeFloat += parseFloat(o.total_collected || 0);
+          }
+        });
+
+        document.getElementById('treasuryCommission').innerText = totalCommission.toFixed(2);
+        document.getElementById('treasuryPremiums').innerText   = totalPremiums.toFixed(2);
+        document.getElementById('treasuryFloat').innerText      = activeFloat.toFixed(2);
+
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+      }).catch(e => {
+        loadingEl.innerHTML = `<span style="color:#c0392b;">Failed to load treasury data: ${e.message}</span>`;
+      });
+  };
+
+  // ── PHASE 2B: GLOBAL TRANSACTIONS ──
+  window.loadTransactions = () => {
+    const loadingEl = document.getElementById('transactionsLoadingState');
+    const wrapEl    = document.getElementById('transactionsTableWrap');
+    loadingEl.style.display = 'flex';
+    wrapEl.style.display    = 'none';
+
+    db.collection('artifacts').doc(__app_id)
+      .collection('public').doc('data').collection('orders')
+      .orderBy('createdAt', 'desc')
+      .limit(100)
+      .get().then(snap => {
+        const rows = [];
+        snap.forEach(doc => {
+          const o  = { id: doc.id, ...doc.data() };
+          const d  = o.createdAt ? new Date(o.createdAt.seconds * 1000).toLocaleDateString('en-GB') : '—';
+          const net = o.status === 'completed'
+            ? `<span style="color:#27ae60;font-weight:600;">GHS ${parseFloat(o.net_payout_remitted || 0).toFixed(2)}</span>`
+            : '<span style="color:#bbb;">—</span>';
+          rows.push(`
+            <tr onclick="openOrderDetailFromGlobal('${doc.id}')">
+              <td class="td-mono">${d}</td>
+              <td class="td-mono">${o.id}</td>
+              <td class="td-primary">${o.item || '—'}</td>
+              <td>GHS ${parseFloat(o.amount || 0).toFixed(2)}</td>
+              <td>${net}</td>
+              <td><span class="pb ${statusBadgeClass(o.status)}">${(o.status || '').replace(/_/g,' ')}</span></td>
+            </tr>`);
+        });
+        document.getElementById('transactionsTableBody').innerHTML =
+          rows.length ? rows.join('') : '<tr><td colspan="6" style="text-align:center;color:#aaa;padding:40px;">No orders found.</td></tr>';
+        loadingEl.style.display = 'none';
+        wrapEl.style.display    = 'block';
+      }).catch(e => {
+        loadingEl.innerHTML = `<span style="color:#c0392b;">Error: ${e.message}</span>`;
+      });
+  };
+
+  // Opens detail from global transactions table (no buyer/merchant context, uses buyer fallback)
+  window.openOrderDetailFromGlobal = async (orderId) => {
+    try {
+      const doc = await db.collection('artifacts').doc(__app_id)
+        .collection('public').doc('data').collection('orders').doc(orderId).get();
+      if (!doc.exists) return;
+      const o = { id: doc.id, ...doc.data() };
+      cachedBuyerOrders = [o];
+      openOrderDetail(orderId, 'buyer', 'screen-transactions');
+    } catch (e) { alert('Error loading order: ' + e.message); }
+  };
+
+  // ── PHASE 2C: AUDIT QUEUE ──
+  window.loadAuditQueue = () => {
+    const loadingEl    = document.getElementById('auditLoadingState');
+    const containerEl  = document.getElementById('auditListContainer');
+    loadingEl.style.display    = 'flex';
+    containerEl.style.display  = 'none';
+
+    // Fetch both MANUAL_AUDIT_REQUIRED and payout_failed/locked in parallel
+    const q1 = db.collection('artifacts').doc(__app_id)
+      .collection('public').doc('data').collection('orders')
+      .where('payout_status', '==', 'MANUAL_AUDIT_REQUIRED').get();
+
+    const q2 = db.collection('artifacts').doc(__app_id)
+      .collection('public').doc('data').collection('orders')
+      .where('status', 'in', ['payout_failed', 'locked', 'requires_review']).get();
+
+    Promise.all([q1, q2]).then(([snap1, snap2]) => {
+      const seen = new Set();
+      const orders = [];
+      [...snap1.docs, ...snap2.docs].forEach(doc => {
+        if (!seen.has(doc.id)) {
+          seen.add(doc.id);
+          orders.push({ id: doc.id, ...doc.data() });
+        }
+      });
+
+      if (!orders.length) {
+        containerEl.innerHTML = '<div class="audit-empty"><i class="bi bi-check-circle" style="font-size:28px;display:block;margin-bottom:8px;color:#27ae60;"></i>No orders require audit.</div>';
+      } else {
+        containerEl.innerHTML = orders.map(o => `
+          <div class="audit-item" onclick="openAuditOrderDetail('${o.id}')">
+            <div class="audit-item-left">
+              <div class="audit-item-name">${o.item || 'Unknown item'}</div>
+              <div class="audit-ref">${o.id}</div>
+              <div style="margin-top:4px;">${o.buyerPhone || '—'} → ${o.momo ? '0'+o.momo.slice(-9) : '—'}</div>
+            </div>
+            <div class="audit-item-right">
+              <div class="audit-amount">GHS ${parseFloat(o.amount || 0).toFixed(2)}</div>
+              <div class="audit-status">${o.payout_status || o.status || '—'}</div>
+            </div>
+          </div>`).join('');
+      }
+
+      loadingEl.style.display   = 'none';
+      containerEl.style.display = 'block';
+    }).catch(e => {
+      loadingEl.innerHTML = `<span style="color:#c0392b;">Error: ${e.message}</span>`;
+    });
+  };
+
+  window.openAuditOrderDetail = async (orderId) => {
+    try {
+      const doc = await db.collection('artifacts').doc(__app_id)
+        .collection('public').doc('data').collection('orders').doc(orderId).get();
+      if (!doc.exists) return;
+      const o = { id: doc.id, ...doc.data() };
+      cachedBuyerOrders = [o];
+      openOrderDetail(orderId, 'buyer', 'screen-audit');
+    } catch (e) { alert('Error loading order: ' + e.message); }
+  };
+
+  // ── UNIFIED ORDER DETAIL (Phase 1 + Phase 4) ──
+  // backScreen param allows returning to treasury/transactions/audit
+  window.openOrderDetail = (orderId, context, backScreen = null) => {
+    const list = context === 'buyer' ? cachedBuyerOrders : cachedMerchantOrders;
+    const o = list.find(x => x.id === orderId);
+    if (!o) return;
+
+    activeOrderObject = o;
+
+    document.getElementById('btnBackOrderDetail').onclick = () => {
+      if (backScreen) { goTo(backScreen); return; }
+      goTo(context === 'buyer' ? 'screen-buyer-list' : 'screen-merchant-profile');
+    };
+
+    document.getElementById('btnDownloadReceipt').onclick = () => {
+      downloadSingleOrderReceipt(activeOrderObject);
+    };
+
+    document.getElementById('detailItemName').innerText = o.item || '—';
+    document.getElementById('detailRef').innerText      = 'REF: ' + o.id;
+    document.getElementById('detailAmount').innerText   = 'GHS ' + parseFloat(o.amount || 0).toFixed(2);
+    document.getElementById('detailCreatedAt').innerText = o.createdAt
+      ? new Date(o.createdAt.seconds * 1000).toLocaleString('en-GB') : '—';
+
+    const counterPhone = context === 'buyer'
+      ? (o.momo ? '0' + o.momo.slice(-9) : '—')
+      : (o.buyerPhone || '—');
+    document.getElementById('detailCounterpartyPhone').innerText = counterPhone;
+
+    // Protection option display
+    const poLabels = { 1: '1 — Protected (2% premium)', 2: '2 — Flexible (95% refund)', 3: '3 — No Protection (waived)' };
+    document.getElementById('detailProtectionOption').innerText =
+      poLabels[parseInt(o.protection_option)] || (o.protection_option ? String(o.protection_option) : '—');
+
+    document.getElementById('detailPayoutStatus').innerText = o.payout_status || '—';
+
+    const settleData = o.payout_settled_at ? new Date(o.payout_settled_at).toLocaleString('en-GB') : 'Unsettled';
+    const apiRef     = o.paystack_transfer_id || o.payout_reference || '';
+    document.getElementById('detailSettledAt').innerText = apiRef ? `${settleData}\n(${apiRef})` : settleData;
+
+    const badge = document.getElementById('detailBadge');
+    badge.innerText  = (o.status || '').replace(/_/g, ' ');
+    badge.className  = 'status-badge pb ' + statusBadgeClass(o.status);
+
+    document.getElementById('detailGatewayResponse').innerText =
+      o.gateway_response || 'No network exceptions logged.';
+
+    // Ledger Breakdown — show when backend fields are present
+    const hasBreakdown = o.merchant_fee_deducted != null || o.net_payout_remitted != null;
+    const breakdownEl  = document.getElementById('detailLedgerBreakdown');
+    if (hasBreakdown) {
+      breakdownEl.style.display = 'block';
+      document.getElementById('lbAmount').innerText         = 'GHS ' + parseFloat(o.amount || 0).toFixed(2);
+      document.getElementById('lbTotalCollected').innerText = 'GHS ' + parseFloat(o.total_collected || o.amount || 0).toFixed(2);
+      document.getElementById('lbFeeDeducted').innerText    = '– GHS ' + parseFloat(o.merchant_fee_deducted || 0).toFixed(2);
+      document.getElementById('lbTransferFee').innerText    = '– GHS ' + parseFloat(o.merchant_transfer_fee || 0).toFixed(2);
+      document.getElementById('lbNetPayout').innerText      = 'GHS ' + parseFloat(o.net_payout_remitted || 0).toFixed(2);
+    } else {
+      breakdownEl.style.display = 'none';
+    }
+
+    const action = document.getElementById('detailActionArea');
+    const overrideStates = ['paid_in_escrow', 'buyer_reviewing', 'payout_failed'];
+    if (overrideStates.includes(o.status)) {
+      action.style.display = 'block';
+      document.getElementById('btnReverseEscrow').onclick = () =>
+        promptEscrowReversal(o.id, context, o);
+    } else {
+      action.style.display = 'none';
+    }
+
+    goTo('screen-order-detail');
+  };
+
+  // ── PHASE 3: CONTEXT-AWARE REVERSAL MODAL ──
+  window.promptEscrowReversal = (orderId, context, o) => {
+    const po      = parseInt(o.protection_option);
+    const amount  = parseFloat(o.amount || 0);
+    const total   = parseFloat(o.total_collected || amount);
+    const premium = (total - amount).toFixed(2);
+
+    let msg = '';
+    if (po === 1) {
+      msg = `<strong>Option 1 — Protected Escrow</strong><br><br>
+        Buyer paid a 2% premium. They are entitled to a full <strong>GHS ${amount.toFixed(2)}</strong> refund.
+        Ledgehold retains the <strong>GHS ${premium}</strong> premium.`;
+    } else if (po === 2) {
+      const refund = (amount * 0.95).toFixed(2);
+      const retain = (amount * 0.05).toFixed(2);
+      msg = `<strong>Option 2 — Flexible Escrow</strong><br><br>
+        Buyer selected Flexible Escrow. They are entitled to an 95% refund (<strong>GHS ${refund}</strong>).
+        Ledgehold retains a 5% operational fee (<strong>GHS ${retain}</strong>).`;
+    } else if (po === 3) {
+      msg = `<strong>⚠️ Option 3 — No Protection</strong><br><br>
+        <strong style="color:#c0392b;">WARNING:</strong> Buyer waived all refund rights.
+        Reversing this transaction violates the Option 3 contract unless authorised for severe fraud.
+        Proceed only if you have explicit authorisation.`;
+    } else {
+      msg = `Protection option not recorded on this order. Proceed with caution, this action is permanently logged against officer: <strong>${currentOfficer}</strong>.`;
+    }
+
+    document.getElementById('reversalMsgContent').innerHTML = msg;
+    pendingReversalOrderId = orderId;
+    pendingReversalContext = context;
+    document.getElementById('reversalModal').classList.add('open');
+  };
+
+  window.closeReversalModal = () => {
+    document.getElementById('reversalModal').classList.remove('open');
+    pendingReversalOrderId = null;
+    pendingReversalContext = null;
+  };
+
+  document.getElementById('btnConfirmReversal').onclick = async () => {
+    if (!pendingReversalOrderId) return;
+    
+    const pin = document.getElementById('reversalPinInput').value.trim();
+    if (!pin) {
+      alert('Please enter your admin PIN.');
+      return;
+    }
+    
+    const orderId = pendingReversalOrderId;
+    const context = pendingReversalContext;
+    closeReversalModal();
+
+    try {
+      const response = await fetch('/api/admin/reverse-escrow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: orderId,
+          adminId: currentOfficer,
+          adminPin: pin
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        alert('Escrow reversed. Order marked as refunded.');
+        if (context === 'buyer') searchBuyerOrders();
+        goTo(context === 'buyer' ? 'screen-buyer-list' : 'screen-merchant-profile');
+      } else {
+        throw new Error(result.error || 'Reversal failed.');
+      }
+    } catch (e) { 
+      alert('Action failed: ' + e.message); 
+    } finally {
+      document.getElementById('reversalPinInput').value = '';
+    }
+  };
+
+  // ── PDF MODAL HELPER ──
+  function showPdfModal(htmlContent, filename, elementId) {
+    const modal      = document.getElementById('pdfPreviewModal');
+    const preview    = document.getElementById('pdfPreviewContent');
+    const confirmBtn = document.getElementById('confirmPdfDownload');
+    const closeBtn   = document.getElementById('closePdfPreview');
+
+    preview.innerHTML = htmlContent;
+    modal.style.display = 'block';
+
+    function doDownload() {
+      const el = document.getElementById(elementId);
+      if (!el) { alert('PDF content not ready.'); return; }
+      html2pdf().set({
+        margin: 0.5, filename: filename,
+        image: { type: 'jpeg', quality: 1 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      }).from(el).save().then(() => closeModal())
+        .catch(err => { console.error(err); alert('PDF generation failed.'); });
+    }
+
+    function closeModal() {
+      modal.style.display = 'none';
+      confirmBtn.removeEventListener('click', doDownload);
+      closeBtn.removeEventListener('click', closeModal);
+    }
+
+    confirmBtn.removeEventListener('click', doDownload);
+    closeBtn.removeEventListener('click', closeModal);
+    confirmBtn.addEventListener('click', doDownload);
+    closeBtn.addEventListener('click', closeModal);
+  }
+
+  // ── SHARED TIMESTAMP FORMATTER ──
+  function fmtTs(raw, isFirestoreTs = false) {
+    if (!raw) return 'Not recorded';
+    const d = isFirestoreTs ? new Date(raw.seconds * 1000) : new Date(raw);
+    return d.toLocaleString('en-GB', {
+      day:'2-digit', month:'2-digit', year:'numeric',
+      hour:'2-digit', minute:'2-digit', second:'2-digit'
+    });
+  }
+
+  // ── SINGLE ORDER RECEIPT PDF (Phase 1 — with Ledger Breakdown) ──
+  window.downloadSingleOrderReceipt = (o) => {
+    if (!o) { alert('Order data not available.'); return; }
+
+    const createdTs    = fmtTs(o.createdAt, true);
+    const settlementTs = o.payout_settled_at ? fmtTs(o.payout_settled_at) : 'Not settled';
+    const apiRef       = o.paystack_transfer_id || o.payout_reference || 'Awaiting Handshake';
+
+    const isReversed = o.payout_status === 'ADMIN_REVERSED' || o.status === 'refunded';
+    const reversedBy = o.administrative_override_by || '—';
+    const reversedAt = o.overridden_at ? fmtTs(o.overridden_at) : createdTs;
+
+    let payoutDisplay = o.payout_status || 'HELD';
+    let payoutClass   = '';
+    if (payoutDisplay === 'ADMIN_REVERSED') {
+      payoutDisplay = 'ADMIN REVERSED (Manual Override)';
+      payoutClass   = 'lh-pdf-status-reversed';
+    } else if (o.status === 'completed') {
+      payoutClass = 'lh-pdf-status-ok';
+    }
+
+    const reversalBlock = isReversed ? `
+      <div class="lh-pdf-reversal">
+        <span class="lh-pdf-reversal-title">Administrative Reversal on Record</span>
+        <div class="lh-pdf-reversal-body">
+          <strong>Reversed by officer:</strong>${reversedBy}
+          <strong>Reversal timestamp:</strong>${reversedAt}
+        </div>
+      </div>` : '';
+
+    const poLabels = { 1: '1 — Protected (2% premium)', 2: '2 — Flexible (95% refund)', 3: '3 — No Protection (waived)' };
+    const poDisplay = poLabels[parseInt(o.protection_option)] || (o.protection_option ? String(o.protection_option) : 'Not recorded');
+
+    // Ledger breakdown block for PDF
+    const hasBreakdown = o.merchant_fee_deducted != null || o.net_payout_remitted != null;
+    const ledgerBlock = hasBreakdown ? `
+      <div class="lh-pdf-ledger-breakdown">
+        <span class="lh-pdf-ledger-breakdown-label">Ledger Breakdown</span>
+        <div class="lh-pdf-ledger-row">
+          <span class="lh-pdf-ledger-label">Base Listing Price</span>
+          <span class="lh-pdf-ledger-val">GHS ${parseFloat(o.amount || 0).toFixed(2)}</span>
+        </div>
+        <div class="lh-pdf-ledger-row">
+          <span class="lh-pdf-ledger-label">Total Collected (Buyer Paid)</span>
+          <span class="lh-pdf-ledger-val">GHS ${parseFloat(o.total_collected || o.amount || 0).toFixed(2)}</span>
+        </div>
+        <div class="lh-pdf-ledger-row">
+          <span class="lh-pdf-ledger-label">Platform Commission Deducted</span>
+          <span class="lh-pdf-ledger-val" style="color:#c0392b;">– GHS ${parseFloat(o.merchant_fee_deducted || 0).toFixed(2)}</span>
+        </div>
+        <div class="lh-pdf-ledger-row">
+          <span class="lh-pdf-ledger-label">Merchant Transfer Fee</span>
+          <span class="lh-pdf-ledger-val" style="color:#c0392b;">– GHS ${parseFloat(o.merchant_transfer_fee || 0).toFixed(2)}</span>
+        </div>
+        <div class="lh-pdf-ledger-row net">
+          <span class="lh-pdf-ledger-label" style="font-weight:700;">Net Payout Remitted</span>
+          <span class="lh-pdf-ledger-val" style="color:#27ae60; font-weight:700;">GHS ${parseFloat(o.net_payout_remitted || 0).toFixed(2)}</span>
+        </div>
+      </div>` : '';
+
+    const html = `
+      <div id="receiptForPdf" class="lh-pdf-doc">
+        <div class="lh-pdf-header">
+          <div class="lh-pdf-header-left">
+            <h2>ESHARE RELEASE AUDIT REPORT</h2>
+            <p>Transaction Ref: ${o.id}</p>
+          </div>
+          <div class="lh-pdf-header-right">
+            <h4>Ledgehold Enterprise</h4>
+            <p>Disbursal Source Log</p>
+          </div>
+        </div>
+        <div class="lh-pdf-grid">
+          <div class="lh-pdf-grid-cell"><strong>Item Name</strong><span>${o.item || 'N/A'}</span></div>
+          <div class="lh-pdf-grid-cell"><strong>Base Listing Price</strong><span>GHS ${parseFloat(o.amount || 0).toFixed(2)}</span></div>
+          <div class="lh-pdf-grid-cell"><strong>Merchant Account Node</strong><span>${o.momo || o.merchantPhone || '—'}</span></div>
+          <div class="lh-pdf-grid-cell"><strong>Buyer Phone</strong><span>${o.buyerPhone || '—'}</span></div>
+          <div class="lh-pdf-grid-cell"><strong>Protection Option</strong><span>${poDisplay}</span></div>
+          <div class="lh-pdf-grid-cell"><strong>Paystack Core Reference ID</strong><span>${apiRef}</span></div>
+          <div class="lh-pdf-grid-cell"><strong>Network Settlement Status</strong><span class="${payoutClass}">${payoutDisplay}</span></div>
+        </div>
+        ${ledgerBlock}
+        <div class="lh-pdf-panel">
+          <span class="lh-pdf-panel-label">Transaction Timestamps</span>
+          <div class="lh-pdf-panel-inner-grid">
+            <div><strong>Order Created</strong>${createdTs}</div>
+            <div><strong>Settlement Timestamp</strong>${settlementTs}</div>
+          </div>
+          ${reversalBlock}
+        </div>
+        <div class="lh-pdf-panel">
+          <span class="lh-pdf-panel-label">Gateway Infrastructure Response Message</span>
+          ${o.gateway_response || 'No errors or rejections flagged by network provider.'}
+        </div>
+        <div class="lh-pdf-footer">
+          <span>This is an automated system log report</span>
+          <span>Report generated: ${new Date().toLocaleString('en-GB')}</span>
+        </div>
+      </div>`;
+
+    showPdfModal(html, `Ledgehold_Receipt_${o.id}.pdf`, 'receiptForPdf');
+  };
+
+  // ── MERCHANT SETTLEMENT LEDGER PDF ──
+  window.triggerPDFDownload = () => {
+    const merchantName  = document.getElementById('profileMerchantName').innerText;
+    const merchantPhone = document.getElementById('profileMerchantPhone').innerText;
+    const revenue       = document.getElementById('profileRevenue').innerText;
+    const escrow        = document.getElementById('profileActiveEscrow').innerText;
+
+    if (!cachedMerchantOrders.length) { alert('No order data available for this merchant.'); return; }
+
+    const rowsHtml = cachedMerchantOrders.map(p => {
+      const ts      = p.payout_settled_at ? fmtTs(p.payout_settled_at) : (p.createdAt ? fmtTs(p.createdAt, true) : '—');
+      const apiRef  = p.paystack_transfer_id || p.payout_reference || '—';
+      const pStatus = p.payout_status || 'HELD';
+      const pClass  = pStatus === 'ADMIN_REVERSED' ? 'lh-pdf-status-reversed'
+                    : p.status === 'completed'      ? 'lh-pdf-status-ok' : '';
+      const netAmt  = p.net_payout_remitted != null
+        ? `GHS ${parseFloat(p.net_payout_remitted).toFixed(2)}`
+        : (p.status === 'completed' ? 'GHS ' + parseFloat(p.amount || 0).toFixed(2) : '—');
+      return `
+        <tr>
+          <td>${p.item || 'N/A'}</td>
+          <td>${p.buyerPhone || '—'}</td>
+          <td>${ts}</td>
+          <td>${apiRef}</td>
+          <td>${netAmt}</td>
+          <td class="${pClass}">${pStatus}</td>
+        </tr>`;
+    }).join('');
+
+    const safeName = merchantName.replace(/\s+/g, '_');
+
+    const html = `
+      <div id="merchantReportForPdf" class="lh-pdf-doc">
+        <div class="lh-pdf-header">
+          <div class="lh-pdf-header-left">
+            <h2>${merchantName}</h2>
+            <p>MoMo: ${merchantPhone}</p>
+          </div>
+          <div class="lh-pdf-header-right">
+            <h4>Ledgehold Enterprise</h4>
+            <p>Official Settlement Ledger</p>
+            <p>${new Date().toLocaleString('en-GB')}</p>
+          </div>
+        </div>
+        <div class="lh-pdf-stats">
+          <div class="lh-pdf-stat-box">
+            <strong>Lifetime Settled Revenue</strong>
+            <span class="lh-pdf-status-ok">GHS ${revenue}</span>
+          </div>
+          <div class="lh-pdf-stat-box">
+            <strong>Active Escrow Orders</strong>
+            <span>${escrow}</span>
+          </div>
+        </div>
+        <table class="lh-pdf-table">
+          <thead>
+            <tr><th>Item</th><th>Buyer</th><th>Settle Time</th><th>API Ref</th><th>Net Remitted</th><th>Status</th></tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        <div class="lh-pdf-footer">
+          <span>Generated by Officer: <strong>${currentOfficer || '—'}</strong></span>
+          <span>Official Ledgehold Settlement Record for dispute resolution.</span>
+        </div>
+      </div>`;
+
+    showPdfModal(html, `Ledgehold_Settlement_${safeName}.pdf`, 'merchantReportForPdf');
+  };
+
+    // ── MOMO CHANGE REQUESTS ──
+  window.loadMomoChangeRequests = () => {
+    const loadingEl   = document.getElementById('momoLoadingState');
+    const containerEl = document.getElementById('momoListContainer');
+    loadingEl.style.display    = 'flex';
+    containerEl.style.display  = 'none';
+
+    db.collection('artifacts').doc(__app_id)
+      .collection('public').doc('data')
+      .collection('momo_change_requests')
+      .where('status', '==', 'pending')
+      .get().then(snap => {
+        const requests = [];
+        snap.forEach(doc => requests.push({ id: doc.id, ...doc.data() }));
+
+        if (!requests.length) {
+          containerEl.innerHTML = '<div class="audit-empty"><i class="bi bi-check-circle" style="font-size:28px;display:block;margin-bottom:8px;color:#27ae60;"></i>No pending MoMo change requests.</div>';
+        } else {
+          containerEl.innerHTML = requests.map(r => {
+            const oldDisplay = r.oldMomo ? `0${String(r.oldMomo).slice(-9)}` : '—';
+            const newDisplay = r.newMomo ? `0${String(r.newMomo).slice(-9)}` : '—';
+            return `
+            <div class="audit-item" style="flex-direction: column; align-items: flex-start; gap: 14px;">
+              <div style="display: flex; justify-content: space-between; width: 100%; flex-wrap: wrap; gap: 10px;">
+                <div>
+                  <div class="audit-item-name">${r.merchantId || 'Unknown Merchant'}</div>
+                  <div class="audit-ref" style="margin-top: 4px;">
+                    ${oldDisplay} → <strong style="color:#d97706;">${newDisplay}</strong>
+                  </div>
+                </div>
+                <div class="audit-item-right">
+                  <div class="audit-amount" style="color:#d97706;">PENDING</div>
+                </div>
+              </div>
+              <div style="display: flex; gap: 10px; width: 100%;">
+                <a href="${r.idUrl}" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill x-small fw-bold" style="flex:1;">View Student ID</a>
+                <a href="${r.selfieUrl}" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill x-small fw-bold" style="flex:1;">View Selfie</a>
+              </div>
+              <div style="display: flex; gap: 8px; width: 100%;">
+                <button onclick="approveMomoChange('${r.id}', '${r.merchantId}', '${r.newMomo}')" 
+                        class="btn btn-success btn-sm rounded-pill fw-bold flex-grow-1">
+                  <i class="bi bi-check-lg me-1"></i> Approve
+                </button>
+                <button onclick="denyMomoChange('${r.id}')" 
+                        class="btn btn-outline-danger btn-sm rounded-pill fw-bold flex-grow-1">
+                  <i class="bi bi-x-lg me-1"></i> Deny
+                </button>
+              </div>
+            </div>`;
+          }).join('');
+        }
+
+        loadingEl.style.display   = 'none';
+        containerEl.style.display = 'block';
+      }).catch(e => {
+        loadingEl.innerHTML = `<span style="color:#c0392b;">Error: ${e.message}</span>`;
+      });
+  };
+
+  window.approveMomoChange = async (docId, merchantId, newMomo) => {
+    if (!confirm(`Approve MoMo change for ${merchantId}?\nNew number: ${newMomo}`)) return;
+    
+    try {
+      const response = await fetch('/api/admin/approve-momo-change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          docId: docId,
+          merchantId: merchantId,
+          newMomo: newMomo,
+          adminId: currentOfficer,
+          adminPin: window._adminPin || ''
+        })
+      });
+      
+      const result = await response.json();
+      if (response.ok && result.success) {
+        alert('MoMo number updated and request approved.');
+        loadMomoChangeRequests();
+      } else {
+        throw new Error(result.error || 'Approval failed.');
+      }
+    } catch (e) {
+      alert('Approval failed: ' + e.message);
+    }
+};
+
+  window.denyMomoChange = async (docId) => {
+    if (!confirm('Deny this MoMo change request?')) return;
+    
+    try {
+      const response = await fetch('/api/admin/deny-momo-change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          docId: docId,
+          adminId: currentOfficer,
+          adminPin: window._adminPin || ''
+        })
+      });
+      
+      const result = await response.json();
+      if (response.ok && result.success) {
+        alert('Request denied.');
+        loadMomoChangeRequests();
+      } else {
+        throw new Error(result.error || 'Denial failed.');
+      }
+    } catch (e) {
+      alert('Denial failed: ' + e.message);
+    }
+};
+
+  // ── BUYER ENGINE ──
+  window.searchBuyerOrders = async () => {
+    const rawInput = document.getElementById('buyerSearchInput').value.trim();
+    if (!rawInput) return;
+
+    document.getElementById('buyerSearchError').style.display = 'none';
+    const tbody = document.getElementById('buyerListTableBody');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4"><div class="lh-spinner" style="margin:0 auto;"></div> Querying balance indexes...</td></tr>';
+
+    const isReference = isNaN(rawInput) || rawInput.length > 15;
+
+    if (isReference) {
+      db.collection('artifacts').doc(__app_id)
+        .collection('public').doc('data').collection('orders')
+        .where('paystack_ref', '==', rawInput)
+        .get().then(snap => {
+          if (snap.empty) {
+            document.getElementById('buyerSearchError').innerText = 'Reference code not found.';
+            document.getElementById('buyerSearchError').style.display = 'block';
+            tbody.innerHTML = '';
+            return;
+          }
+          cachedBuyerOrders = [];
+          snap.forEach(doc => cachedBuyerOrders.push({ id: doc.id, ...doc.data() }));
+          const buyerPhone = cachedBuyerOrders[0]?.buyerPhone || 'Unknown';
+          document.getElementById('buyerListPhoneDisplay').innerText = `Ref Match: ${rawInput} (${buyerPhone})`;
+          renderBuyerTableList(cachedBuyerOrders);
+          goTo('screen-buyer-list');
+        }).catch(e => alert('Database error: ' + e.message));
+    } else {
+      const v0 = rawInput;
+      const v1 = rawInput.startsWith('+233') ? '0'   + rawInput.slice(4) : rawInput;
+      const v2 = rawInput.startsWith('233')  ? '0'   + rawInput.slice(3) : rawInput;
+      const v3 = rawInput.startsWith('0')    ? '233' + rawInput.slice(1) : rawInput;
+      const variants = [...new Set([v0, v1, v2, v3])];
+
+      db.collection('artifacts').doc(__app_id)
+        .collection('public').doc('data').collection('orders')
+        .where('buyerPhone', 'in', variants)
+        .get().then(snap => {
+          if (snap.empty) {
+            document.getElementById('buyerSearchError').innerText = 'No records found for this number.';
+            document.getElementById('buyerSearchError').style.display = 'block';
+            tbody.innerHTML = '';
+            return;
+          }
+          cachedBuyerOrders = [];
+          snap.forEach(doc => cachedBuyerOrders.push({ id: doc.id, ...doc.data() }));
+          cachedBuyerOrders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+          document.getElementById('buyerListPhoneDisplay').innerText = rawInput;
+          renderBuyerTableList(cachedBuyerOrders);
+          goTo('screen-buyer-list');
+        }).catch(e => alert('Database error: ' + e.message));
+    }
+  };
+
+  function renderBuyerTableList(orders) {
+    document.getElementById('buyerListTableBody').innerHTML = orders.map(o => {
+      const d = o.createdAt ? new Date(o.createdAt.seconds * 1000).toLocaleDateString('en-GB') : '—';
+      return `<tr onclick="openOrderDetail('${o.id}', 'buyer')">
+        <td class="td-primary">${o.item}</td>
+        <td class="td-mono">${o.id}</td>
+        <td><span class="pb ${statusBadgeClass(o.status)}">${o.status.replace(/_/g, ' ')}</span></td>
+        <td class="td-muted">${d}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── MERCHANT ENGINE ──
+  window.loadAllMerchants = () => {
+    db.collection('artifacts').doc(__app_id)
+      .collection('public').doc('data').collection('verified_merchants')
+      .get().then(snap => {
+        cachedMerchants = [];
+        snap.forEach(doc => cachedMerchants.push({ id: doc.id, ...doc.data() }));
+        renderMerchantGrid(cachedMerchants);
+      });
+  };
+
+  window.renderMerchantGrid = (merchants) => {
+    const container = document.getElementById('merchantGridContainer');
+    if (!merchants.length) {
+      container.innerHTML = '<div style="color:#aaa;font-size:14px;">No merchants found.</div>';
+      return;
+    }
+    container.innerHTML = merchants.map(m => `
+      <div class="merchant-card" onclick="openMerchantProfile('${m.id}', '${m.momo}')">
+        <div class="merchant-avatar">${m.id.charAt(0).toUpperCase()}</div>
+        <div class="merchant-name">${m.id}</div>
+        <div class="merchant-phone">
+          <i class="bi bi-phone" style="font-size:11px;"></i> 0${(m.momo || '').slice(-9)}
+        </div>
+      </div>`).join('');
+  };
+
+  window.localFilterMerchants = () => {
+    const q = document.getElementById('merchantSearchFilter').value.toLowerCase().trim();
+    renderMerchantGrid(
+      cachedMerchants.filter(m => m.id.toLowerCase().includes(q) || (m.momo || '').includes(q))
+    );
+  };
+
+  document.getElementById('merchantSearchFilter').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') globalReferenceSearch();
+  });
+
+  window.globalReferenceSearch = () => {
+    const q = document.getElementById('merchantSearchFilter').value.trim();
+    if (!q) return;
+    if (q.length < 8) {
+      alert('Please enter at least 8 characters of a transaction reference to search globally.');
+      return;
+    }
+    db.collection('artifacts').doc(__app_id)
+      .collection('public').doc('data').collection('orders')
+      .where('paystack_ref', '==', q)
+      .get().then(orderSnap => {
+        if (orderSnap.empty) { alert('Transaction reference code not found in global logs.'); return; }
+        const targetOrder   = orderSnap.docs[0].data();
+        const targetOrderId = orderSnap.docs[0].id;
+        const assocMomo     = targetOrder.momo;
+        if (!assocMomo) { alert('This transaction record does not contain a valid merchant anchor.'); return; }
+        db.collection('artifacts').doc(__app_id)
+          .collection('public').doc('data').collection('verified_merchants')
+          .where('momo', '==', assocMomo)
+          .get().then(merchantSnap => {
+            const merchantId = !merchantSnap.empty ? merchantSnap.docs[0].id : 'Verified Merchant';
+            document.getElementById('merchantSearchFilter').value = '';
+            openMerchantProfile(merchantId, assocMomo, targetOrderId);
+          }).catch(err => alert('Error resolving merchant: ' + err.message));
+      }).catch(e => alert('Global lookup failed: ' + e.message));
+  };
+
+  window.openMerchantProfile = (merchantId, momo, targetOrderId = null) => {
+    document.getElementById('profileMerchantName').innerText = merchantId;
+    document.getElementById('profileMerchantPhone').innerText = '0' + (momo || '').slice(-9);
+
+    if (merchantSnapshotUnsub) { merchantSnapshotUnsub(); merchantSnapshotUnsub = null; }
+
+    merchantSnapshotUnsub = db.collection('artifacts').doc(__app_id)
+      .collection('public').doc('data').collection('orders')
+      .where('momo', '==', momo)
+      .onSnapshot(snap => {
+        let revenue     = 0;
+        let escrowCount = 0;
+        cachedMerchantOrders = [];
+
+        snap.forEach(doc => {
+          const o = { id: doc.id, ...doc.data() };
+          cachedMerchantOrders.push(o);
+
+          // Phase 1 fix: use backend net_payout_remitted directly
+          if (o.status === 'completed') {
+            revenue += parseFloat(o.net_payout_remitted || 0);
+          }
+          if (['paid_in_escrow','buyer_reviewing','processing_payout','payout_failed'].includes(o.status)) {
+            escrowCount++;
+          }
+        });
+
+        cachedMerchantOrders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+        document.getElementById('profileRevenue').innerText      = revenue.toFixed(2);
+        document.getElementById('profileActiveEscrow').innerText = escrowCount;
+
+        document.getElementById('merchantOrdersTableBody').innerHTML = cachedMerchantOrders.map(o => {
+          const d = o.createdAt ? new Date(o.createdAt.seconds * 1000).toLocaleDateString('en-GB') : '—';
+          return `<tr id="merchant-row-${o.id}" onclick="openOrderDetail('${o.id}', 'merchant')">
+            <td class="td-primary">${o.item}</td>
+            <td class="td-mono">${o.buyerPhone || '—'}</td>
+            <td><span class="pb ${statusBadgeClass(o.status)}">${o.status.replace(/_/g, ' ')}</span></td>
+            <td class="td-muted">${d}</td>
+          </tr>`;
+        }).join('');
+
+        if (targetOrderId) {
+          setTimeout(() => {
+            const targetRow = document.getElementById(`merchant-row-${targetOrderId}`);
+            if (targetRow) targetRow.click();
+            targetOrderId = null;
+          }, 50);
+        }
+      });
+
+    goTo('screen-merchant-profile');
+  };
+
+  window.searchMerchantOrderDirectly = () => {
+    const searchRef  = document.getElementById('merchantProfileOrderSearch').value.trim();
+    const errorLabel = document.getElementById('profileOrderSearchError');
+    if (!searchRef) return;
+    errorLabel.classList.add('d-none');
+    const targetOrder = cachedMerchantOrders.find(o => o.id === searchRef);
+    if (targetOrder) {
+      document.getElementById('merchantProfileOrderSearch').value = '';
+      openOrderDetail(searchRef, 'merchant');
+    } else {
+      errorLabel.classList.remove('d-none');
+      setTimeout(() => errorLabel.classList.add('d-none'), 4000);
+    }
+  };
+
+  // ── INIT ──
+  window.onload = checkVaultUI;
+</script>
+{% endblock %}

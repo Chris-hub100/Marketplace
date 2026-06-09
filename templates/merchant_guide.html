@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+
+{% block title %}Merchant Playbook | ProlyfiQ{% endblock %}
+
+{% block content %}
+<style>
+    body { 
+        font-family: 'Inter', sans-serif; 
+        background-color: #f1f5f9; 
+    }
+    
+    .tutorial-card {
+        background: #ffffff;
+        border-radius: 24px;
+        box-shadow: 0 20px 40px -15px rgba(0,0,0,0.05);
+        overflow: hidden;
+        position: relative;
+        min-height: 480px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .step-content {
+        display: none;
+        opacity: 0;
+        transform: translateX(20px);
+        transition: all 0.4s ease-in-out;
+        flex-grow: 1;
+    }
+    .step-content.active {
+        display: flex;
+        flex-direction: column;
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    .progress-dots {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        margin-bottom: 30px;
+    }
+    .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: #e2e8f0;
+        transition: all 0.3s ease;
+    }
+    .dot.active {
+        background-color: #0f172a;
+        width: 24px;
+        border-radius: 10px;
+    }
+
+    .card-icon-wrapper {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px auto;
+        font-size: 2rem;
+    }
+
+    .nav-buttons {
+        padding: 20px 30px;
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    @media (min-width: 992px) {
+        .nav-buttons { display: none; }
+        #floatingPrev, #floatingNext { display: flex !important; }
+    }
+
+    #floatingPrev, #floatingNext {
+        display: none;
+        position: fixed;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 100;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #floatingPrev { left: 24px; }
+    #floatingNext { right: 24px; }
+
+    .floating-btn {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+    .floating-btn:hover {
+        transform: scale(1.08);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.16);
+    }
+    .floating-btn-dark {
+        background: #0f172a;
+        color: #ffffff;
+    }
+    .floating-btn-success {
+        background: #16a34a;
+        color: #ffffff;
+    }
+    .floating-btn-muted {
+        background: #ffffff;
+        color: #64748b;
+        border: 1px solid #e2e8f0;
+    }
+
+    .final-nav {
+        display: none;
+        padding: 20px 30px;
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+        justify-content: center;
+    }
+
+    .tip-box {
+        background: #f0fdf4;
+        border: 1px dashed #22c55e;
+        color: #15803d;
+        border-radius: 12px;
+        padding: 15px;
+        font-size: 0.85rem;
+        margin-top: auto;
+    }
+    
+    .alert-box {
+        background: #fff1f2;
+        border: 1px solid #fda4af;
+        color: #9f1239;
+        border-radius: 12px;
+        padding: 15px;
+        font-size: 0.85rem;
+        margin-top: auto;
+    }
+
+    .fee-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.78rem;
+        margin: 12px 0;
+    }
+    .fee-table th {
+        background: #f8fafc;
+        font-weight: 600;
+        color: #475569;
+        padding: 8px 12px;
+        text-align: left;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .fee-table td {
+        padding: 8px 12px;
+        color: #334155;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .fee-table .highlight {
+        font-weight: 700;
+        color: #0f172a;
+    }
+</style>
+
+<button class="floating-btn floating-btn-muted" id="floatingPrev" onclick="changeStep(-1)" aria-label="Previous step" style="visibility: hidden;">
+    <i class="bi bi-chevron-left"></i>
+</button>
+<button class="floating-btn floating-btn-dark" id="floatingNext" onclick="changeStep(1)" aria-label="Next step">
+    <i class="bi bi-chevron-right"></i>
+</button>
+
+<div class="container py-5 d-flex align-items-center justify-content-center" style="min-height: 85vh;">
+    <div class="w-100" style="max-width: 550px;">
+        
+        <div class="text-center mb-4">
+            <h3 class="fw-bold text-dark mb-1">How Selling Works</h3>
+            <p class="text-muted small">Your quick guide to making money safely on ProlyfiQ.</p>
+        </div>
+
+        <div class="tutorial-card">
+            
+            <div class="p-4 p-md-5 d-flex flex-column flex-grow-1">
+                
+                <div class="progress-dots">
+                    <div class="dot active" id="dot-1"></div>
+                    <div class="dot" id="dot-2"></div>
+                    <div class="dot" id="dot-3"></div>
+                    <div class="dot" id="dot-4"></div>
+                </div>
+
+                <!-- STEP 1 -->
+                <div class="step-content active" id="step-1">
+                    <div class="card-icon-wrapper bg-primary bg-opacity-10 text-primary">
+                        <i class="bi bi-basket2"></i>
+                    </div>
+                    <h4 class="fw-bold text-center mb-3">1. Stock Your Store</h4>
+                    <p class="text-center text-muted mb-3" style="line-height: 1.6;">
+                        Add your items using the <b>List New Item</b> page. Set a fair price and select a safe campus pickup location. The system deducts a small service fee only when you make a sale, you pay nothing upfront.
+                    </p>
+                    
+                    <table class="fee-table">
+                        <thead>
+                            <tr>
+                                <th>Sale Price</th>
+                                <th>Service Fee</th>
+                                <th>Transfer Fee</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Up to GHS 499.99</td>
+                                <td class="highlight">3.5%</td>
+                                <td>GHS 0.40 – 0.80</td>
+                            </tr>
+                            <tr>
+                                <td>GHS 500 – 1,999.99</td>
+                                <td class="highlight">3%</td>
+                                <td>GHS 0.40</td>
+                            </tr>
+                            <tr>
+                                <td>GHS 2,000 and above</td>
+                                <td class="highlight">2.5%</td>
+                                <td>GHS 0.40</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p class="text-muted small text-center mt-2">Transfer fee is GHS 0.80 for sales at or below GHS 25.00, and GHS 0.40 for everything above.</p>
+
+                    <div class="tip-box mt-3">
+                        <i class="bi bi-lightbulb-fill me-1"></i> <strong>Pro Tip:</strong> Use the <strong>Marketing Toolkit</strong> to share your storefront on WhatsApp so students know what you're selling.
+                    </div>
+                </div>
+
+                <!-- STEP 2 -->
+                <div class="step-content" id="step-2">
+                    <div class="card-icon-wrapper bg-warning bg-opacity-10 text-warning">
+                        <i class="bi bi-bell-fill"></i>
+                    </div>
+                    <h4 class="fw-bold text-center mb-3">2. Get an Order</h4>
+                    <p class="text-center text-muted mb-4" style="line-height: 1.6;">
+                        When a buyer pays for your item, their money is held securely in <b>Escrow</b>. You'll receive an SMS instantly with their phone number.
+                    </p>
+                    <div class="tip-box" style="background: #eff6ff; border-color: #3b82f6; color: #1d4ed8;">
+                        <i class="bi bi-telephone-fill me-1"></i> <strong>Next Move:</strong> Call the buyer and agree on a time to meet at the campus landmark shown in your SMS. The day can be flexible, but the time window and location are fixed for everyone's safety.
+                    </div>
+                </div>
+
+                <!-- STEP 3 -->
+                <div class="step-content" id="step-3">
+                    <div class="card-icon-wrapper bg-dark text-white">
+                        <i class="bi bi-qr-code-scan"></i>
+                    </div>
+                    <h4 class="fw-bold text-center mb-3">3. Meet & Scan</h4>
+                    <p class="text-center text-muted mb-4" style="line-height: 1.6;">
+                        Meet the buyer at the agreed campus landmark. Let them inspect the item. If they're happy, open your dashboard and go to <b>P.O.D. / Withdrawals</b> to generate the QR code for that item. The buyer scans it, and confirms the transaction.
+                    </p>
+                    <div class="alert-box mt-4">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i> <strong>CRITICAL:</strong> The buyer <b>MUST</b> scan your QR code and confirm the transaction, as it is the only way to prove that the item was delivered, for the money to be released to your account, otherwise, the money stays in escrow and will not be released!
+                    </div>
+                </div>
+
+                <!-- STEP 4 -->
+                <div class="step-content" id="step-4">
+                    <div class="card-icon-wrapper bg-success bg-opacity-10 text-success">
+                        <i class="bi bi-wallet2"></i>
+                    </div>
+                    <h4 class="fw-bold text-center mb-3">4. Get Paid Instantly</h4>
+                    <p class="text-center text-muted mb-3" style="line-height: 1.6;">
+                        The moment the buyer confirms, the system releases your payout. The service fee and transfer fee are deducted automatically, and the rest is sent straight to your <b>Mobile Money</b> wallet.
+                    </p>
+                    <p class="text-center text-muted mb-3">
+                        You'll receive an SMS confirming the handover is complete and your money is on the way. Most payouts arrive within minutes.
+                    </p>
+                    <div class="text-center mt-auto">
+                        <i class="bi bi-stars text-warning fs-1"></i>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="nav-buttons" id="mobileNav">
+                <button class="btn btn-link text-muted text-decoration-none fw-bold px-0" id="mobilePrevBtn" onclick="changeStep(-1)" style="visibility: hidden;">
+                    <i class="bi bi-chevron-left me-1"></i> Back
+                </button>
+                <button class="btn btn-dark rounded-pill px-4 fw-bold shadow-sm" id="mobileNextBtn" onclick="changeStep(1)">
+                    Next Step <i class="bi bi-chevron-right ms-1"></i>
+                </button>
+            </div>
+
+            <div class="final-nav" id="finalNav">
+                <button class="btn btn-success rounded-pill px-5 fw-bold shadow-sm" onclick="window.location.href='/merchant_dashboard'">
+                    Finish &amp; Start Selling <i class="bi bi-check2-circle ms-1"></i>
+                </button>
+            </div>
+
+        </div>
+        
+        <div class="text-center mt-4">
+            <a href="/merchant_dashboard" class="text-decoration-none text-muted small">Skip tutorial &amp; go to Dashboard</a>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    let currentStep = 1;
+    const totalSteps = 4;
+    const isDesktop = () => window.innerWidth >= 992;
+
+    function updateUI() {
+        const prevFloating = document.getElementById('floatingPrev');
+        const nextFloating = document.getElementById('floatingNext');
+        const mobileNav    = document.getElementById('mobileNav');
+        const finalNav     = document.getElementById('finalNav');
+        const mobilePrev   = document.getElementById('mobilePrevBtn');
+        const mobileNext   = document.getElementById('mobileNextBtn');
+
+        const isFinal = currentStep === totalSteps;
+
+        if (isFinal) {
+            if (isDesktop()) {
+                prevFloating.style.display = 'none';
+                nextFloating.style.display = 'none';
+                mobileNav.style.display    = 'none';
+            } else {
+                mobileNav.style.display = 'none';
+            }
+            finalNav.style.display = 'flex';
+            return;
+        }
+
+        finalNav.style.display = 'none';
+
+        if (isDesktop()) {
+            mobileNav.style.display = 'none';
+            nextFloating.style.display = 'flex';
+            prevFloating.style.display    = 'flex';
+            prevFloating.style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+            nextFloating.querySelector('button, .floating-btn').className = 'floating-btn floating-btn-dark';
+        } else {
+            mobileNav.style.display    = 'flex';
+            prevFloating.style.display = 'none';
+            nextFloating.style.display = 'none';
+            mobilePrev.style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+            mobileNext.innerHTML = 'Next Step <i class="bi bi-chevron-right ms-1"></i>';
+            mobileNext.className = 'btn btn-dark rounded-pill px-4 fw-bold shadow-sm';
+            mobileNext.onclick = () => changeStep(1);
+        }
+    }
+
+    function changeStep(direction) {
+        document.getElementById(`step-${currentStep}`).classList.remove('active');
+        document.getElementById(`dot-${currentStep}`).classList.remove('active');
+        currentStep += direction;
+        document.getElementById(`step-${currentStep}`).classList.add('active');
+        document.getElementById(`dot-${currentStep}`).classList.add('active');
+        updateUI();
+    }
+
+    window.addEventListener('resize', updateUI);
+    updateUI();
+</script>
+{% endblock %}

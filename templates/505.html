@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Error | ProlyfiQ</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .error-shell {
+            width: 100%;
+            max-width: 440px;
+            text-align: center;
+        }
+
+        /* ── Icon ── */
+        .error-icon-wrap {
+            margin-bottom: 24px;
+        }
+
+        .error-icon-circle {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: #fff1f2;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 20px 40px rgba(239, 68, 68, 0.12);
+        }
+
+        .error-icon-circle i {
+            font-size: 2.5rem;
+            color: #ef4444;
+        }
+
+        /* ── Headline ── */
+        .error-headline h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+
+        .error-headline p {
+            font-size: 0.88rem;
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 28px;
+        }
+
+        /* ── Info Card ── */
+        .info-card {
+            background: #fff;
+            border: 1px solid #e8eaf0;
+            border-left: 4px solid #6366f1;
+            border-radius: 14px;
+            padding: 18px 20px;
+            text-align: left;
+            margin-bottom: 28px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .info-card .info-icon {
+            color: #6366f1;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .info-card p {
+            font-size: 0.82rem;
+            color: #64748b;
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        /* ── Actions ── */
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn-primary-action {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            background: #0f172a;
+            color: #fff;
+            border: none;
+            border-radius: 100px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-decoration: none;
+            text-align: center;
+            transition: background 0.2s, transform 0.15s;
+        }
+
+        .btn-primary-action:hover {
+            background: #1e293b;
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        .btn-outline-action {
+            display: block;
+            width: 100%;
+            padding: 13px;
+            background: transparent;
+            color: #64748b;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 100px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            text-decoration: none;
+            text-align: center;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .btn-outline-action:hover {
+            border-color: #0f172a;
+            color: #0f172a;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-shell">
+        
+        <!-- Icon -->
+        <div class="error-icon-wrap">
+            <div class="error-icon-circle">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+            </div>
+        </div>
+
+        <!-- Headline -->
+        <div class="error-headline">
+            <h1>Something Went Wrong</h1>
+            <p>We're experiencing a temporary technical issue. Our team has been notified and is working on it.</p>
+        </div>
+
+        <!-- Info Card -->
+        <div class="info-card">
+            <i class="bi bi-info-circle-fill info-icon"></i>
+            <p>This is usually resolved quickly. Try refreshing the page in a few moments. If the problem persists, reach out to our support team.</p>
+        </div>
+
+        <!-- Actions -->
+        <div class="actions">
+            <a href="/" class="btn-primary-action">
+                <i class="bi bi-house-door-fill me-2"></i>Return to Home
+            </a>
+            <a href="https://wa.me/233551681706" class="btn-outline-action">
+                <i class="bi bi-whatsapp me-2"></i>Contact Support
+            </a>
+        </div>
+
+    </div>
+</body>
+</html>

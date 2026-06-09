@@ -1,0 +1,787 @@
+{% extends "base.html" %}
+
+{% block title %}Student Marketplace | ProlyfiQ{% endblock %}
+
+{% block content %}
+
+<!-- NAVIGATION & HEADER -->
+<div class="mb-6">
+  <a href="javascript:history.back()" 
+    style="display: inline-flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 0.875rem; font-weight: bold; color: #64748b; text-decoration: none; transition: all 0.3s ease;"
+    class="hover:text-slate-900"
+    onmouseover="this.style.color='#0f172a'"
+    onmouseout="this.style.color='#64748b'"
+  >
+    <div style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background-color: #f1f5f9; transition: background-color 0.3s ease;">
+      <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        width="16" 
+        height="16" 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        stroke-width="3" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"
+        style="transition: transform 0.3s ease;"
+      >
+        <path d="m15 18-6-6 6-6"/>
+      </svg>
+    </div>
+    <span style="display: inline-block;">Back</span>
+  </a>
+</div>
+
+<div class="text-center mb-5">
+    <h3 class="fw-bold">Student Marketplace</h3>
+    <p class="text-muted small mx-auto" style="max-width: 500px;">
+        The privacy-first campus hub. <strong>No accounts required for buyers.</strong>
+        Only verified students can list items.
+    </p>
+</div>
+
+<!-- PREMIUM GOLD-TIER MERCHANT BANNER -->
+<div id="merchantBrandIndicator" class="d-none mb-5 mt-2">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="position-relative overflow-hidden shadow-lg" 
+                     style="background: linear-gradient(135deg, #0f172a 0%, #020617 100%); 
+                            border-radius: 24px; 
+                            border: 1px solid #b45309; 
+                            box-shadow: 0 10px 30px -10px rgba(180, 83, 9, 0.3) !important;">
+                    <div class="position-absolute top-0 end-0 opacity-10" style="transform: translate(20%, -20%);">
+                        <i class="bi bi-shield-shaded" style="font-size: 150px; color: #fbbf24;"></i>
+                    </div>
+                    <div class="card-body p-4 position-relative z-index-1">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm" 
+                                     style="width: 65px; height: 65px; 
+                                            background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); 
+                                            border: 4px solid rgba(255, 255, 255, 0.1);">
+                                    <i class="bi bi-award-fill text-black fs-3"></i>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <h4 class="fw-bold text-white mb-0 tracking-tight" id="activeMerchantName" style="letter-spacing: -0.5px;"></h4>
+                                    <div class="animate-pulse">
+                                        <span class="badge rounded-pill bg-warning text-black fw-bold" style="font-size: 0.65rem; padding: 0.35em 0.8em;">
+                                            <i class="bi bi-patch-check-fill me-1"></i> VERIFIED MERCHANT
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-3">
+                                    <p class="text-white-50 small mb-0 fw-medium">Official Storefront</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MERCHANT FILTER RESET -->
+<div id="merchantResetBar" class="container mb-4 d-none text-center">
+    <div class="alert bg-light border rounded-4 py-2 d-inline-block shadow-sm">
+        <span class="small text-muted me-2">Currently viewing items from one merchant.</span>
+        <button onclick="clearMerchantFilter()" class="btn btn-link btn-sm text-primary fw-bold text-decoration-none p-0">Show All Sellers</button>
+    </div>
+</div>
+
+<!-- CAMPUS SELECTOR -->
+<div class="container mb-4">
+    <div class="d-flex gap-2 overflow-auto pb-2 no-scrollbar" id="campusFilter">
+        <button class="btn btn-primary rounded-pill btn-sm px-4 fw-bold campus-btn" data-campus="all">All Campuses</button>
+        <button class="btn btn-outline-secondary rounded-pill btn-sm px-4 fw-bold campus-btn" data-campus="UCC">UCC</button>
+        <button class="btn btn-outline-secondary rounded-pill btn-sm px-4 fw-bold campus-btn" data-campus="UMaT - Essikado">UMaT - Essikado</button>
+        <button class="btn btn-outline-secondary rounded-pill btn-sm px-4 fw-bold campus-btn" data-campus="KNUST">KNUST</button>
+        <button class="btn btn-outline-secondary rounded-pill btn-sm px-4 fw-bold campus-btn" data-campus="UG Legon">UG Legon</button>
+    </div>
+</div>
+
+<!-- STRATEGIC ESCROW BANNER -->
+<div class="container mb-5">
+    <div class="card border-0 shadow-lg overflow-hidden" style="border-radius: 20px; background: linear-gradient(135deg, #1e3a8a 0%, #1e1b4b 100%);">
+        <div class="card-body p-4">
+            <div class="row align-items-center">
+                <div class="col-lg-7 text-white mb-3 mb-lg-0">
+                    <h5 class="fw-bold mb-1">Marketplace Escrow & Utilities</h5>
+                    <p class="small opacity-75 mb-0">Secure escrow-backed payments. Processed via <strong>Ledgehold escrow</strong> and <strong>Paystack</strong>.</p>
+                </div>
+                <div class="col-lg-5 text-lg-end">
+                    <a href="https://drive.google.com/file/d/1CAHkKmG6izhWAS5tRt0oPJ8r1FdOcMUY/view?usp=sharing" 
+                        target="_blank" 
+                        class="btn btn-warning btn-sm rounded-pill fw-bold px-4 py-2 shadow-sm transition-transform active:scale-95 text-decoration-none">
+                            <i class="bi bi-file-earmark-pdf"></i> How Escrow Protects You
+                        </a>
+                </div>
+            </div>
+        </div>
+        <div class="bg-primary py-1 text-center text-white" style="font-size: 0.6rem; letter-spacing: 2px; opacity: 0.5;">
+            Peer to Peer Trade
+        </div>
+    </div>
+</div>
+
+<!-- COMPACT VERIFICATION & PAYOUT SECTION -->
+<div class="container mt-5 mb-5">
+    <div class="row g-3">
+        <!-- SELLER VERIFICATION -->
+        <div class="col-md-6">
+            <div class="bg-white shadow-sm rounded-4 p-3 border h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-primary rounded-circle p-2 d-flex align-items-center justify-content-center text-white flex-shrink-0" style="width: 40px; height: 40px;">
+                        <i class="bi bi-person-plus-fill"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="mb-0 fw-bold text-dark small">Become a Merchant</p>
+                        <p class="mb-0 text-muted" style="font-size: 0.75rem;">Student ID verification</p>
+                    </div>
+                    <a href="/onboarding" class="btn btn-primary btn-sm rounded-pill fw-bold px-3 flex-shrink-0">
+                        Sign Up
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- PAYOUT REQUEST -->
+        <div class="col-md-6">
+            <div class="bg-white shadow-sm rounded-4 p-3 border h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-primary rounded-circle p-2 d-flex align-items-center justify-content-center text-white flex-shrink-0" style="width: 40px; height: 40px;">
+                        <i class="bi bi-box-arrow-in-right"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <p class="mb-0 fw-bold text-dark small">Merchant Dashboard</p>
+                        <p class="mb-0 text-muted" style="font-size: 0.75rem;">Manage your Store</p>
+                    </div>
+                    <a href="/merchant_dashboard" class="btn btn-primary btn-sm rounded-pill fw-bold px-3 flex-shrink-0">
+                        Sign In
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MARKETPLACE GRID (Dynamic Loading) -->
+<div class="row g-2 g-md-4 justify-content-start" id="marketplaceGrid">
+    <!-- Loading State -->
+    <div class="col-12 text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-3 text-muted small">Loading campus deals...</p>
+    </div>
+</div>
+
+<div class="text-center py-5" id="noFilteredItemsMessage" style="display: none;">
+    <div class="bg-white rounded-4 p-5 shadow-sm d-inline-block border" style="border-radius: 15px;">
+        <i class="bi bi-search text-muted display-4 mb-3 d-block"></i>
+        <h5 class="fw-bold">No items found</h5>
+        <p class="text-muted small">Try selecting a different campus or check back later.</p>
+        <button class="btn btn-outline-primary rounded-pill px-4 mt-2" onclick="resetFilter()">Show All Items</button>
+    </div>
+</div>
+
+<!-- CORPORATE FOOTER -->
+<div class="mt-5 pt-4 text-center pb-5 animate-in delay-400">
+    <p class="text-muted" style="font-size: 0.65rem; letter-spacing: 1.5px; font-weight: 700;">PAYMENTS PROCESSED via :</p>
+    <div class="opacity-50 grayscale d-flex justify-content-center gap-4 align-items-center mt-2">
+        <span class="fw-bold text-dark fs-5">LEDGEHOLD <span class="fw-bold text-primary fs-5">escrow</span></span>
+        <div style="height: 20px; width: 1px; background: #0f1112;"></div>
+        <div class="d-flex align-items-center gap-2">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Paystack_Logo.svg/500px-Paystack_Logo.svg.png" style="width: 100px; opacity: 0.6;">
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- FLOATING ACTION BUTTON (Bottom-Right)          -->
+<!-- ═══════════════════════════════════════════════ -->
+<div id="fabOverlay" onclick="collapseFab()" style="display: none; position: fixed; inset: 0; z-index: 1045; background: transparent;"></div>
+
+<div id="fabContainer" style="position: fixed; bottom: 90px; right: 22px; z-index: 1055; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none;">
+
+    <!-- Action Options (hidden by default) -->
+    <div id="fabOptions" style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px; opacity: 0; transform: translateY(12px); pointer-events: none; transition: opacity 0.22s ease, transform 0.22s ease;">
+
+        <!-- Back to Top -->
+        <div class="fab-option-row" onclick="fabScrollTop()">
+            <span class="fab-label">Back to Top</span>
+            <button class="fab-option-btn" aria-label="Back to top">
+                <i class="bi bi-arrow-up-short" style="font-size: 1.2rem;"></i>
+            </button>
+        </div>
+
+        <!-- Sign Up -->
+        <div class="fab-option-row" onclick="window.location.href='/onboarding'">
+            <span class="fab-label">Sign Up</span>
+            <button class="fab-option-btn fab-option-btn--primary" aria-label="Sign Up">
+                <i class="bi bi-person-plus-fill" style="font-size: 1rem;"></i>
+            </button>
+        </div>
+
+        <!-- Sign In -->
+        <div class="fab-option-row">
+            <span class="fab-label">Sign In</span>
+            <button class="fab-option-btn fab-option-btn--primary" aria-label="Sign In" onclick="window.location.href='/merchant_dashboard'">
+                <i class="bi bi-box-arrow-in-right" style="font-size: 1rem;"></i>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Main FAB Trigger -->
+    <button id="fabTrigger" onclick="toggleFab(event)" aria-label="Quick actions"
+    style="width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer;
+           background: #0f172a; color: #fff;
+           box-shadow: 0 6px 20px rgba(15,23,42,0.35);
+           display: flex; align-items: center; justify-content: center;
+           transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.2s ease;
+           pointer-events: auto;">
+        <i id="fabIcon" class="bi bi-chevron-up" style="font-size: 1.15rem; transition: transform 0.3s ease;"></i>
+    </button>
+</div>
+
+
+<!-- MODALS -->
+<!-- Location Restriction Modal -->
+<div class="modal fade" id="locationModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="rainbow-ring" id="rainbowRing">
+        <div class="modal-dialog modal-dialog-centered m-0">
+            <div class="modal-content border-0 overflow-hidden" id="locationModalContent">
+                <div class="modal-body p-5 text-center" id="locationModalBody">
+                    <div class="bg-warning-subtle text-warning rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 70px; height: 70px;">
+                        <i class="bi bi-exclamation-triangle-fill fs-1"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-3">Caution</h4>
+                    <div class="bg-light p-3 rounded-4 mb-4">
+                        <p class="small text-muted mb-0">
+                            Only purchase this item if you are a student of <span id="targetUniversity" class="fw-bold text-primary"></span> and available for pickup on campus.
+                        </p>
+                    </div>
+                    <div class="d-grid mt-4">
+                        <button type="button" id="understandBtn" class="btn btn-dark rounded-pill fw-bold py-3" onclick="proceedToCheckoutWithAnimation()">
+                            <span id="btnUnderstandText">I Understand</span>
+                            <span id="btnUnderstandSpinner" class="spinner-border spinner-border-sm d-none ms-2" role="status"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 3. Full Image Viewer Modal -->
+<div class="modal fade" id="imageViewerModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 bg-transparent shadow-none">
+            <div class="modal-header border-0 p-0 justify-content-end">
+                <button type="button" class="btn-close btn-close-white p-3" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 text-center">
+                <img id="viewerImage" src="" class="img-fluid rounded-4 shadow-lg" style="max-height: 85vh; object-fit: contain;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.hover-zoom { transition: transform 0.5s ease; }
+.card:hover .hover-zoom { transform: scale(1.1); }
+.animate-pulse { animation: subtlePulse 3s infinite; }
+@keyframes subtlePulse {
+    0% { transform: scale(1); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    50% { transform: scale(1.01); box-shadow: 0 5px 15px rgba(0,0,0,0.08); }
+    100% { transform: scale(1); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+}
+.bg-primary-subtle { background-color: #e0e7ff !important; }
+.bg-warning-subtle { background-color: #fffbeb !important; }
+.market-item { transition: all 0.3s ease; }
+.object-fit-cover { object-fit: cover; }
+.cursor-zoom-in { cursor: zoom-in; }
+
+/* COMPACT STOCK PILL DESIGN */
+.stock-badge-container {
+    position: relative;
+    bottom: 12px;
+    right: 5px;
+    z-index: 2;
+}
+.premium-stock-pill {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 4px 6px;
+    border-radius: 100px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+.stock-indicator-dot { width: 5px; height: 5px; border-radius: 50%; background-color: #10b981; }
+.stock-text { font-size: 0.5rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a; }
+.stock-warning .stock-indicator-dot { background-color: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+.stock-danger .stock-indicator-dot { background-color: #ef4444; box-shadow: 0 0 8px #ef4444; }
+.stock-danger .premium-stock-pill { background: rgba(254, 242, 242, 0.9); border-color: rgba(239, 68, 68, 0.2); }
+.stock-danger .stock-text { color: #b91c1c; }
+.stock-warning .premium-stock-pill { background: rgba(255, 251, 235, 0.9); border-color: rgba(245, 158, 11, 0.2); }
+.stock-warning .stock-text { color: #92400e; }
+
+/* HORIZONTAL SCROLL ENGINE */
+.horizontal-scroll-container {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 10px;
+    padding-left: 5px;
+    padding-right: 5px;
+    scrollbar-width: none;
+}
+.horizontal-scroll-container::-webkit-scrollbar { display: none; }
+.official-card {
+    display: inline-block;
+    width: 160px;
+    margin-right: 12px;
+    vertical-align: top;
+    white-space: normal;
+    border: 1px solid #e2e8f0;
+    transition: transform 0.2s;
+    cursor: pointer;
+}
+.official-card:hover { transform: translateY(-3px); border-color: #3b82f6; }
+.official-banner {
+    background: linear-gradient(90deg, #0f172a 0%, #1e40af 100%);
+    border-radius: 16px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 10px 25px -5px rgba(30, 64, 175, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ── FLOATING ACTION BUTTON ── */
+.fab-option-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+.fab-label {
+    background: #0f172a;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 100px;
+    white-space: nowrap;
+    box-shadow: 0 3px 10px rgba(15,23,42,0.25);
+    letter-spacing: 0.3px;
+}
+.fab-option-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    background: #fff;
+    color: #0f172a;
+    box-shadow: 0 4px 14px rgba(15,23,42,0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.18s ease, background 0.18s ease;
+}
+.fab-option-btn:hover { transform: scale(1.08); }
+.fab-option-btn--primary { background: #0d6efd; color: #fff; }
+.fab-option-btn--primary:hover { background: #0b5ed7; }
+
+#fabTrigger:hover { transform: scale(1.08); }
+#fabOptions.fab-open {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+    pointer-events: auto !important;
+}
+@property --angle {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+}
+
+@keyframes rotateBorder {
+    from { --angle: 0deg; }
+    to   { --angle: 360deg; }
+}
+
+
+.rainbow-ring.active {
+    background: conic-gradient(
+        from var(--angle),
+        #ff0000, #ff7700, #ffdd00,
+        #00ff00, #0000ff, #8f00ff, #ff0000
+    );
+}
+
+/* Reset Bootstrap's modal-dialog styles since rainbow-ring takes over layout */
+.rainbow-ring .modal-dialog {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    pointer-events: auto;
+}
+
+.modal-content {
+    border-radius: 17px !important;
+}
+/* Make Bootstrap center the rainbow-ring wrapper instead of modal-dialog */
+#locationModal {
+    visibility: hidden;
+}
+
+#locationModal.show {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    visibility: visible;
+}
+
+.rainbow-ring {
+    padding: 3px;
+    border-radius: 20px;
+    background: transparent;
+    animation: rotateBorder 1.5s linear infinite;
+    width: calc(100% - 32px);
+    max-width: 500px;
+    pointer-events: auto;
+    /* Remove margin: 0 auto — let the flex parent center it */
+    flex-shrink: 0;
+}
+</style>
+
+<script>
+let allItems = [];
+let currentItemData = null;
+const params = new URLSearchParams(window.location.search);
+const merchantFilter = params.get('merchant');
+
+const OFFICIAL_STORE_ID = "DataExpress Official";
+
+document.addEventListener('DOMContentLoaded', loadListings);
+
+/* ─── CLEAN MERCHANT NAME ─── */
+function cleanMerchantName(merchantName) {
+    if (!merchantName) return "Verified Merchant";
+    return merchantName.replace(/\s\d{4}$/, '').trim();
+}
+
+/* ─── FETCH LISTINGS ─── */
+async function loadListings() {
+    try {
+        const response = await fetch('/api/marketplace/listings');
+        const data = await response.json();
+        if (data.success) {
+            allItems = data.listings;
+            renderMarketplace();
+        } else {
+            console.error("Listing Fetch Failed:", data.error);
+            document.getElementById('marketplaceGrid').innerHTML = `
+                <div class="col-12 text-center py-5">
+                    <i class="bi bi-bag-x text-muted display-4 mb-3 d-block"></i>
+                    <h5 class="fw-bold">No items listed yet</h5>
+                    <p class="text-muted small">Be the first to list an item on your campus.</p>
+                    <a href="/onboarding" class="btn btn-primary rounded-pill px-4 mt-2">Sign Up</a>
+                </div>
+            `;
+        }
+    } catch (e) {
+        console.error("Network Error:", e);
+        document.getElementById('marketplaceGrid').innerHTML = `
+            <div class="col-12 text-center py-5">
+                <i class="bi bi-wifi-off text-muted display-4 mb-3 d-block"></i>
+                <h5 class="fw-bold">Connection Error</h5>
+                <button class="btn btn-outline-primary rounded-pill px-4 mt-2" onclick="loadListings()">Retry</button>
+            </div>
+        `;
+    }
+}
+
+/* ─── STOCK COMPONENT ─── */
+function generateStockComponent(stock) {
+    const s = parseInt(stock) || 0;
+    let stateClass = "";
+    let text = "In Stock";
+    if (s <= 0) { stateClass = "stock-danger"; text = "Sold Out"; }
+    else if (s <= 5) { stateClass = "stock-warning"; text = `Only ${s} Left`; }
+    else { text = `In Stock (${s})`; }
+    return `
+        <div class="stock-badge-container ${stateClass}">
+            <div class="premium-stock-pill shadow-sm">
+                <div class="stock-indicator-dot"></div>
+                <span class="stock-text">${text}</span>
+            </div>
+        </div>
+    `;
+}
+
+/* ─── RENDER MARKETPLACE ─── */
+function renderMarketplace(campus = 'all') {
+    const grid = document.getElementById('marketplaceGrid');
+    const noResults = document.getElementById('noFilteredItemsMessage');
+
+    let filtered = merchantFilter ? allItems.filter(i => i.merchantId === merchantFilter) : allItems;
+    if (campus !== 'all') filtered = filtered.filter(i => i.university === campus);
+    if (merchantFilter) applyBrandingUI(merchantFilter);
+
+    if (filtered.length === 0) {
+        grid.innerHTML = '';
+        noResults.style.display = 'block';
+        return;
+    }
+    noResults.style.display = 'none';
+
+    const officialItems  = filtered.filter(i => i.merchantId && i.merchantId.includes(OFFICIAL_STORE_ID));
+    const generalItems   = filtered.filter(i => !i.merchantId || !i.merchantId.includes(OFFICIAL_STORE_ID));
+    const shuffledGeneral = [...generalItems].sort(() => Math.random() - 0.5);
+    const isLaptop = window.innerWidth >= 992;
+    const sliceCount = isLaptop ? 8 : 6;
+
+    let html = '';
+    shuffledGeneral.slice(0, sliceCount).forEach(item => { html += buildCard(item); });
+
+    if (officialItems.length > 0 && !merchantFilter) {
+        html += `
+        <div class="col-12 my-4">
+            <div class="official-banner">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-white rounded-circle p-1 d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
+                            <i class="bi bi-patch-check-fill text-primary"></i>
+                        </div>
+                        <div>
+                            <h6 class="fw-bold text-white mb-0">Official Store</h6>
+                            <small class="text-white-50 x-small">ProlyfiQ - UMaT Essikado</small>
+                        </div>
+                    </div>
+                    <span class="badge bg-warning text-dark text-uppercase x-small">New</span>
+                </div>
+            </div>
+            <div class="horizontal-scroll-container">
+                ${officialItems.map(item => buildHorizontalCard(item)).join('')}
+            </div>
+            <div class="mt-3" style="border-top: 1px solid #e2e8f0; padding-top: 8px;">
+                <p class="text-center text-muted small mb-0" style="font-size: 0.7rem;">
+                    <i class="bi bi-arrow-left-right me-1"></i>Scroll horizontally to see more items
+                </p>
+            </div>
+        </div>
+        `;
+    }
+
+    shuffledGeneral.slice(sliceCount).forEach(item => { html += buildCard(item); });
+    grid.innerHTML = html;
+}
+
+/* ─── STANDARD VERTICAL CARD ─── */
+function buildCard(item) {
+    const stockHtml = generateStockComponent(item.stock);
+    const displaySeller = "Verified Student Merchant";
+    return `
+    <div class="col-6 col-md-4 col-lg-3">
+        <div class="card shadow-sm border-0 h-100 overflow-hidden position-relative market-item" style="border-radius: 15px; background: #fff;">
+            <div class="position-absolute top-0 end-0 m-2 z-3">
+                <span class="badge bg-primary rounded-pill" style="font-size: 0.65rem;">${item.university}</span>
+            </div>
+            <div class="ratio ratio-1x1 bg-light overflow-hidden cursor-zoom-in position-relative" onclick="viewFullImage('${item.imgUrl}')">
+                <img src="${item.imgUrl}" class="object-fit-cover hover-zoom" alt="${item.itemName}">
+                ${stockHtml}
+                <div><i class="bi bi-arrows-fullscreen"></i></div>
+            </div>
+            <div class="card-body p-2 p-md-3">
+                <div class="mb-1">
+                    <h6 class="fw-bold mb-0 text-truncate text-dark" style="font-size: 0.9rem;">${item.itemName}</h6>
+                    <span class="fw-bold text-primary" style="font-size: 0.85rem;">GHS ${item.price.toFixed(2)}</span>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <i class="bi bi-patch-check-fill text-info me-1" style="font-size: 0.7rem;"></i>
+                    <span class="text-muted text-truncate" style="font-size: 0.65rem; max-width: 85%;">${displaySeller}</span>
+                </div>
+                <div class="d-grid">
+                    <button class="btn btn-outline-dark btn-sm rounded-pill fw-bold py-1" 
+                            style="font-size: 0.75rem;"
+                            onclick='openPurchaseFlow(${JSON.stringify(item).replace(/'/g, "&apos;")})'>
+                        <span class="d-none d-md-inline"><i class="bi bi-cart-plus me-1"></i> View Details</span>
+                        <span class="d-md-none">View</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+}
+
+/* ─── HORIZONTAL SCROLL CARD (Official Store) ─── */
+function buildHorizontalCard(item) {
+    return `
+    <div class="official-card bg-white rounded-4 overflow-hidden position-relative" onclick='openPurchaseFlow(${JSON.stringify(item).replace(/'/g, "&apos;")})'>
+        <div class="ratio ratio-1x1 bg-light position-relative">
+            <img src="${item.imgUrl}" class="object-fit-cover" alt="${item.itemName}">
+            <div class="text-center">
+                <span class="text-white fw-bold x-small">GHS ${item.price.toFixed(2)}</span>
+            </div>
+        </div>
+        <div class="p-2">
+            <p class="fw-bold text-dark text-truncate mb-0 x-small">${item.itemName}</p>
+        </div>
+    </div>
+    `;
+}
+
+/* ─── PURCHASE FLOW ─── */
+/* Item detail modal removed — location caution modal still shown, then direct to checkout */
+function openPurchaseFlow(item) {
+    currentItemData = item;
+    if (item.university.includes('KNUST') || item.university.includes('UG') || item.university.includes('UCC') || item.university.includes('UMaT - Essikado')) {
+        document.getElementById('targetUniversity').innerText = item.university;
+        new bootstrap.Modal(document.getElementById('locationModal')).show();
+    } else {
+        goToCheckout(item);
+    }
+}
+
+let isProcessing = false;
+
+function proceedToCheckoutWithAnimation() {
+    if (isProcessing) return;
+    isProcessing = true;
+
+    const understandBtn = document.getElementById('understandBtn');
+    const btnText = document.getElementById('btnUnderstandText');
+    const btnSpinner = document.getElementById('btnUnderstandSpinner');
+    const rainbowRing = document.getElementById('rainbowRing'); // ← just get the element
+
+    btnText.classList.add('d-none');
+    btnSpinner.classList.remove('d-none');
+    understandBtn.disabled = true;
+    rainbowRing.classList.add('active'); // ← then call classList separately
+
+    const itemToCheckout = currentItemData;
+
+    setTimeout(() => {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('locationModal'));
+        if (modal) modal.hide();
+        goToCheckout(itemToCheckout);
+        setTimeout(() => resetModalState(), 500);
+    }, 800);
+}
+
+function resetModalState() {
+    const btnText = document.getElementById('btnUnderstandText');
+    const btnSpinner = document.getElementById('btnUnderstandSpinner');
+    const understandBtn = document.getElementById('understandBtn');
+    const rainbowRing = document.getElementById('rainbowRing'); // ← just get the element
+
+    btnText.classList.remove('d-none');
+    btnSpinner.classList.add('d-none');
+    understandBtn.disabled = false;
+    rainbowRing.classList.remove('active'); // ← then call classList separately
+    isProcessing = false;
+}
+
+// Also update the original proceedToCheckout for backward compatibility
+function proceedToCheckout() {
+    // This now calls the animated version
+    proceedToCheckoutWithAnimation();
+}
+
+function goToCheckout(item) {
+    window.location.href = `/item?id=${item.id}`;
+}
+
+/* ─── IMAGE VIEWER ─── */
+window.viewFullImage = function(url) {
+    document.getElementById('viewerImage').src = url;
+    new bootstrap.Modal(document.getElementById('imageViewerModal')).show();
+}
+
+/* ─── BRANDING UI ─── */
+function applyBrandingUI(merchant) {
+    document.getElementById('merchantBrandIndicator').classList.remove('d-none');
+    document.getElementById('activeMerchantName').innerText = cleanMerchantName(merchant);
+    document.getElementById('merchantResetBar').classList.remove('d-none');
+}
+
+function clearMerchantFilter() { window.location.href = '/marketplace'; }
+
+function resetFilter() {
+    document.querySelectorAll('.campus-btn').forEach(b => b.classList.replace('btn-primary', 'btn-outline-secondary'));
+    document.querySelector('[data-campus="all"]').classList.replace('btn-outline-secondary', 'btn-primary');
+    renderMarketplace('all');
+}
+
+document.querySelectorAll('.campus-btn').forEach(btn => {
+    btn.onclick = () => {
+        document.querySelectorAll('.campus-btn').forEach(b => b.classList.replace('btn-primary', 'btn-outline-secondary'));
+        btn.classList.replace('btn-outline-secondary', 'btn-primary');
+        renderMarketplace(btn.getAttribute('data-campus'));
+    };
+});
+
+if (merchantFilter) applyBrandingUI(merchantFilter);
+
+/* ══════════════════════════════════════════
+   FLOATING ACTION BUTTON LOGIC
+══════════════════════════════════════════ */
+let fabIsOpen = false;
+
+function toggleFab(e) {
+    e.stopPropagation();
+    fabIsOpen ? collapseFab() : expandFab();
+}
+
+function expandFab() {
+    fabIsOpen = true;
+    const container = document.getElementById('fabContainer');
+    const options   = document.getElementById('fabOptions');
+    const overlay   = document.getElementById('fabOverlay');
+    const icon      = document.getElementById('fabIcon');
+    const trigger   = document.getElementById('fabTrigger');
+
+    container.style.pointerEvents = 'auto';
+    options.classList.add('fab-open');
+    overlay.style.display = 'block';
+    icon.style.transform  = 'rotate(180deg)';
+    trigger.style.background = '#1e40af';
+}
+
+function collapseFab() {
+    fabIsOpen = false;
+    const container = document.getElementById('fabContainer');
+    const options   = document.getElementById('fabOptions');
+    const overlay   = document.getElementById('fabOverlay');
+    const icon      = document.getElementById('fabIcon');
+    const trigger   = document.getElementById('fabTrigger');
+
+    options.classList.remove('fab-open');
+    overlay.style.display = 'none';
+    icon.style.transform  = 'rotate(0deg)';
+    trigger.style.background = '#0f172a';
+    
+    /*Allow taps to pass through the container when closed*/
+    container.style.pointerEvents = 'none';
+}
+
+function fabScrollTop() {
+    collapseFab();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+
+{% endblock %}

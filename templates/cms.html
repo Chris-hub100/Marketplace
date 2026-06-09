@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}Merchant Onboarding | ProlyfiQ{% endblock %}
+
+{% block content %}
+<!-- Firebase Web SDKs (Compat Version for Secure Tools) -->
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+<script>
+  /**
+   * LEDGEHOLD SELF-ONBOARDING CONFIG
+   */
+  const firebaseConfig = JSON.parse('{{ __firebase_config | safe if __firebase_config else "{}" }}');
+  const appId = '{{ __app_id if __app_id else "ledgehold-ghana1" }}';
+  
+  let db = null;
+
+  // Initialize Firebase App
+  if (firebaseConfig && firebaseConfig.apiKey) { 
+      try {
+          if (!firebase.apps.length) {
+              firebase.initializeApp(firebaseConfig);
+          }
+          db = firebase.firestore(); 
+          console.log("Ledgehold System: Secure Onboarding Node Connected.");
+      } catch (initErr) {
+          console.error("Firebase Setup Failed:", initErr);
+      }
+  }
+
+  /**
+   * HELPER: PATH RESOLUTION
+   */
+  function getCol(name) {
+    if (!db) throw new Error("System initialization pending. Please refresh the page.");
+    return db.collection('artifacts').doc(appId).collection('public').doc('data').collection(name);
+  }
+
+  /**
+   * DPA COMPLIANT HASHING
+   */
+  async function hashPin(pin) {
+    const msgUint8 = new TextEncoder().encode(pin);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  /**
+   * UTILITY: COPY TO CLIPBOARD
+   */
+  window.copyToClipboard = function(text) {
+      const el = document.createElement('textarea');
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      
+      const copyBtn = document.getElementById('copyPinBtn');
+      if (copyBtn) {
+          copyBtn.innerHTML = '<i class="bi bi-check-all me-2"></i> PIN Copied!';
+          copyBtn.classList.replace('btn-outline-dark', 'btn-success');
+      }
+  };
+
+  /**
+   * PIN VISIBILITY TOGGLE
+   */
+  window.togglePinVisibility = function() {
+      const pinEl = document.getElementById('displayPin');
+      const icon = document.getElementById('toggleIcon');
+      const isHidden = pinEl.getAttribute('data-hidden') === 'true';
+      const actualPin = pinEl.getAttribute('data-pin');
+
+      if (isHidden) {
+          pinEl.innerText = actualPin;
+          pinEl.setAttribute('data-hidden', 'false');
+          icon.classList.replace('bi-eye-fill', 'bi-eye-slash-fill');
+      } else {
+          pinEl.innerText = '••••••';
+          pinEl.setAttribute('data-hidden', 'true');
+          icon.classList.replace('bi-eye-slash-fill', 'bi-eye-fill');
+      }
+  };
+
+  /**
+   * MERCHANT SELF-ONBOARDING
+   * SECURITY FEATURE: Only accepts Unique Merchant IDs approved by Admin.
+   */
+  async function selfOnboardMerchant() {
+    const nameInput = document.getElementById('mName');
+    const merchantId = nameInput.value.trim(); // This is now the Unique ID (Name + 4 digits)
+    const btn = document.getElementById('issueBtn');
+    const resultArea = document.getElementById('genResult');
+
+    if (!merchantId) {
+        alert("Please enter your Approved Merchant ID (sent via WhatsApp).");
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Verifying Approval...';
+    resultArea.innerHTML = ""; 
+
+    try {
+        if (!db) throw new Error("Infrastructure offline. Contact ProlyfiQ Support.");
+
+        // 1. Fetch the merchant document from the verified registry using Unique ID
+        const merchantRef = getCol('verified_merchants').doc(merchantId);
+        const docSnap = await merchantRef.get();
+
+        // 2. Security Validation
+        if (!docSnap.exists) {
+            throw new Error("Invalid Merchant ID. Please ensure you typed it exactly as received in the SMS sent to you (e.g., 'Kwadwo Nkansah 1234').");
+        }
+
+        const merchantData = docSnap.data();
+
+        // Check if Admin has approved them
+        if (!merchantData.isApproved) {
+            throw new Error("Your application is still under review. You will receive a WhatsApp notification once approved.");
+        }
+
+        // Check if they already have a PIN (Prevent Overwrite/Takeover)
+        if (merchantData.pin) {
+            throw new Error("This merchant ID has already been activated. If you forgot your PIN, please contact ProlyfiQ support.");
+        }
+
+        // 3. Generate random 6-digit PIN
+        const generatedPin = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        // 4. Hash the PIN for one-way storage
+        const secureHash = await hashPin(generatedPin);
+
+        // 5. Update the existing document with the PIN (Vault Activation)
+        await merchantRef.update({
+            pin: secureHash,
+            activated_at: firebase.firestore.FieldValue.serverTimestamp(),
+            setup_complete: true
+        });
+
+        // 6. Display Success & PIN
+        // FIX: Added 'color: #000000 !important' to force dark text
+        resultArea.innerHTML = `
+            <div class="mt-4 p-4 bg-white rounded-4 border border-success shadow-lg animate-in" style="animation: fadeInUp 0.5s ease-out;">
+                <div class="text-center mb-3">
+                    <div class="bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 40px; height: 40px;">
+                        <i class="bi bi-shield-lock-fill"></i>
+                    </div>
+                    <p class="small text-success mb-0 fw-bold text-uppercase" style="letter-spacing: 1px;">Account Activated</p>
+                </div>
+                
+                <p class="text-muted text-center small mb-1">Your Private Dashboard PIN:</p>
+                <div class="d-flex align-items-center justify-content-center gap-3 mb-3">
+                    <h1 id="displayPin" class="fw-bold mb-0" style="letter-spacing: 10px; font-family: monospace; color: #000000 !important;" data-pin="${generatedPin}" data-hidden="false">${generatedPin}</h1>
+                    <button class="btn btn-light btn-sm rounded-circle p-2" onclick="togglePinVisibility()">
+                        <i id="toggleIcon" class="bi bi-eye-slash-fill"></i>
+                    </button>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button id="copyPinBtn" onclick="copyToClipboard('${generatedPin}')" class="btn btn-outline-dark btn-sm rounded-pill fw-bold py-2">
+                        <i class="bi bi-clipboard me-2"></i> Copy My PIN
+                    </button>
+                    <button onclick="finishActivation()" class="btn btn-primary btn-sm rounded-pill fw-bold py-2 mt-2">
+                        Complete Activation
+                    </button>
+                </div>
+
+                <hr class="my-4">
+                
+                <div class="p-3 rounded-3 bg-warning-subtle border-start border-warning border-4">
+                    <p class="mb-0 text-dark fw-bold" style="font-size: 0.7rem;">SAVE THIS PIN IMMEDIATELY.</p>
+                    <p class="mb-0 text-muted mt-1" style="font-size: 0.65rem; line-height: 1.3;">
+                        This PIN cannot be recovered if lost. You will need it to login to your Merchant Dashboard.
+                    </p>
+                </div>
+            </div>
+        `;
+
+        nameInput.value = "";
+
+    } catch (e) { 
+        alert("Activation Error: " + e.message); 
+    } finally { 
+        btn.disabled = false; 
+        btn.innerHTML = 'Activate My Account';
+    }
+  }
+
+
+  window.finishActivation = () => {
+      const finishModal = new bootstrap.Modal(document.getElementById('onboardingFinishModal'));
+      finishModal.show();
+  };
+</script>
+
+<div class="container py-4">
+    <div class="row justify-content-center pb-5">
+        <div class="col-lg-10">
+            <div class="row g-4">
+                <!-- LEFT COLUMN: VAULT ACTIVATION -->
+                <div class="col-md-5">
+                    <div class="card border-0 shadow-lg rounded-4 p-4 bg-dark text-white mb-4" style="border-top: 4px solid #fbbf24 !important;">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h5 class="fw-bold mb-0">Account Activation</h5>
+                        </div>
+                        <p class="small opacity-75 mb-4">Approved merchants can activate their account and generate a security PIN.</p>
+                        
+                        <div class="mb-4">
+                            <!-- UPDATED LABEL AND PLACEHOLDER -->
+                            <label class="small fw-bold mb-2 opacity-75 text-uppercase">Approved Merchant ID</label>
+                            <input type="text" id="mName" class="form-control rounded-pill border-0 py-2 px-3 bg-secondary bg-opacity-25 text-white" placeholder="e.g. Kwadwo Nkansah 3863">
+                        </div>
+
+                        <button id="issueBtn" onclick="selfOnboardMerchant()" class="btn btn-warning w-100 rounded-pill fw-bold py-3 text-dark shadow">
+                            Activate My Account
+                        </button>
+
+                        <div id="genResult"></div>
+                    </div>
+                </div>
+
+                <!-- RIGHT COLUMN: GUIDELINES -->
+                <div class="col-md-7">
+                    <div class="card border-0 shadow-sm rounded-4 p-4 h-100 bg-white d-flex flex-column">
+                        <div class="d-flex align-items-center gap-3 mb-4">
+                            <div class="bg-primary-subtle p-3 rounded-circle">
+                                <i class="bi bi-person-lock text-primary fs-4"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold text-dark mb-0">Security Protocols</h6>
+                            </div>
+                        </div>
+                        
+                        <div class="p-4 bg-light rounded-4 border border-white mb-4">
+                            <h6 class="small fw-bold text-muted text-uppercase mb-3" style="letter-spacing: 1px;">The Process</h6>
+                            <ol class="small text-muted ps-3 mb-0" style="line-height: 1.8;">
+                               <li class="mb-2"><strong>Identity Sovereignty:</strong> Only you hold the PIN.</li>
+                               <li><strong>Fraud Prevention:</strong> Identity verification is required for all payouts.</li>
+                            </ol>
+                        </div>
+
+                        <div class="mt-auto">
+                            <div class="card border-0 rounded-4 p-4 bg-dark text-white shadow-lg overflow-hidden position-relative">
+                                <i class="bi bi-patch-check position-absolute bottom-0 end-0 opacity-10" style="font-size: 8rem; transform: translate(20%, 20%);"></i>
+                                <div class="position-relative">
+                                    <h6 class="fw-bold mb-3 text-warning">Already Activated?</h6>
+                                    <p class="small opacity-75 mb-4">If you already have your PIN, proceed directly to the portal.</p>
+                                    <div class="col-6">
+                                        <a href="/merchant_dashboard" class="btn btn-outline-light btn-sm w-100 rounded-pill fw-bold">Login Portal</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SUCCESS MODAL -->
+<div class="modal fade" id="onboardingFinishModal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 30px;">
+            <div class="modal-body p-5 text-center">
+                <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px;">
+                    <i class="bi bi-box-arrow-in-right fs-1"></i>
+                </div>
+                <h4 class="fw-bold text-dark">Setup Complete!</h4>
+                <p class="text-secondary small mb-4">
+                    Your merchant account is now active. You can now login to your merchant dashboard and begin your operations.
+                </p>
+                <div class="d-grid">
+                    <a href="/merchant_dashboard" class="btn btn-dark rounded-pill fw-bold py-3">Login to Portal</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .bg-primary-subtle { background-color: #e0e7ff !important; }
+    .bg-warning-subtle { background-color: #fffbeb !important; }
+    .form-control:focus { border-color: #fbbf24; box-shadow: 0 0 0 0.25rem rgba(251, 191, 36, 0.2); }
+</style>
+{% endblock %}

@@ -1,0 +1,524 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory Management | ProlyfiQ{% endblock %}
+
+{% block content %}
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+
+<script>
+    /** * LEDGEHOLD ENTERPRISE CONFIG & INITIALIZATION */
+    const __app_id = '{{ __app_id if __app_id else "ledgehold-ghana1" }}';
+    const __firebase_config = '{{ __firebase_config | safe if __firebase_config else "{}" }}';
+    
+    // Initialize Firebase Compat
+    const config = JSON.parse(__firebase_config);
+    if (!firebase.apps.length) firebase.initializeApp(config);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    // Session Management
+    let currentMerchant = localStorage.getItem('ledgehold_merchant_name');
+    let merchantUniversity = "Verified Merchant"; // Fallback text for the badge
+    let inventoryData = [];
+    let logoutTimer, warningTimer, countdownInterval;
+    const SESSION_TIMEOUT = 240000; // 4 Minutes
+    const WARNING_THRESHOLD = 230000;
+
+    /**
+     * REDIRECT LOGIC: Redirect to dashboard if session is dead
+     */
+    function checkAuth() {
+        const lastActive = localStorage.getItem('ledgehold_last_active');
+        const now = Date.now();
+        
+        if (!currentMerchant || !lastActive || (now - lastActive > SESSION_TIMEOUT)) {
+            console.log("Session invalid or expired. Redirecting to Dashboard...");
+            window.location.href = '/merchant_dashboard';
+            return false;
+        }
+        return true;
+    }
+
+    function resetTimers() {
+        if (!currentMerchant) return;
+        clearTimeout(logoutTimer);
+        clearTimeout(warningTimer); 
+        clearInterval(countdownInterval);
+        localStorage.setItem('ledgehold_last_active', Date.now());
+        warningTimer = setTimeout(showWarning, WARNING_THRESHOLD);
+        logoutTimer = setTimeout(handleLogout, SESSION_TIMEOUT);
+    }
+
+    function showWarning() {
+        const el = document.getElementById('logoutWarningModal');
+        const modal = new bootstrap.Modal(el);
+        modal.show();
+        let val = 10;
+        document.getElementById('logoutCountdown').innerText = val;
+        countdownInterval = setInterval(() => {
+            val--;
+            document.getElementById('logoutCountdown').innerText = val;
+            if (val <= 0) {
+                clearInterval(countdownInterval);
+                handleLogout();
+            }
+        }, 1000);
+    }
+
+    window.staySignedIn = function() {
+        const el = document.getElementById('logoutWarningModal');
+        const modal = bootstrap.Modal.getInstance(el);
+        if (modal) modal.hide();
+        resetTimers();
+    }
+
+    window.handleLogout = function() {
+        localStorage.removeItem('ledgehold_merchant_name');
+        localStorage.removeItem('ledgehold_last_active');
+        window.location.href = '/merchant_dashboard'; 
+    }
+
+    /**
+     * FETCH MERCHANT PROFILE & ANIMATE BADGE
+     */
+    async function initMerchantProfile() {
+        if (!currentMerchant) return;
+        
+        try {
+            const docRef = db.collection('artifacts').doc(__app_id)
+                             .collection('public').doc('data')
+                             .collection('verified_merchants').doc(currentMerchant);
+            
+            const docSnap = await docRef.get();
+            
+            if (docSnap.exists) {
+                merchantUniversity = docSnap.data().university || "Verified Merchant";
+            }
+            
+            // Start badge animation
+            setTimeout(() => {
+                animateMerchantBadge(currentMerchant, merchantUniversity);
+            }, 300);
+
+        } catch (error) {
+            console.error("Failed to fetch merchant details:", error);
+            animateMerchantBadge(currentMerchant, "Verified Merchant");
+        }
+    }
+
+    /**
+     * STANDARDIZED MERCHANT BADGE ANIMATION
+     */
+    function animateMerchantBadge(name, campus) {
+        const badge = document.getElementById('merchantBadge');
+        const syncText = document.getElementById('syncText');
+        if (!badge) return;
+        
+        if (syncText) syncText.classList.add('sync-text-fade');
+        
+        setTimeout(() => {
+            badge.style.transition = 'all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
+            badge.style.top = '0';
+            
+            setTimeout(() => {
+                badge.style.transition = 'all 0.15s ease-out';
+                badge.style.top = '-5px';
+                
+                setTimeout(() => {
+                    badge.style.transition = 'all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
+                    badge.style.top = '0';
+                    badge.style.width = 'auto';
+                    badge.style.height = 'auto';
+                    badge.style.padding = '8px 16px 8px 8px';
+                    badge.style.borderRadius = '50px';
+                    badge.style.backgroundColor = '#fff';
+                    badge.style.border = '1px solid #e2e8f0';
+                    badge.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                    badge.style.display = 'flex';
+                    badge.style.alignItems = 'center';
+                    badge.style.gap = '12px';
+                    
+                    const textContainer = document.createElement('div');
+                    textContainer.className = 'text-start';
+                    textContainer.innerHTML = `
+                        <p class="mb-0 fw-bold text-dark x-small">${name}</p>
+                        <p class="mb-0 text-muted" style="font-size: 0.6rem;">${campus}</p>
+                    `;
+                    
+                    setTimeout(() => {
+                        textContainer.style.opacity = '0';
+                        textContainer.style.transform = 'translateX(-10px)';
+                        textContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        badge.appendChild(textContainer);
+                        
+                        setTimeout(() => {
+                            textContainer.style.opacity = '1';
+                            textContainer.style.transform = 'translateX(0)';
+                            if (syncText) syncText.classList.remove('sync-text-fade');
+                        }, 50);
+                    }, 200);
+                }, 150);
+            }, 300);
+        }, 100);
+    }
+
+    /**
+     * INVENTORY FETCHING LOGIC
+     */
+    function startInventoryListener() {
+        if (!currentMerchant) return;
+
+        const colRef = db.collection('artifacts').doc(__app_id)
+                         .collection('public').doc('data')
+                         .collection('market_listings');
+        
+        console.log("Syncing with Marketplace Silo:", colRef.path);
+
+        colRef.onSnapshot((snap) => {
+            const loadingEl = document.getElementById('loadingState');
+            if (loadingEl) loadingEl.classList.add('d-none');
+            
+            inventoryData = [];
+            const target = currentMerchant.trim().toLowerCase();
+
+            snap.forEach(doc => {
+                const data = doc.data();
+                const dbOwner = (
+                    data.merchantId || 
+                    data.fullName || 
+                    data.merchantName || 
+                    data.seller || 
+                    data.merchant || 
+                    data.owner || 
+                    ""
+                ).toString().trim().toLowerCase();
+
+                if (dbOwner === target && target !== "") {
+                    inventoryData.push({ id: doc.id, ...data });
+                }
+            });
+
+            console.log(`Verified matches for dashboard view: ${inventoryData.length}`);
+            renderInventory(inventoryData);
+        }, (err) => {
+            console.error("Ledgehold Ledger Sync Error:", err);
+            const loadingEl = document.getElementById('loadingState');
+            if (loadingEl) {
+                loadingEl.innerHTML = `
+                    <div class="alert alert-danger rounded-4 border-0 small shadow-sm mx-auto" style="max-width: 400px;">
+                        <i class="bi bi-shield-exclamation me-2"></i> Security Access Error: ${err.message}
+                    </div>`;
+            }
+        });
+    }
+
+    function renderInventory(items) {
+        const list = document.getElementById('inventoryList');
+        const empty = document.getElementById('emptyInventory');
+        const section = document.getElementById('inventorySection');
+        
+        if (section) section.classList.remove('d-none');
+        if (list) list.innerHTML = '';
+        
+        if (items.length === 0) {
+            if (empty) empty.classList.remove('d-none');
+            return;
+        }
+        if (empty) empty.classList.add('d-none');
+
+        items.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.className = "hover-lift-sm border-bottom border-light";
+            
+            const price = parseFloat(item.price || 0);
+            const stock = parseInt(item.stock || 0);
+            const statusLabel = item.status === 'active' ? 'Listed' : (item.status || 'Pending');
+            const statusClass = item.status === 'active' ? 'bg-success' : 'bg-warning';
+
+            tr.innerHTML = `
+                <td class="ps-4 py-4">
+                    <div class="fw-bold text-dark">${item.itemName || 'Unnamed Item'}</div>
+                    <div class="d-flex align-items-center gap-2 mt-1">
+                        <span class="badge ${statusClass} rounded-pill p-1" style="width: 6px; height: 6px;"></span>
+                        <span class="text-muted x-small text-uppercase fw-bold" style="font-size: 0.6rem; letter-spacing: 0.5px;">${statusLabel} • REF ID: ${item.id.substring(0,8)}</span>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge ${stock > 5 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'} rounded-pill px-3 fw-bold border border-success border-opacity-10">
+                        ${stock} Units
+                    </span>
+                </td>
+                <td class="fw-bold text-dark text-nowrap">₵${price.toFixed(2)}</td>
+                <td class="pe-4 text-end">
+                    <div class="btn-group shadow-sm rounded-pill overflow-hidden bg-white border">
+                        <button class="btn btn-white btn-sm border-0 px-3 py-2 text-primary" onclick="openEdit('${item.id}')" title="Edit Item">
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                        <button class="btn btn-white btn-sm border-0 border-start px-3 py-2 text-danger" onclick="removeItem('${item.id}')" title="Remove Item">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            list.appendChild(tr);
+        });
+    }
+
+    /**
+     * CRUD ACTIONS 
+     */
+    window.openEdit = function(id) {
+        const item = inventoryData.find(i => i.id === id);
+        if (!item) return;
+        document.getElementById('editItemId').value = item.id;
+        document.getElementById('editItemName').value = item.itemName || '';
+        document.getElementById('editItemPrice').value = item.price;
+        document.getElementById('editItemStock').value = item.stock;
+        document.getElementById('editItemDesc').value = item.description || '';
+        new bootstrap.Modal(document.getElementById('editItemModal')).show();
+    };
+
+    window.commitChanges = async function() {
+        const id = document.getElementById('editItemId').value;
+        const btn = document.getElementById('commitBtn');
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Updating Ledger...`;
+
+        try {
+            const response = await fetch('/api/listings/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    merchantId: currentMerchant,
+                    listingId: id,
+                    itemName: document.getElementById('editItemName').value.trim(),
+                    price: Number(document.getElementById('editItemPrice').value),
+                    stock: Number(document.getElementById('editItemStock').value),
+                    description: document.getElementById('editItemDesc').value.trim()
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                bootstrap.Modal.getInstance(document.getElementById('editItemModal')).hide();
+            } else {
+                throw new Error(result.error || 'Update failed.');
+            }
+        } catch (e) {
+            console.error("Ledger Update Error:", e);
+            alert('Failed to update listing: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Commit Changes";
+        }
+    };
+
+    window.removeItem = async function(id) {
+        if (!confirm("Remove this item from the active marketplace?")) return;
+        
+        try {
+            const response = await fetch('/api/listings/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    merchantId: currentMerchant,
+                    listingId: id
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Delete failed.');
+            }
+        } catch (e) {
+            console.error("Neutralization Error:", e);
+            alert('Failed to remove listing: ' + e.message);
+        }
+    };
+
+    window.filterInventory = function() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const filtered = inventoryData.filter(i => (i.itemName || '').toLowerCase().includes(query));
+        renderInventory(filtered);
+    };
+
+    // Monitor for interactions
+    ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
+        window.addEventListener(evt, resetTimers, true);
+    });
+
+    // Start Up
+    window.addEventListener('DOMContentLoaded', () => {
+        if (checkAuth()) {
+            auth.signInAnonymously().then(() => {
+                initMerchantProfile();
+                startInventoryListener();
+                resetTimers();
+            }).catch(err => {
+                console.error("Auth Protocol Failed:", err);
+            });
+        }
+    });
+</script>
+
+<div class="container py-4" style="min-height: 80vh;">
+    <div id="inventorySection" class="d-none animate-in fade-in duration-500">
+        
+        <div class="mb-4">
+            <a href="/merchant_dashboard" 
+              style="display: inline-flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 0.875rem; font-weight: bold; color: #64748b; text-decoration: none; transition: all 0.3s ease;"
+              class="hover:text-slate-900"
+            >
+              <div style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background-color: #f1f5f9;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m15 18-6-6 6-6"/>
+                </svg>
+              </div>
+              <span>Dashboard</span>
+            </a>
+        </div>
+
+        <div class="text-center mb-5 pb-3 border-bottom">
+            <h3 class="fw-bold text-dark">Marketplace Inventory</h3>
+            <p class="text-muted small" id="syncText">Manage and track your active product listings.</p>
+            
+            <div class="merchant-badge-animation-wrapper" style="position: relative; height: 70px; margin-top: 10px;">
+                <div id="merchantBadge" class="merchant-badge-animating" style="position: absolute; top: -40px; left: 50%; transform: translateX(-50%); width: 35px; height: 35px; border-radius: 50%; background-color: #0d6efd; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); z-index: 20;">
+                    <i class="bi bi-box-seam text-white"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4 justify-content-center">
+            <div class="col-md-8">
+                <div class="input-group shadow-sm rounded-pill overflow-hidden bg-white border">
+                    <span class="input-group-text bg-white border-0 ps-3"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" id="searchInput" class="form-control border-0 py-2 shadow-none" placeholder="Search your catalog..." onkeyup="filterInventory()">
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-lg rounded-4 overflow-hidden bg-white">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-muted small text-uppercase fw-bold" style="letter-spacing: 0.5px;">
+                        <tr>
+                            <th class="ps-4 py-3">Listing Details</th>
+                            <th class="py-3">Stock</th>
+                            <th class="py-3">Unit Price</th>
+                            <th class="pe-4 py-3 text-end">Management</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryList">
+                        </tbody>
+                </table>
+            </div>
+            
+            <div id="emptyInventory" class="text-center py-5 d-none">
+                <div class="py-5">
+                    <div class="bg-light d-inline-flex p-4 rounded-circle mb-4">
+                        <i class="bi bi-box-seam display-4 text-muted opacity-50"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark">Inventory Empty</h5>
+                    <p class="text-muted small mb-4">No active listings linked to your merchant identity were found in the silo.</p>
+                    <a href="/list_item" class="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow hover-scale">
+                        <i class="bi bi-plus-circle me-2"></i> Create First Listing
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingState" class="text-center py-5 mt-5">
+        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="text-muted mt-3 fw-bold">Loading...</p>
+    </div>
+</div>
+
+<div class="modal fade" id="editItemModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 bg-light p-4">
+                <h5 class="fw-bold text-dark mb-0">Edit Marketplace Listing</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="editItemId">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted">LISTING NAME</label>
+                    <input type="text" id="editItemName" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" required>
+                </div>
+                <div class="row mb-3 g-3">
+                    <div class="col-6">
+                        <label class="form-label small fw-bold text-muted">PRICE (GHS)</label>
+                        <input type="number" step="0.01" id="editItemPrice" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" required>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-bold text-muted">STOCK LEVEL</label>
+                        <input type="number" id="editItemStock" class="form-control rounded-pill border-light bg-light py-2 px-4 shadow-none" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label small fw-bold text-muted">DESCRIPTION</label>
+                    <textarea id="editItemDesc" class="form-control rounded-4 border-light bg-light py-2 px-4 shadow-none" rows="3"></textarea>
+                </div>
+                <button onclick="commitChanges()" id="commitBtn" class="btn btn-dark w-100 rounded-pill py-3 fw-bold shadow">
+                    Commit Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="logoutWarningModal" tabindex="-1" data-bs-backdrop="static" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden text-center">
+            <div class="modal-body p-4">
+                <div class="bg-warning-subtle text-warning rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                    <i class="bi bi-hourglass-split fs-2"></i>
+                </div>
+                <h5 class="fw-bold text-dark">Session Alert</h5>
+                <p class="text-muted small mb-4">Marketplace access will expire in <span id="logoutCountdown" class="fw-bold text-danger">10</span> seconds.</p>
+                <div class="d-grid gap-2">
+                    <button type="button" onclick="staySignedIn()" class="btn btn-dark rounded-pill fw-bold">Stay Logged In</button>
+                    <button type="button" onclick="handleLogout()" class="btn btn-link text-muted text-decoration-none small">End Session</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    body { background-color: #f8fafc; }
+    .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .hover-lift-sm { transition: transform 0.2s ease, background-color 0.2s ease; }
+    .hover-lift-sm:hover { transform: translateY(-2px); background-color: #f1f5f9; }
+    .bg-warning-subtle { background-color: #fef3c7 !important; }
+    .bg-success-subtle { background-color: #dcfce7 !important; }
+    .bg-danger-subtle { background-color: #fee2e2 !important; }
+    .btn-white:hover { background-color: #f8fafc; }
+    .hover-scale { transition: transform 0.2s ease; }
+    .hover-scale:hover { transform: scale(1.02); }
+    .x-small { font-size: 0.75rem; }
+
+    /* Merchant Badge Styles */
+    .merchant-badge-animation-wrapper {
+        min-height: 70px;
+        overflow: visible !important;
+        margin-bottom: 10px;
+    }
+    .sync-text-fade { animation: syncTextFade 1.2s ease-in-out; }
+    @keyframes syncTextFade {
+        0%, 40% { opacity: 1; }
+        50% { opacity: 0.3; transform: translateY(-2px); }
+        60%, 100% { opacity: 1; transform: translateY(0); }
+    }
+</style>
+{% endblock %}

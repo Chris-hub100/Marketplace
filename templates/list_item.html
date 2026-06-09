@@ -1,0 +1,1253 @@
+{% extends "base.html" %}
+
+{% block title %}List New Item | ProlyfiQ{% endblock %}
+
+{% block content %}
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+<script>
+    var __app_id = '{{ __app_id if __app_id else "ledgehold-ghana1" }}';
+    var __firebase_config = '{{ __firebase_config | safe if __firebase_config else "{}" }}';
+    
+    const CLOUD_NAME = 'dze9o4ymx';
+    const UPLOAD_PRESET = 'ledgehold_uploads';
+
+    const config = JSON.parse(__firebase_config);
+    if (!firebase.apps.length) firebase.initializeApp(config);
+    const db = firebase.firestore();
+</script>
+
+<div class="mb-6">
+    <a href="/merchant_dashboard" 
+      style="display: inline-flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 0.875rem; font-weight: bold; color: #64748b; text-decoration: none; transition: all 0.3s ease;"
+      class="hover:text-slate-900"
+    >
+      <div style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background-color: #f1f5f9;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 18-6-6 6-6"/>
+        </svg>
+      </div>
+      <span>Dashboard</span>
+    </a>
+</div>
+
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <div id="errorBox" class="alert alert-danger d-none rounded-4 border-0 shadow-sm mb-4"></div>
+
+            <div class="text-center mb-5">
+                <h3 class="fw-bold text-dark">Create New Listing</h3>
+                <p class="text-muted small" id="syncText">Synchronized with your verified merchant profile.</p>
+                
+                <div class="merchant-badge-animation-wrapper" style="position: relative; height: 70px; margin-top: 10px;">
+                    <div id="merchantBadge" class="merchant-badge-animating" style="position: absolute; top: -40px; left: 50%; transform: translateX(-50%); width: 35px; height: 35px; border-radius: 50%; background-color: #0d6efd; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); z-index: 20;">
+                        <i class="bi bi-person-check-fill text-white"></i>
+                    </div>
+                </div>
+            </div>
+
+            <form id="listItemForm" onsubmit="handleItemSubmission(event)">
+
+                <!-- ══════════════════════════════════════════════════════════ -->
+                <!-- VARIATIONS TOGGLE CARD (always at top of form)           -->
+                <!-- ══════════════════════════════════════════════════════════ -->
+                <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 bg-white" id="variationsToggleCard" style="border-left: 5px solid #818cf8 !important;">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#818cf8);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                <i class="bi bi-diagram-3-fill text-white" style="font-size:1rem;"></i>
+                            </div>
+                            <div>
+                                <p class="fw-bold mb-0 text-dark" style="font-size:0.9rem;">This item has variations</p>
+                                <p class="text-muted mb-0" style="font-size:0.72rem;">Different sizes, storage, colours, etc. with unique prices or photos.</p>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <!-- Help button — only visible when toggle is ON -->
+                            <button type="button" id="variationsHelpBtn" class="btn btn-sm rounded-pill d-none"
+                                style="background:#eef2ff;color:#4f46e5;border:none;font-size:0.72rem;font-weight:700;padding:4px 12px;letter-spacing:0.03em;"
+                                onclick="openVariationsHelpModal()">
+                                <i class="bi bi-question-circle me-1"></i> Help
+                            </button>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="variationsMainToggle"
+                                    style="width:2.5em;height:1.3em;cursor:pointer;"
+                                    onchange="toggleVariationsMode()">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Expanded variations panel -->
+                    <div id="variationsPanelBody" class="d-none mt-4">
+                        <hr class="mb-4" style="border-color:#e2e8f0;">
+
+                        <!-- Type selector -->
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted mb-2">What kind of variations does this item have?</label>
+                            <div class="d-flex flex-wrap gap-2" id="variationTypeButtons">
+                                <button type="button" class="variation-type-btn active" data-type="storage" onclick="selectVariationType(this,'storage')">
+                                    <i class="bi bi-device-ssd me-1"></i> Storage / Size
+                                </button>
+                                <button type="button" class="variation-type-btn" data-type="color" onclick="selectVariationType(this,'color')">
+                                    <i class="bi bi-palette me-1"></i> Colour
+                                </button>
+                                <button type="button" class="variation-type-btn" data-type="model" onclick="selectVariationType(this,'model')">
+                                    <i class="bi bi-box me-1"></i> Model / Version
+                                </button>
+                                <button type="button" class="variation-type-btn" data-type="custom" onclick="selectVariationType(this,'custom')">
+                                    <i class="bi bi-sliders me-1"></i> Custom
+                                </button>
+                            </div>
+                            <!-- Custom label input -->
+                            <div id="customVariationLabelWrap" class="d-none mt-3">
+                                <input type="text" id="customVariationLabel" class="form-control rounded-pill border-light bg-light py-2 px-3"
+                                    placeholder="e.g. Material, Warranty Tier…" style="font-size:0.85rem;">
+                            </div>
+                        </div>
+
+                        <!-- Add variation entry row -->
+                        <label class="form-label small fw-bold text-muted mb-2">Add each variation</label>
+                        <div class="card border-0 rounded-4 p-3 mb-3" style="background:#f8fafc;border:1.5px dashed #cbd5e1 !important;">
+                            <div class="row g-2 align-items-end mb-2">
+                                <div class="col-12 col-sm-5">
+                                    <label class="x-small text-muted fw-bold mb-1 d-block">Label <span class="text-danger">*</span></label>
+                                    <input type="text" id="varLabel" class="form-control rounded-pill border-light bg-white py-2 px-3" placeholder="e.g. 128GB, Midnight Blue…" style="font-size:0.85rem;">
+                                </div>
+                                <div class="col-12 col-sm-4">
+                                    <label class="x-small text-muted fw-bold mb-1 d-block">Price (GHS) <span class="text-danger">*</span></label>
+                                    <input type="number" id="varPrice" step="0.01" class="form-control rounded-pill border-light bg-white py-2 px-3" placeholder="0.00" style="font-size:0.85rem;">
+                                </div>
+                                <div class="col-12 col-sm-3">
+                                    <button type="button" onclick="addVariation()" class="btn btn-primary rounded-pill fw-bold w-100" style="font-size:0.8rem;padding:0.5rem;">
+                                        <i class="bi bi-plus-lg me-1"></i> Add
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- Optional per-variation description -->
+                            <div class="mb-2">
+                                <label class="x-small text-muted fw-bold mb-1 d-block">Description for this variation <span class="text-muted fw-normal">(optional)</span></label>
+                                <textarea id="varDescription" class="form-control rounded-4 border-light bg-white p-2" rows="2"
+                                    placeholder="Any specs or condition notes unique to this variation…"
+                                    style="font-size:0.82rem;resize:none;"></textarea>
+                            </div>
+                            <!-- Per-variation image strip -->
+                            <div>
+                                <label class="x-small text-muted fw-bold mb-1 d-block">Photos for this variation <span class="text-muted fw-normal">(optional)</span></label>
+                                <div class="d-flex flex-wrap align-items-center gap-2" id="varImageStripPreview">
+                                    <button type="button" onclick="openVariationImagePicker()"
+                                        class="d-flex flex-column align-items-center justify-content-center border rounded-3 text-secondary"
+                                        style="width:64px;height:64px;background:#fff;border-style:dashed!important;border-color:#cbd5e1;font-size:0.6rem;font-weight:700;gap:3px;cursor:pointer;">
+                                        <i class="bi bi-camera-fill" style="font-size:1rem;"></i> PHOTO
+                                    </button>
+                                </div>
+                                <input type="file" id="varImageInput" accept="image/*" multiple class="d-none" onchange="ingestVariationImages(this)">
+                            </div>
+                        </div>
+
+                        <!-- Variation cards list -->
+                        <div id="variationsList" class="d-flex flex-column gap-3 mb-2"></div>
+
+                        <p class="x-small text-muted mt-2 mb-0">
+                            <i class="bi bi-info-circle me-1 text-primary"></i>
+                            The item name, stock level, and logistics details below apply to the whole listing.
+                        </p>
+                    </div>
+                </div>
+                <!-- END VARIATIONS TOGGLE CARD -->
+
+
+                <!-- ══════════════════════════════════════════════════════════ -->
+                <!-- PRODUCT DETAILS CARD                                     -->
+                <!-- ══════════════════════════════════════════════════════════ -->
+                <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 bg-white border">
+                    <h6 class="fw-bold mb-4 text-primary text-uppercase small" style="letter-spacing: 1px;">Product Details</h6>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">Item Name</label>
+                        <input type="text" id="itemName" class="form-control rounded-pill border-light bg-light py-2 px-3" placeholder="e.g. iPhone 13 Pro" required>
+                    </div>
+
+                    <!-- Single-price block (hidden when variations are ON) -->
+                    <div id="singlePriceBlock">
+                        <div class="row g-3 mb-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small fw-bold text-muted">Price Per Item (GHS)</label>
+                                <input type="number" id="itemPrice" step="0.01" class="form-control rounded-pill border-light bg-light py-2 px-3" placeholder="0.00" oninput="calculateLiveMerchantLedger()" required>
+                                <div id="priceValidationError" class="text-danger small fw-bold mt-2 ms-2 d-none">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i> Minimum listing price is GHS 5.00
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <div id="payoutLedgerPanel" class="bg-dark text-white rounded-4 p-3 d-none">
+                                    <span class="text-white-50 uppercase fw-bold tracking-wider" style="font-size: 0.68rem; letter-spacing: 0.05em;">Earnings Sheet</span>
+                                    <hr class="border-secondary my-2">
+                                    <div class="d-flex justify-content-between small text-light mb-2">
+                                        <span>Customer Checkout Value:</span>
+                                        <span class="fw-bold">GHS <span id="ledgerCheckoutValue">0.00</span></span>
+                                    </div>
+                                    <div class="d-flex justify-content-between small text-white-50 mb-2">
+                                        <span>Platform Service Fee (<span id="ledgerCommissionPercent">4%</span>):</span>
+                                        <span class="text-danger fw-semibold"><span id="ledgerCommissionGHS">- GHS 0.00</span></span>
+                                    </div>
+                                    <div class="d-flex justify-content-between small text-white-50 mb-3 border-bottom border-secondary pb-2">
+                                        <span>Payout (Network) Fee:</span>
+                                        <span class="text-danger fw-semibold"><span id="ledgerTransferFeeGHS">- GHS 0.00</span></span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center fw-bold text-white pt-1">
+                                        <span>Your Net Payout:</span>
+                                        <span id="ledgerNetPayoutWrapper"><span id="ledgerNetPayoutGHS">GHS 0.00</span></span>
+                                    </div>
+                                </div>
+
+                                <div id="bundlingWrapper" class="d-none alert alert-secondary bg-light border-0 rounded-4 p-3 mt-3 animate-slide-up">
+                                    <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-2">
+                                        <div>
+                                            <p class="fw-bold mb-0 text-dark small"><i class="bi bi-layers-half text-primary me-1"></i> Sell in Packs / Bundles?</p>
+                                            <p id="bundleNoticeText" class="text-muted mb-0" style="font-size: 0.72rem; line-height: 1.3;">Low-cost student items must be grouped into multi-unit packs to ensure payout efficiency.</p>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="bundleToggle" onchange="toggleBundlePackMetrics()">
+                                        </div>
+                                    </div>
+                                    <div id="bundleSelectorGroup" class="d-none mt-3">
+                                        <label class="small fw-bold text-muted mb-2 d-block">MINIMUM SET UNIT REQUIREMENT</label>
+                                        <select id="bundleQuantity" class="form-select border-light bg-white py-2 rounded-pill px-3 text-dark small shadow-sm" onchange="calculateLiveMerchantLedger()">
+                                            <option value="2">Pack of 2 (Pairs)</option>
+                                            <option value="3">Pack of 3 (Trio)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- END single-price block -->
+
+                    <!-- Variations price summary banner (shown when variations ON) -->
+                    <div id="variationsPriceBanner" class="d-none rounded-4 p-3 mb-3 animate-slide-up"
+                        style="background:linear-gradient(135deg,#eef2ff,#f5f3ff);border:1.5px solid #c7d2fe;">
+                        <p class="mb-1 fw-bold text-indigo small"><i class="bi bi-tag-fill me-1"></i> Prices set per variation</p>
+                        <p id="variationsPriceSummaryText" class="mb-0 text-muted" style="font-size:0.75rem;">Add variations above to see a price summary.</p>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small fw-bold text-muted">Initial Stock Level</label>
+                            <input type="number" id="itemStock" class="form-control rounded-pill border-light bg-light py-2 px-3" placeholder="1" min="1" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-0">
+                        <label class="form-label small fw-bold text-muted">Description</label>
+                        <textarea id="description" class="form-control rounded-4 border-light bg-light p-3" rows="3" placeholder="Condition, specs, or key features..." required></textarea>
+                    </div>
+                </div>
+
+
+                <!-- ══════════════════════════════════════════════════════════ -->
+                <!-- PICKUP & LOGISTICS                                        -->
+                <!-- ══════════════════════════════════════════════════════════ -->
+                <div class="card border-0 shadow-sm p-4 mb-4 rounded-4 bg-white border" style="border-left: 5px solid #0d6efd !important;">
+                    <h6 class="fw-bold mb-4 text-primary text-uppercase small" style="letter-spacing: 1px;">Pickup & Logistics</h6>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">Item Availability</label>
+                        <select id="availability" onchange="toggleSchedule(this.value)" class="form-select rounded-pill border-light bg-light py-2 px-3">
+                            <option value="Ready for Instant Pickup">Ready for Instant Delivery (In-Hand)</option>
+                            <option value="Available in 24 Hours">Available in 24 Hours</option>
+                        </select>
+                    </div>
+
+                    <div id="scheduleSection">
+                        <label class="form-label small fw-bold text-muted">Delivery Schedule</label>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <select id="pickupDays" class="form-select rounded-pill border-light bg-light py-2 px-3">
+                                    <option value="">Select days</option>
+                                    <option value="Monday">Monday</option>
+                                    <option value="Tuesday">Tuesday</option>
+                                    <option value="Wednesday">Wednesday</option>
+                                    <option value="Thursday">Thursday</option>
+                                    <option value="Friday">Friday</option>
+                                    <option value="Tommorow">Anyday</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <select id="pickupTime" class="form-select rounded-pill border-light bg-light py-2 px-3">
+                                    <option value="">Select time range</option>
+                                    <option value="8am-12pm">Morning (8am-12pm)</option>
+                                    <option value="12pm-4pm">Afternoon (12pm-4pm)</option>
+                                    <option value="8am-4pm">Full Day (8am-4pm)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">Campus Pickup Location</label>
+                        <select id="landmark" class="form-select rounded-pill border-light bg-light py-2 px-3 shadow-none" required>
+                            <option value="">Select a safe exchange point...</option>
+                        </select>
+                        <div class="form-text mt-1 d-flex align-items-center gap-1" style="color: #64748b; font-size: 0.75rem;">
+                            <i class="bi bi-shield-check-fill text-success"></i>
+                            <span>All listed locations are well-known, safe campus landmarks with high foot traffic.</span>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- ══════════════════════════════════════════════════════════ -->
+                <!-- PRODUCT VISUALS PORTFOLIO                                 -->
+                <!-- ══════════════════════════════════════════════════════════ -->
+                <div class="card border-0 shadow-sm p-4 mb-5 rounded-4 bg-white border">
+                    <h6 class="fw-bold mb-1 text-primary small" style="letter-spacing: 1px;">Product Visuals Portfolio</h6>
+                    <p class="text-muted mb-3" id="portfolioSubtitle" style="font-size: 0.75rem;">Upload clear angles. The first item in the list will be your main marketplace cover photo.</p>
+                    
+                    <div class="row g-2 mb-3" id="multiImageGridContainer">
+                        <div class="col-4 col-sm-3" id="uploadTriggerTile">
+                            <div onclick="openVisualCapturePipeline()" class="border-2 border-dashed d-flex flex-column align-items-center justify-content-center rounded-4 text-secondary cursor-pointer hover-bg-light" style="height: 100px; border-color: #cbd5e1; background: #f8fafc; transition: all 0.2s;">
+                                <i class="bi bi-camera-fill fs-4 mb-1"></i>
+                                <span style="font-size: 0.65rem;" class="fw-bold">ADD PHOTO</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <input type="file" id="portfolioImageInput" accept="image/*" class="d-none" onchange="ingestPortfolioVisualItem(this)">
+                </div>
+
+                <div class="d-grid gap-2 mb-5">
+                    <button type="submit" id="submitBtn" class="btn btn-dark btn-lg rounded-pill fw-bold py-3 shadow-lg transition-transform active:scale-95" disabled>
+                        <span id="loader" class="spinner-border spinner-border-sm d-none me-2"></span>
+                        <span id="btnText">Loading...</span>
+                    </button>
+                    <p class="text-center text-muted mt-2" style="font-size: 0.65rem;">
+                        <i class="bi bi-shield-check me-1"></i> Your listing is subject to institutional audits.
+                    </p>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<!-- SUCCESS MODAL                                                         -->
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="successModal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 30px;">
+            <div class="modal-body p-5 text-center">
+                <div class="bg-success bg-opacity-10 text-success rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px;">
+                    <i class="bi bi-check-lg fs-1"></i>
+                </div>
+                <h4 class="fw-bold text-dark">Item is Live!</h4>
+                
+                <div class="bg-light rounded-4 p-3 mb-4 text-start border border-white">
+                    <div class="mb-3">
+                        <label class="x-small fw-bold text-muted text-uppercase mb-1 d-block">Item Reference ID</label>
+                        <code id="successRefId" class="text-primary fw-bold" style="font-size: 0.85rem;"></code>
+                    </div>
+                    <div>
+                        <label class="x-small fw-bold text-muted text-uppercase mb-1 d-block">Your Storefront Link</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" id="storefrontUrl" class="form-control bg-white border-light" readonly>
+                            <button class="btn btn-outline-primary" type="button" onclick="copyStorefrontLink()" id="copyLinkBtn">
+                                <i class="bi bi-clipboard"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="text-secondary small mb-4">
+                    Your product has been synchronized. Share your storefront link to start receiving orders, or use your Marketing Toolkit for better results.
+                </p>
+                
+                <div class="d-grid gap-2">
+                    <button onclick="location.reload()" class="btn btn-outline-dark rounded-pill fw-bold py-2">List Another</button>
+                    <a href="/marketplace" class="btn btn-dark rounded-pill fw-bold py-3">View Marketplace</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<!-- VARIATIONS HELP MODAL                                                 -->
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="variationsHelpModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+            <div class="modal-body p-4 p-sm-5">
+                <!-- Header -->
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#6366f1,#818cf8);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <i class="bi bi-lightbulb-fill text-white fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold mb-0 text-dark">How Variations Work</h5>
+                        <p class="text-muted mb-0" style="font-size:0.78rem;">A quick guide to listing items with multiple options</p>
+                    </div>
+                </div>
+
+                <!-- Steps -->
+                <div class="d-flex flex-column gap-3 mb-4">
+                    <div class="d-flex gap-3 align-items-start">
+                        <div class="variation-help-step-num">1</div>
+                        <div>
+                            <p class="fw-bold mb-1 text-dark" style="font-size:0.85rem;">Choose your variation type</p>
+                            <p class="text-muted mb-0" style="font-size:0.78rem;">Pick <em>Storage / Size</em>, <em>Colour</em>, <em>Model</em>, or define a custom label that best describes what differs between versions.</p>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-3 align-items-start">
+                        <div class="variation-help-step-num">2</div>
+                        <div>
+                            <p class="fw-bold mb-1 text-dark" style="font-size:0.85rem;">Add each variation one at a time</p>
+                            <p class="text-muted mb-0" style="font-size:0.78rem;">Enter a label (e.g. <em>256GB</em> or <em>Midnight Blue</em>), its specific price in GHS, an optional description, and optional photos unique to that version.</p>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-3 align-items-start">
+                        <div class="variation-help-step-num">3</div>
+                        <div>
+                            <p class="fw-bold mb-1 text-dark" style="font-size:0.85rem;">Review the variation cards</p>
+                            <p class="text-muted mb-0" style="font-size:0.78rem;">Each added variation appears as a card below the entry form. You can remove any card and re-add it if needed.</p>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-3 align-items-start">
+                        <div class="variation-help-step-num">4</div>
+                        <div>
+                            <p class="fw-bold mb-1 text-dark" style="font-size:0.85rem;">Fill in the rest of the listing normally</p>
+                            <p class="text-muted mb-0" style="font-size:0.78rem;">The item name, stock, description, and logistics below apply to your whole listing. Per-variation prices take over the single price field automatically.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tip box -->
+                <div class="rounded-4 p-3 mb-4" style="background:#fff7ed;border:1.5px solid #fed7aa;">
+                    <p class="fw-bold mb-1 text-dark" style="font-size:0.8rem;"><i class="bi bi-info-circle-fill text-warning me-1"></i> Finding it a bit tricky?</p>
+                    <p class="text-muted mb-0" style="font-size:0.78rem;">
+                        No problem at all. You can always <strong>toggle Variations off</strong> and list each version as its own independent item on the marketplace. Many sellers prefer that approach. Both work great.
+                    </p>
+                </div>
+
+                <div class="d-grid">
+                    <button type="button" class="btn btn-dark rounded-pill fw-bold py-2" data-bs-dismiss="modal">Got it, let's go</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<!-- SCRIPTS                                                               -->
+<!-- ══════════════════════════════════════════════════════════════════════ -->
+<script>
+    const merchantName = localStorage.getItem('ledgehold_merchant_name');
+    let merchantUniversity = null;
+
+    if (!merchantName) {
+        window.location.replace('/merchant_dashboard');
+    }
+
+    // ─── GLOBAL STATE ───────────────────────────────────────────────────
+    let uploadedVisualFilesCollection = [];   // Main portfolio images
+    let variationsArray = [];                 // [{label, price, description, imageFiles[], imageUrls[]}]
+    let currentVariationType = 'storage';     // Active variation type key
+    let pendingVariationImages = [];          // Temp files before user clicks "Add"
+    let variationsMode = false;               // Whether variations toggle is ON
+
+    // ─── VARIATIONS TOGGLE ───────────────────────────────────────────────
+    function toggleVariationsMode() {
+        variationsMode = document.getElementById('variationsMainToggle').checked;
+        const panel = document.getElementById('variationsPanelBody');
+        const helpBtn = document.getElementById('variationsHelpBtn');
+        const singlePrice = document.getElementById('singlePriceBlock');
+        const variationsBanner = document.getElementById('variationsPriceBanner');
+        const portfolioSubtitle = document.getElementById('portfolioSubtitle');
+        const itemPriceInput = document.getElementById('itemPrice');
+
+        if (variationsMode) {
+            panel.classList.remove('d-none');
+            panel.classList.add('animate-slide-up');
+            helpBtn.classList.remove('d-none');
+            singlePrice.classList.add('d-none');
+            variationsBanner.classList.remove('d-none');
+            // Price field not required in variations mode
+            itemPriceInput.removeAttribute('required');
+            itemPriceInput.value = '';
+            // Hide ledger + bundle in variations mode
+            document.getElementById('payoutLedgerPanel').classList.add('d-none');
+            document.getElementById('bundlingWrapper').classList.add('d-none');
+            portfolioSubtitle.innerText = 'Upload general product photos here. You can also add variation-specific photos above.';
+            updateSubmitState();
+        } else {
+            panel.classList.add('d-none');
+            helpBtn.classList.add('d-none');
+            singlePrice.classList.remove('d-none');
+            variationsBanner.classList.add('d-none');
+            itemPriceInput.setAttribute('required', '');
+            portfolioSubtitle.innerText = 'Upload clear angles. The first item in the list will be your main marketplace cover photo.';
+            calculateLiveMerchantLedger();
+            updateSubmitState();
+        }
+    }
+
+    function openVariationsHelpModal() {
+        const modal = new bootstrap.Modal(document.getElementById('variationsHelpModal'));
+        modal.show();
+    }
+
+    // ─── VARIATION TYPE SELECTOR ─────────────────────────────────────────
+    function selectVariationType(btn, type) {
+        document.querySelectorAll('.variation-type-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentVariationType = type;
+        const customWrap = document.getElementById('customVariationLabelWrap');
+        if (type === 'custom') {
+            customWrap.classList.remove('d-none');
+        } else {
+            customWrap.classList.add('d-none');
+        }
+    }
+
+    // ─── PER-VARIATION IMAGE MANAGEMENT ──────────────────────────────────
+    function openVariationImagePicker() {
+        document.getElementById('varImageInput').click();
+    }
+
+    function ingestVariationImages(input) {
+        if (!input.files || !input.files.length) return;
+        Array.from(input.files).forEach(f => pendingVariationImages.push(f));
+        renderVariationImageStrip();
+        input.value = '';
+    }
+
+    function renderVariationImageStrip() {
+        const strip = document.getElementById('varImageStripPreview');
+        // Clear previews (keep camera button at end)
+        strip.querySelectorAll('.var-img-preview').forEach(el => el.remove());
+
+        pendingVariationImages.forEach((file, idx) => {
+            const url = URL.createObjectURL(file);
+            const div = document.createElement('div');
+            div.className = 'var-img-preview position-relative';
+            div.style.cssText = 'width:64px;height:64px;flex-shrink:0;';
+            div.innerHTML = `
+                <img src="${url}" style="width:64px;height:64px;object-fit:cover;border-radius:10px;border:1.5px solid #e2e8f0;">
+                <button type="button" onclick="removeVariationPendingImage(${idx})"
+                    class="btn btn-danger btn-sm rounded-circle position-absolute top-0 end-0 d-flex align-items-center justify-content-center"
+                    style="width:18px;height:18px;padding:0;margin:2px;">
+                    <i class="bi bi-x" style="font-size:0.7rem;"></i>
+                </button>
+            `;
+            strip.insertBefore(div, strip.lastElementChild);
+        });
+    }
+
+    function removeVariationPendingImage(idx) {
+        pendingVariationImages.splice(idx, 1);
+        renderVariationImageStrip();
+    }
+
+    // ─── ADD VARIATION ────────────────────────────────────────────────────
+    function addVariation() {
+        const label = document.getElementById('varLabel').value.trim();
+        const price = parseFloat(document.getElementById('varPrice').value);
+        const desc  = document.getElementById('varDescription').value.trim();
+
+        if (!label) { alert('Please enter a label for this variation.'); return; }
+        if (isNaN(price) || price < 10.00) { alert('Please enter a valid price (minimum GHS 10.00) for this variation. For lower-cost items (under GHS 10.00), please turn variations OFF and use the standard listing price field.'); return; }
+        if (variationsArray.some(v => v.label.toLowerCase() === label.toLowerCase())) {
+            alert('A variation with that label already exists.'); return;
+        }
+
+        const typeLabel = getVariationTypeLabel();
+
+        variationsArray.push({
+            label,
+            price,
+            description: desc,
+            type: typeLabel,
+            imageFiles: [...pendingVariationImages],
+            imageUrls: [] // filled during submission
+        });
+
+        // Reset entry fields
+        document.getElementById('varLabel').value = '';
+        document.getElementById('varPrice').value = '';
+        document.getElementById('varDescription').value = '';
+        pendingVariationImages = [];
+        renderVariationImageStrip();
+
+        renderVariationCards();
+        updateVariationsPriceBanner();
+        updateSubmitState();
+    }
+
+    function getVariationTypeLabel() {
+        if (currentVariationType === 'custom') {
+            return document.getElementById('customVariationLabel').value.trim() || 'Custom';
+        }
+        const map = { storage: 'Storage / Size', color: 'Colour', model: 'Model / Version' };
+        return map[currentVariationType] || 'Variation';
+    }
+
+    function removeVariation(idx) {
+        variationsArray.splice(idx, 1);
+        renderVariationCards();
+        updateVariationsPriceBanner();
+        updateSubmitState();
+    }
+
+    function renderVariationCards() {
+        const list = document.getElementById('variationsList');
+        list.innerHTML = '';
+        if (!variationsArray.length) return;
+
+        variationsArray.forEach((v, idx) => {
+            const previewImgs = v.imageFiles.slice(0, 3).map(f => {
+                const url = URL.createObjectURL(f);
+                return `<img src="${url}" style="width:36px;height:36px;object-fit:cover;border-radius:8px;border:1.5px solid #e2e8f0;flex-shrink:0;">`;
+            }).join('');
+
+            const card = document.createElement('div');
+            card.className = 'variation-card animate-slide-up d-flex align-items-center gap-3 p-3 rounded-4';
+            card.style.cssText = 'background:#f8fafc;border:1.5px solid #e2e8f0;';
+            card.innerHTML = `
+                <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#a5b4fc);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <i class="bi bi-tag-fill text-white" style="font-size:0.9rem;"></i>
+                </div>
+                <div class="flex-grow-1 min-w-0">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span class="fw-bold text-dark" style="font-size:0.85rem;">${v.label}</span>
+                        <span class="badge rounded-pill" style="background:#eef2ff;color:#4f46e5;font-size:0.65rem;font-weight:700;">${v.type}</span>
+                    </div>
+                    <p class="mb-0 fw-bold" style="font-size:0.8rem;color:#0d6efd;">GHS ${v.price.toFixed(2)}</p>
+                    ${v.description ? `<p class="mb-0 text-muted mt-1" style="font-size:0.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;">${v.description}</p>` : ''}
+                    ${previewImgs ? `<div class="d-flex gap-1 mt-2">${previewImgs}${v.imageFiles.length > 3 ? `<span class="d-flex align-items-center justify-content-center rounded-3" style="width:36px;height:36px;background:#e2e8f0;font-size:0.65rem;font-weight:700;color:#64748b;">+${v.imageFiles.length - 3}</span>` : ''}</div>` : ''}
+                </div>
+                <button type="button" onclick="removeVariation(${idx})"
+                    class="btn btn-sm rounded-circle flex-shrink-0 d-flex align-items-center justify-content-center"
+                    style="width:30px;height:30px;padding:0;background:#fee2e2;border:none;color:#dc2626;">
+                    <i class="bi bi-trash3" style="font-size:0.75rem;"></i>
+                </button>
+            `;
+            list.appendChild(card);
+        });
+    }
+
+    function updateVariationsPriceBanner() {
+        const text = document.getElementById('variationsPriceSummaryText');
+        if (!variationsArray.length) {
+            text.innerText = 'Add variations above to see a price summary.';
+            return;
+        }
+        const prices = variationsArray.map(v => v.price);
+        const min = Math.min(...prices).toFixed(2);
+        const max = Math.max(...prices).toFixed(2);
+        const count = variationsArray.length;
+        if (min === max) {
+            text.innerText = `${count} variation${count > 1 ? 's' : ''} · All priced at GHS ${min}`;
+        } else {
+            text.innerText = `${count} variation${count > 1 ? 's' : ''} · Prices range from GHS ${min} to GHS ${max}`;
+        }
+    }
+
+    function populateLandmarkDropdown(campus) {
+        const landmarkSelect = document.getElementById('landmark');
+        if (!landmarkSelect) return;
+        
+        // Clear existing options
+        landmarkSelect.innerHTML = '<option value="">Select a safe exchange point...</option>';
+        
+        // Campus locations config (mirrors server-side)
+        const campusLocations = {
+            "UMaT - Essikado": [
+                "Main Administration Block",
+                "Campus Canteen / Food Court",
+                "Library Entrance",
+                "Main Campus Gate (Security Post)",
+                "Round Summer Hut",
+            ],
+            "KNUST Main Campus": [
+                "Commercial Area",
+                "Brunei Complex Forecourt",
+                "College of Engineering (CoE) Pavilion",
+                "KNUST Main Library Entrance",
+                "Unity Hall (Conti) Main Gate",
+                "Republic Hall Mini Market",
+                "Great Hall Foyer",
+            ],
+            "UCC": [
+                "Science Market Square",
+                "Sam Jonah Library Forecourt",
+                "Old Site Taxi Rank",
+                "Casley Hayford (Casford) Hall Gate",
+                "Valco Hall Main Entrance",
+                "Nduom School of Business (Main Gate)",
+                "SMS Auditorium",
+                "Amissah Arthur Language Centre",
+            ],
+            "UG Legon": [
+                "Banking Square",
+                "Balme Library (Main Entrance)",
+                "Bush Canteen",
+                "Pentagon Hostels (Main Gate)",
+                "UGBS Courtyard",
+                "Mensah Sarbah Hall Gate",
+                "Akuafo Hall Roundabout",
+            ],
+        };
+        
+        const locations = campusLocations[campus] || [
+            "Main Campus Gate",
+            "University Library",
+            "Student Centre / SRC Building",
+            "Central Lecture Block",
+            "School Main Car Park",
+        ];
+        
+        locations.forEach(loc => {
+            const option = document.createElement('option');
+            option.value = loc;
+            option.textContent = loc;
+            landmarkSelect.appendChild(option);
+        });
+        
+        // Show security note when a location is selected
+        landmarkSelect.addEventListener('change', function() {
+            const note = document.getElementById('landmarkSecurityNote');
+            if (this.value) {
+                note.classList.remove('d-none');
+            } else {
+                note.classList.add('d-none');
+            }
+        });
+    }
+
+    // ─── SUBMIT STATE ─────────────────────────────────────────────────────
+    function updateSubmitState() {
+        const btn = document.getElementById('submitBtn');
+        if (!btn || btn.disabled === undefined) return;
+
+        if (variationsMode) {
+            // In variations mode: need at least one variation + at least one image
+            const hasVariations = variationsArray.length > 0;
+            const hasImages = uploadedVisualFilesCollection.length > 0 ||
+                              variationsArray.some(v => v.imageFiles.length > 0);
+            btn.disabled = !(hasVariations && hasImages);
+        } else {
+            // Standard mode: image-gated, price validation already handled by ledger
+            btn.disabled = uploadedVisualFilesCollection.length === 0;
+        }
+    }
+
+    // ─── LEDGER (unchanged) ───────────────────────────────────────────────
+    function toggleBundlePackMetrics() {
+        const isChecked = document.getElementById('bundleToggle').checked;
+        const selector = document.getElementById('bundleSelectorGroup');
+        if (isChecked) selector.classList.remove('d-none');
+        else selector.classList.add('d-none');
+        calculateLiveMerchantLedger();
+    }
+
+    function calculateLiveMerchantLedger() {
+        if (variationsMode) return; // Ledger not used in variations mode
+
+        const priceInput = document.getElementById('itemPrice');
+        const errBlock = document.getElementById('priceValidationError');
+        const bundleWrapper = document.getElementById('bundlingWrapper');
+        const ledgerPanel = document.getElementById('payoutLedgerPanel');
+        const bundleToggle = document.getElementById('bundleToggle');
+        const bundleSelector = document.getElementById('bundleSelectorGroup');
+        const bundleNotice = document.getElementById('bundleNoticeText');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        let unitPrice = parseFloat(priceInput.value.trim());
+
+        if (isNaN(unitPrice) || unitPrice <= 0) {
+            ledgerPanel.classList.add('d-none');
+            bundleWrapper.classList.add('d-none');
+            return;
+        }
+
+        if (unitPrice < 5.00) {
+            errBlock.classList.remove('d-none');
+            ledgerPanel.classList.add('d-none');
+            bundleWrapper.classList.add('d-none');
+            submitBtn.disabled = true;
+            return;
+        } else {
+            errBlock.className = "text-danger small fw-bold mt-2 ms-2 d-none";
+            ledgerPanel.classList.remove('d-none');
+            // Re-check image gate
+            submitBtn.disabled = uploadedVisualFilesCollection.length === 0;
+        }
+
+        if (unitPrice < 10.00) {
+            bundleWrapper.classList.remove('d-none');
+            bundleToggle.checked = true;
+            bundleToggle.disabled = true;
+            bundleSelector.classList.remove('d-none');
+            bundleNotice.innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-shield-exclamation"></i> Mandatory Bundle:</span> Items priced under GHS 10.00 must be sold in packs to meet escrow safety limits.`;
+        } else if (unitPrice < 20.00) {
+            bundleWrapper.classList.remove('d-none');
+            bundleToggle.disabled = false;
+            bundleNotice.innerText = "Low-cost student items can be grouped into multi-unit packs to ensure payout efficiency.";
+        } else {
+            bundleWrapper.classList.add('d-none');
+            bundleToggle.checked = false;
+            bundleToggle.disabled = false;
+            bundleSelector.classList.add('d-none');
+        }
+
+        let multiplier = 1;
+        if (unitPrice < 20.00 && bundleToggle.checked) {
+            multiplier = parseInt(document.getElementById('bundleQuantity').value);
+        }
+
+        const computedCheckoutValue = unitPrice * multiplier;
+
+        let commissionRate = 0.04;
+        if (computedCheckoutValue >= 2000.00) commissionRate = 0.02;
+        else if (computedCheckoutValue >= 1000.00) commissionRate = 0.03;
+        else if (computedCheckoutValue >= 501.00) commissionRate = 0.035;
+
+        let transferFee = 0.40;
+        if (computedCheckoutValue <= 25.00) transferFee = 0.80;
+
+        const platformCommission = parseFloat((computedCheckoutValue * commissionRate).toFixed(2));
+        const netPayoutValue = parseFloat((computedCheckoutValue - platformCommission - transferFee).toFixed(2));
+
+        document.getElementById('ledgerCheckoutValue').innerText = computedCheckoutValue.toFixed(2);
+        document.getElementById('ledgerCommissionPercent').innerText = (commissionRate * 100) + '%';
+        document.getElementById('ledgerCommissionGHS').innerText = `- GHS ${platformCommission.toFixed(2)}`;
+        document.getElementById('ledgerTransferFeeGHS').innerText = `- GHS ${transferFee.toFixed(2)}`;
+        document.getElementById('ledgerNetPayoutGHS').innerText = `GHS ${netPayoutValue.toFixed(2)}`;
+    }
+
+    // ─── IMAGE COMPRESSION ────────────────────────────────────────────────
+    async function compressImage(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width, height = img.height;
+                    const MAX_DIM = 1200;
+                    if (width > height) { if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; } }
+                    else { if (height > MAX_DIM) { width *= MAX_DIM / height; height = MAX_DIM; } }
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    canvas.toBlob(resolve, 'image/jpeg', 0.7);
+                };
+                img.onerror = reject;
+            };
+            reader.onerror = reject;
+        });
+    }
+
+    async function uploadImageToCloudinary(file, progressLabel) {
+        const compressed = await compressImage(file);
+        const fd = new FormData();
+        fd.append('file', compressed);
+        fd.append('upload_preset', UPLOAD_PRESET);
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!data.secure_url) throw new Error('Image upload failed: ' + progressLabel);
+        return data.secure_url;
+    }
+
+    // ─── MAIN PORTFOLIO IMAGE HANDLERS ───────────────────────────────────
+    function openVisualCapturePipeline() {
+        document.getElementById('portfolioImageInput').click();
+    }
+
+    function ingestPortfolioVisualItem(input) {
+        if (input.files && input.files[0]) {
+            uploadedVisualFilesCollection.push(input.files[0]);
+            renderVisualPortfolioGrid();
+            input.value = '';
+        }
+    }
+
+    function removeVisualFromPortfolio(index) {
+        uploadedVisualFilesCollection.splice(index, 1);
+        renderVisualPortfolioGrid();
+    }
+
+    function renderVisualPortfolioGrid() {
+        const container = document.getElementById('multiImageGridContainer');
+        const triggerBox = document.getElementById('uploadTriggerTile');
+        container.querySelectorAll('.portfolio-image-card').forEach(el => el.remove());
+        uploadedVisualFilesCollection.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (e) => {
+                const col = document.createElement('div');
+                col.className = 'col-4 col-sm-3 portfolio-image-card animate-slide-up';
+                col.innerHTML = `
+                    <div class="position-relative border rounded-4 overflow-hidden shadow-sm" style="height: 100px;">
+                        <img src="${e.target.result}" class="w-100 h-100" style="object-fit: cover;">
+                        ${index === 0 ? '<span class="position-absolute bottom-0 start-0 w-100 bg-dark text-white text-center py-1" style="font-size:0.55rem; opacity:0.85;">COVER</span>' : ''}
+                        <button type="button" onclick="removeVisualFromPortfolio(${index})" class="btn btn-danger btn-sm rounded-circle position-absolute top-0 end-0 m-1 d-flex align-items-center justify-content-center" style="width:20px; height:20px; padding:0;">
+                            <i class="bi bi-x" style="font-size: 0.8rem;"></i>
+                        </button>
+                    </div>
+                `;
+                container.insertBefore(col, triggerBox);
+            };
+        });
+        updateSubmitState();
+    }
+
+    // ─── SESSION INIT ─────────────────────────────────────────────────────
+    async function initMerchantSession() {
+        try {
+            if (!merchantName) return;
+            const docRef = db.collection('artifacts').doc(__app_id)
+                             .collection('public').doc('data')
+                             .collection('verified_merchants').doc(merchantName);
+            const doc = await docRef.get();
+            if (!doc.exists) { window.location.replace('/merchant_dashboard'); return; }
+            const data = doc.data();
+            merchantUniversity = data.university;
+            populateLandmarkDropdown(merchantUniversity); 
+            setTimeout(() => animateMerchantBadge(merchantName, merchantUniversity), 300);
+            document.getElementById('submitBtn').disabled = false;
+            document.getElementById('btnText').innerText = 'Publish to Marketplace';
+        } catch (err) {
+            console.error('Session Init Failure:', err);
+            window.location.replace('/merchant_dashboard');
+        }
+    }
+
+    function animateMerchantBadge(name, campus) {
+        const badge = document.getElementById('merchantBadge');
+        const syncText = document.getElementById('syncText');
+        if (!badge) return;
+        if (syncText) syncText.classList.add('sync-text-fade');
+        setTimeout(() => {
+            badge.style.transition = 'all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
+            badge.style.top = '0';
+            setTimeout(() => {
+                badge.style.transition = 'all 0.15s ease-out';
+                badge.style.top = '-5px';
+                setTimeout(() => {
+                    badge.style.transition = 'all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55)';
+                    badge.style.top = '0'; badge.style.width = 'auto'; badge.style.height = 'auto';
+                    badge.style.padding = '8px 16px 8px 8px'; badge.style.borderRadius = '50px';
+                    badge.style.backgroundColor = '#fff'; badge.style.border = '1px solid #e2e8f0';
+                    badge.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                    badge.style.display = 'flex'; badge.style.alignItems = 'center'; badge.style.gap = '12px';
+                    const textContainer = document.createElement('div');
+                    textContainer.className = 'text-start';
+                    textContainer.innerHTML = `<p class="mb-0 fw-bold text-dark x-small">${name}</p><p class="mb-0 text-muted" style="font-size: 0.6rem;">${campus}</p>`;
+                    setTimeout(() => {
+                        textContainer.style.opacity = '0'; textContainer.style.transform = 'translateX(-10px)';
+                        textContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        badge.appendChild(textContainer);
+                        setTimeout(() => {
+                            textContainer.style.opacity = '1'; textContainer.style.transform = 'translateX(0)';
+                            if (syncText) syncText.classList.remove('sync-text-fade');
+                        }, 50);
+                    }, 200);
+                }, 150);
+            }, 300);
+        }, 100);
+    }
+
+    // ─── MISC UI ──────────────────────────────────────────────────────────
+    function toggleSchedule(val) {
+        const s = document.getElementById('scheduleSection');
+        if (val === 'Ready for Instant Pickup') s.classList.remove('d-none');
+        else s.classList.add('d-none');
+    }
+
+    window.copyStorefrontLink = function() {
+        const input = document.getElementById('storefrontUrl');
+        input.select(); document.execCommand('copy');
+        const btn = document.getElementById('copyLinkBtn');
+        btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+        btn.classList.replace('btn-outline-primary', 'btn-success');
+        setTimeout(() => {
+            btn.innerHTML = '<i class="bi bi-clipboard"></i>';
+            btn.classList.replace('btn-success', 'btn-outline-primary');
+        }, 2000);
+    };
+
+    // ─── SUBMISSION ───────────────────────────────────────────────────────
+    async function handleItemSubmission(e) {
+        e.preventDefault();
+
+        if (!merchantName || !merchantUniversity) { alert('Verification pending. Please wait.'); return; }
+
+        const btn = document.getElementById('submitBtn');
+        const loader = document.getElementById('loader');
+        const btnText = document.getElementById('btnText');
+        btn.disabled = true; loader.classList.remove('d-none');
+
+        let secureCloudinaryUrlArray = [];
+        let serializedVariations = [];
+
+        try {
+            if (variationsMode) {
+                // ── VARIATIONS SUBMISSION ──
+                if (!variationsArray.length) throw new Error('Please add at least one variation.');
+
+                // Upload main portfolio images
+                for (let i = 0; i < uploadedVisualFilesCollection.length; i++) {
+                    btnText.innerText = `Uploading portfolio photo ${i + 1} of ${uploadedVisualFilesCollection.length}…`;
+                    const url = await uploadImageToCloudinary(uploadedVisualFilesCollection[i], `portfolio-${i}`);
+                    secureCloudinaryUrlArray.push(url);
+                }
+
+                // Upload per-variation images
+                let totalVarImages = variationsArray.reduce((sum, v) => sum + v.imageFiles.length, 0);
+                let varImgCounter = 0;
+                for (let vi = 0; vi < variationsArray.length; vi++) {
+                    const v = variationsArray[vi];
+                    const varUrls = [];
+                    for (let fi = 0; fi < v.imageFiles.length; fi++) {
+                        varImgCounter++;
+                        btnText.innerText = `Uploading variation photo ${varImgCounter} of ${totalVarImages}…`;
+                        const url = await uploadImageToCloudinary(v.imageFiles[fi], `var-${vi}-${fi}`);
+                        varUrls.push(url);
+                    }
+                    serializedVariations.push({
+                        label: v.label,
+                        price: v.price,
+                        description: v.description,
+                        type: v.type,
+                        imgUrls: varUrls,
+                        imgUrl: varUrls[0] || (secureCloudinaryUrlArray[0] || '')
+                    });
+                }
+
+                if (secureCloudinaryUrlArray.length === 0 && serializedVariations.every(v => !v.imgUrl)) {
+                    throw new Error('Please upload at least one photo (either in the portfolio or for a variation).');
+                }
+
+                // Use first available image as cover
+                const coverImg = secureCloudinaryUrlArray[0] ||
+                    serializedVariations.find(v => v.imgUrl)?.imgUrl || '';
+
+                const rawPrice = Math.min(...variationsArray.map(v => v.price));
+
+                btnText.innerText = 'Syncing marketplace…';
+
+                const availability = document.getElementById('availability').value;
+                let finalSchedule = '';
+                if (availability === 'Ready for Instant Pickup') {
+                    const days = document.getElementById('pickupDays').value;
+                    const time = document.getElementById('pickupTime').value;
+                    if (!days || !time) throw new Error('Schedule incomplete.');
+                    finalSchedule = `${days} | ${time}`;
+                }
+
+                const payload = {
+                    itemName: document.getElementById('itemName').value.trim(),
+                    price: rawPrice,
+                    unit_price: rawPrice,
+                    is_bundled_pack: false,
+                    bundle_units_count: 1,
+                    has_variations: true,
+                    variations: serializedVariations,
+                    stock: parseInt(document.getElementById('itemStock').value) || 1,
+                    university: merchantUniversity,
+                    description: document.getElementById('description').value.trim(),
+                    availability: availability,
+                    schedule: finalSchedule,
+                    landmark: document.getElementById('landmark').value.trim(),
+                    imgUrls: secureCloudinaryUrlArray.length ? secureCloudinaryUrlArray : [coverImg],
+                    merchantId: merchantName,
+                    status: 'active'
+                };
+
+                const response = await fetch('/api/listings/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Failed to publish listing.');
+                }
+
+                document.getElementById('successRefId').innerText = result.listingId;
+                document.getElementById('storefrontUrl').value = `${window.location.origin}/marketplace?merchant=${encodeURIComponent(merchantName)}`;
+                const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                successModal.show();
+                uploadedVisualFilesCollection = [];
+                variationsArray = [];
+
+            } else {
+                // ── STANDARD SINGLE-PRICE SUBMISSION (original logic) ──
+                const rawPrice = parseFloat(document.getElementById('itemPrice').value);
+                if (rawPrice < 5.00) { alert('Minimum listing value entry is 5 Cedis.'); btn.disabled = false; loader.classList.add('d-none'); return; }
+                if (uploadedVisualFilesCollection.length === 0) { alert('Please include at least one photo.'); btn.disabled = false; loader.classList.add('d-none'); return; }
+
+                for (let i = 0; i < uploadedVisualFilesCollection.length; i++) {
+                    btnText.innerText = `Optimizing Visual ${i + 1} of ${uploadedVisualFilesCollection.length}…`;
+                    const url = await uploadImageToCloudinary(uploadedVisualFilesCollection[i], `portfolio-${i}`);
+                    secureCloudinaryUrlArray.push(url);
+                }
+
+                if (!secureCloudinaryUrlArray.length) throw new Error('Visual cloud storage syncing failed completely.');
+
+                btnText.innerText = 'Syncing marketplace…';
+
+                const availability = document.getElementById('availability').value;
+                let finalSchedule = '';
+                if (availability === 'Ready for Instant Pickup') {
+                    const days = document.getElementById('pickupDays').value;
+                    const time = document.getElementById('pickupTime').value;
+                    if (!days || !time) throw new Error('Schedule incomplete.');
+                    finalSchedule = `${days} | ${time}`;
+                }
+
+                const isBundled = document.getElementById('bundleToggle').checked;
+                let packMultiplier = 1;
+                if (rawPrice < 20.00 && isBundled) packMultiplier = parseInt(document.getElementById('bundleQuantity').value);
+
+                const payload = {
+                    itemName: document.getElementById('itemName').value.trim(),
+                    price: rawPrice * packMultiplier,
+                    unit_price: rawPrice,
+                    is_bundled_pack: isBundled,
+                    bundle_units_count: packMultiplier,
+                    has_variations: false,
+                    variations: [],
+                    stock: parseInt(document.getElementById('itemStock').value) || 1,
+                    university: merchantUniversity,
+                    description: document.getElementById('description').value.trim(),
+                    availability: availability,
+                    schedule: finalSchedule,
+                    landmark: document.getElementById('landmark').value.trim(),
+                    imgUrls: secureCloudinaryUrlArray,
+                    merchantId: merchantName,
+                    status: 'active'
+                };
+
+                const response = await fetch('/api/listings/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    throw new Error(result.error || 'Failed to publish listing.');
+                }
+
+                document.getElementById('successRefId').innerText = result.listingId;
+                document.getElementById('storefrontUrl').value = `${window.location.origin}/marketplace?merchant=${encodeURIComponent(merchantName)}`;
+                const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                successModal.show();
+                uploadedVisualFilesCollection = [];
+            }
+
+        } catch (err) {
+            console.error('Submission error:', err);
+            document.getElementById('errorBox').innerText = err.message;
+            document.getElementById('errorBox').classList.remove('d-none');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            btn.disabled = false;
+            loader.classList.add('d-none');
+            btnText.innerText = 'Publish to Marketplace';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initMerchantSession();
+        toggleSchedule(document.getElementById('availability').value);
+    });
+</script>
+
+<style>
+    body { background-color: #f8fafc; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .cursor-pointer { cursor: pointer; }
+    .x-small { font-size: 0.75rem; }
+    .form-control:focus, .form-select:focus { 
+        border-color: #0d6efd; 
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.05); 
+        background-color: #fff !important;
+    }
+    .merchant-badge-animation-wrapper {
+        min-height: 70px;
+        overflow: visible !important;
+        margin-bottom: 10px;
+    }
+    .sync-text-fade { animation: syncTextFade 1.2s ease-in-out; }
+    @keyframes syncTextFade {
+        0%, 40% { opacity: 1; }
+        50% { opacity: 0.3; transform: translateY(-2px); }
+        60%, 100% { opacity: 1; transform: translateY(0); }
+    }
+    .italic { font-style: italic; }
+    .animate-slide-up { animation: slideIn 0.3s ease-out; }
+    @keyframes slideIn {
+        from { transform: translateY(15px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .border-2 { border-width: 2px; }
+    .border-dashed { border-style: dashed; }
+    .hover-bg-light:hover { background-color: #f1f5f9 !important; }
+
+    .variation-type-btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 14px;
+        border-radius: 50px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+        border: 1.5px solid #e2e8f0;
+        background: #fff;
+        color: #64748b;
+        transition: all 0.2s ease;
+        letter-spacing: 0.01em;
+    }
+    .variation-type-btn:hover {
+        border-color: #818cf8;
+        color: #4f46e5;
+        background: #eef2ff;
+    }
+    .variation-type-btn.active {
+        background: linear-gradient(135deg, #6366f1, #818cf8);
+        color: #fff;
+        border-color: transparent;
+        box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+    }
+
+    .variation-help-step-num {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #6366f1, #a5b4fc);
+        color: #fff;
+        font-size: 0.78rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+
+    .text-indigo { color: #4f46e5 !important; }
+
+    #variationsToggleCard.variations-active {
+        background: linear-gradient(135deg, #f8f7ff, #eef2ff) !important;
+    }
+</style>
+{% endblock %}

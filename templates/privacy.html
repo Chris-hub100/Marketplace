@@ -1,0 +1,728 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy | ProlyfiQ{% endblock %}
+{% block description %}Read ProlyfiQ's Privacy Policy. Learn how Ledgehold collects, stores, and protects your personal data in compliance with Ghana's Data Protection Act, 2012 (Act 843).{% endblock %}
+
+{% block content %}
+
+<style>
+  /* ── Inherit all fonts from base.html (Inter) ── */
+
+  .pp-root {
+    background: #f8f7f4;
+    min-height: 100vh;
+  }
+
+  /* ── Hero ── */
+  .pp-hero {
+    background: #0c0c0e;
+    color: #fff;
+    padding: 64px 0 48px;
+    position: relative;
+    overflow: hidden;
+    border-radius: 28px;  
+    margin: 20px;
+  }
+  .pp-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 55% 80% at 85% 50%, rgba(99,102,241,0.12) 0%, transparent 70%),
+                radial-gradient(ellipse 40% 60% at 10% 80%, rgba(16,185,129,0.08) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .pp-hero-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 32px;
+    position: relative;
+    z-index: 1;
+  }
+  .pp-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.7);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+  }
+  .pp-badge i { color: #10b981; }
+  .pp-hero h1 {
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 800;
+    line-height: 1.2;
+    margin: 0 0 14px;
+    letter-spacing: -0.5px;
+  }
+  .pp-hero p {
+    color: rgba(255,255,255,0.55);
+    font-size: 0.95rem;
+    max-width: 580px;
+    margin: 0 0 28px;
+    line-height: 1.65;
+  }
+  .pp-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    align-items: center;
+    border-top: 1px solid rgba(255,255,255,0.09);
+    padding-top: 24px;
+  }
+  .pp-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.45);
+  }
+  .pp-meta-item i { color: #6366f1; font-size: 0.9rem; }
+  .pp-meta-item strong { color: rgba(255,255,255,0.75); }
+
+  /* ── Two-column layout ── */
+  .pp-layout {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 32px 80px;
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 48px;
+    align-items: start;
+  }
+
+  /* ── Sticky TOC ── */
+  .pp-toc {
+    position: sticky;
+    top: 80px;
+    padding: 24px 0;
+  }
+  .pp-toc-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 16px;
+    padding: 0 4px;
+  }
+  .pp-toc a {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    text-decoration: none;
+    padding: 9px 12px;
+    border-radius: 8px;
+    margin-bottom: 2px;
+    transition: background 0.15s, color 0.15s;
+    font-size: 0.82rem;
+    color: #64748b;
+    line-height: 1.4;
+  }
+  .pp-toc a .toc-num {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    min-width: 18px;
+    margin-top: 1px;
+  }
+  .pp-toc a:hover, .pp-toc a.active {
+    background: #fff;
+    color: #1e293b;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  }
+  .pp-toc a:hover .toc-num, .pp-toc a.active .toc-num { color: #6366f1; }
+
+  /* ── Body ── */
+  .pp-body { padding-top: 40px; }
+
+  /* Back button */
+  .pp-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: #64748b;
+    text-decoration: none;
+    margin-bottom: 32px;
+    padding: 7px 14px 7px 10px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    transition: all 0.2s;
+  }
+  .pp-back:hover { background: #f1f5f9; color: #1e293b; border-color: #cbd5e1; }
+  .pp-back svg { width: 14px; height: 14px; }
+
+  /* ── Section cards ── */
+  .pp-section {
+    margin-bottom: 10px;
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e9ecef;
+    overflow: hidden;
+    scroll-margin-top: 90px;
+  }
+  .pp-section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 22px 28px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .pp-section-icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    background: #eef2ff;
+    color: #6366f1;
+  }
+  .pp-section-header h2 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+    flex: 1;
+    line-height: 1.3;
+  }
+  .pp-section-header .sec-num {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #94a3b8;
+    letter-spacing: 1px;
+  }
+  .pp-section-body {
+    padding: 26px 28px 28px;
+  }
+  .pp-section-body p, .pp-section-body li {
+    font-size: 0.875rem;
+    color: #475569;
+    line-height: 1.75;
+    margin-bottom: 0;
+  }
+  .pp-section-body p { margin-bottom: 12px; }
+  .pp-section-body p:last-child { margin-bottom: 0; }
+  .pp-section-body ul {
+    padding-left: 0;
+    list-style: none;
+    margin: 0;
+  }
+  .pp-section-body li {
+    padding: 9px 0 9px 28px;
+    position: relative;
+    border-bottom: 1px solid #f8fafc;
+  }
+  .pp-section-body li:last-child { border-bottom: none; }
+  .pp-section-body li::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 18px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #6366f1;
+    opacity: 0.5;
+  }
+  .pp-section-body li strong { color: #1e293b; }
+
+  /* Callouts */
+  .pp-callout {
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin: 14px 0 8px;
+    font-size: 0.85rem;
+    line-height: 1.65;
+  }
+  .pp-callout-green {
+    background: #f0fdf4;
+    border-left: 4px solid #10b981;
+    color: #064e3b;
+  }
+  .pp-callout-indigo {
+    background: #eef2ff;
+    border-left: 4px solid #6366f1;
+    color: #1e1b4b;
+  }
+  .pp-callout-amber {
+    background: #fffbeb;
+    border-left: 4px solid #f59e0b;
+    color: #78350f;
+  }
+  .pp-callout strong {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.88rem;
+  }
+  .pp-callout i { margin-right: 6px; }
+
+  /* Data visibility two-col grid */
+  .pp-data-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 8px;
+  }
+  .pp-data-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .pp-data-card h6 {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .pp-data-card ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .pp-data-card li {
+    font-size: 0.8rem;
+    color: #64748b;
+    padding: 5px 0 5px 18px;
+    border: none !important;
+    position: relative;
+  }
+  .pp-data-card li::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 13px;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    opacity: 1;
+  }
+
+  /* Acceptance footer */
+  .pp-acceptance {
+    background: #0c0c0e;
+    color: #fff;
+    border-radius: 14px;
+    padding: 36px 32px;
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .pp-acceptance h3 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin: 0 0 6px;
+    letter-spacing: -0.3px;
+  }
+  .pp-acceptance p {
+    color: rgba(255,255,255,0.5);
+    font-size: 0.82rem;
+    margin: 0;
+    max-width: 500px;
+    line-height: 1.6;
+  }
+  .pp-acceptance .btn-contact {
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    border-radius: 100px;
+    padding: 13px 28px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    text-decoration: none;
+    white-space: nowrap;
+    display: inline-block;
+    transition: background 0.2s;
+  }
+  .pp-acceptance .btn-contact:hover { background: #4f46e5; color: #fff; }
+
+  /* Mobile */
+  @media (max-width: 900px) {
+    .pp-layout {
+      grid-template-columns: 1fr;
+      padding: 0 16px 80px;
+      gap: 0;
+    }
+    .pp-toc { display: none; }
+    .pp-hero-inner { padding: 0 20px; }
+    .pp-section-header { padding: 18px 20px; }
+    .pp-section-body { padding: 20px 20px 22px; }
+    .pp-data-grid { grid-template-columns: 1fr; }
+    .pp-acceptance { padding: 28px 20px; }
+  }
+</style>
+
+<div class="pp-root">
+
+  <!-- Hero -->
+  <div class="pp-hero">
+    <div class="pp-hero-inner">
+      <h1 class="text-white-50">Privacy Policy</h1>
+      <p>This document explains how Ledgehold collects, uses, stores, and protects your personal data when you use any ProlyfiQ service. We are committed to full compliance with Ghana's Data Protection Act.</p>
+      <div class="pp-meta-row">
+        <div class="pp-meta-item"><i class="bi bi-calendar3"></i> Last Updated: <strong>29 May 2026</strong></div>
+        <div class="pp-meta-item"><i class="bi bi-building"></i> Controller: <strong>Ledgehold Enterprise</strong></div>
+        <div class="pp-meta-item"><i class="bi bi-geo-alt-fill"></i> Jurisdiction: <strong>Republic of Ghana</strong></div>
+        <div class="pp-meta-item"><i class="bi bi-patch-check-fill"></i> DPC Act 843 Compliant</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pp-layout">
+
+    <!-- TOC Sidebar -->
+    <aside class="pp-toc">
+      <div class="pp-toc-label">Contents</div>
+      <a href="#p1"><span class="toc-num">01</span> Introduction & Controller</a>
+      <a href="#p2"><span class="toc-num">02</span> Data We Collect</a>
+      <a href="#p3"><span class="toc-num">03</span> How We Use Your Data</a>
+      <a href="#p4"><span class="toc-num">04</span> Zero-Knowledge PIN Standards</a>
+      <a href="#p5"><span class="toc-num">05</span> Data Storage & Retention</a>
+      <a href="#p6"><span class="toc-num">06</span> Third-Party Processors</a>
+      <a href="#p7"><span class="toc-num">07</span> The Gatekeeper & Audit Logs</a>
+      <a href="#p8"><span class="toc-num">08</span> Cookies & Tracking</a>
+      <a href="#p9"><span class="toc-num">09</span> Children's Privacy</a>
+      <a href="#p10"><span class="toc-num">10</span> Your Rights Under Act 843</a>
+      <a href="#p11"><span class="toc-num">11</span> Data Security Measures</a>
+      <a href="#p12"><span class="toc-num">12</span> Breach Notification</a>
+      <a href="#p13"><span class="toc-num">13</span> Changes to This Policy</a>
+      <a href="#p14"><span class="toc-num">14</span> Contact & DPC Enquiries</a>
+    </aside>
+
+    <!-- Body -->
+    <main class="pp-body">
+
+      <a href="javascript:history.back()" class="pp-back">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        Back
+      </a>
+
+      <!-- 1 -->
+      <div class="pp-section" id="p1">
+        <div class="pp-section-header">
+          <h2>1. Introduction & Data Controller</h2>
+          <span class="sec-num">01</span>
+        </div>
+        <div class="pp-section-body">
+          <p>This Privacy Policy explains how <strong>Ledgehold Enterprise</strong> (trading as <strong>ProlyfiQ</strong>), the data controller, collects, processes, stores, and protects personal data when you access or use any part of our platform including the Campus Marketplace, Utility Hub, FoodRun™ logistics service, Merchant Tools, and TV Hub.</p>
+          <p>Ledgehold operates in full compliance with the <strong>Data Protection Act, 2012 (Act 843)</strong> of the Republic of Ghana and is registered with the <strong>Data Protection Commission (DPC)</strong>. By using ProlyfiQ, you consent to the data practices described in this Policy. If you do not agree, you must discontinue use of the platform immediately.</p>
+          <div class="pp-callout pp-callout-indigo">
+            <strong><i class="bi bi-info-circle-fill"></i>Summary</strong>
+            Ledgehold is responsible for your data. This page tells you exactly what we collect, why, and how we protect it. Ghanaian law governs all of it.
+          </div>
+        </div>
+      </div>
+
+      <!-- 2 -->
+      <div class="pp-section" id="p2">
+        <div class="pp-section-header">
+          <h2>2. Data We Collect</h2>
+          <span class="sec-num">02</span>
+        </div>
+        <div class="pp-section-body">
+          <p>We collect only the personal data necessary to operate, secure, and improve our services. Collection falls into two categories: data you provide directly, and data generated automatically by your use of the platform.</p>
+
+          <div class="pp-data-grid">
+            <div class="pp-data-card">
+              <h6><i class="bi bi-person-fill text-primary"></i> You provide directly</h6>
+              <ul>
+                <li>Full name & university/institution details</li>
+                <li>Course of study or campus affiliation</li>
+                <li>Phone number (for MoMo payouts & delivery)</li>
+                <li>Merchant storefront name & profile</li>
+                <li>Uploaded photos (product listings)</li>
+                <li>Student ID uploads (verification only)</li>
+                <li>Support & compliance correspondence</li>
+              </ul>
+            </div>
+            <div class="pp-data-card">
+              <h6><i class="bi bi-activity text-success"></i> Collected automatically</h6>
+              <ul>
+                <li>Device type, browser, and OS information</li>
+                <li>IP address and approximate location</li>
+                <li>Session activity and navigation logs</li>
+                <li>Transaction records and timestamps</li>
+                <li>Delivery confirmation events (PIN / QR scans)</li>
+                <li>Error logs and platform performance data</li>
+              </ul>
+            </div>
+          </div>
+
+          <p style="margin-top:14px;">We do <strong>not</strong> collect full payment card numbers, mobile money PINs, or any financial authentication credentials. All payment processing is handled externally by Paystack, a PCI-DSS compliant third-party processor.</p>
+        </div>
+      </div>
+
+      <!-- 3 -->
+      <div class="pp-section" id="p3">
+        <div class="pp-section-header">
+          <h2>3. How We Use Your Data</h2>
+          <span class="sec-num">03</span>
+        </div>
+        <div class="pp-section-body">
+          <p>We process your personal data only for specific, explicit, and legitimate purposes in accordance with Act 843. The lawful bases on which we rely are: <strong>contract performance</strong> (processing necessary to fulfil your transactions), <strong>legitimate interests</strong> (platform security and fraud prevention), and <strong>legal obligation</strong> (compliance and audit requirements).</p>
+          <ul>
+            <li><strong>Service Delivery:</strong> To process marketplace transactions, facilitate FoodRun™ delivery coordination, fulfil utility payments, and provide merchant dashboard access.</li>
+            <li><strong>Identity Verification:</strong> To confirm that merchants and buyers are genuine campus-affiliated individuals, preventing fraud and protecting the integrity of the escrow system.</li>
+            <li><strong>Transaction Records:</strong> To generate digital receipts, maintain payout logs, and support merchant sales-tracking tools.</li>
+            <li><strong>Platform Security & Fraud Prevention:</strong> To detect, investigate, and act on suspicious activity, policy violations, or attempted fraud.</li>
+            <li><strong>Communications:</strong> To send transaction confirmations, support responses, and where you have opted in, platform updates and announcements. We do not send unsolicited marketing communications.</li>
+            <li><strong>Legal & Regulatory Compliance:</strong> To fulfil obligations under Ghanaian law, including DPC reporting requirements, tax record obligations, and lawful orders from competent authorities.</li>
+            <li><strong>Platform Improvement:</strong> To analyse aggregated, anonymised usage patterns in order to improve service performance, fix bugs, and develop new features.</li>
+          </ul>
+          <p>We will never sell, rent, or commercially exploit your personal data to third-party advertisers or data brokers under any circumstance.</p>
+        </div>
+      </div>
+
+      <!-- 4 -->
+      <div class="pp-section" id="p4">
+        <div class="pp-section-header">
+          <h2>4. Zero-Knowledge PIN Architecture</h2>
+          <span class="sec-num">04</span>
+        </div>
+        <div class="pp-section-body">
+          <p>To guarantee maximum credential protection for merchants and users, Ledgehold employs a zero-knowledge architecture for all dashboard and account access credentials.</p>
+          <ul>
+            <li><strong>Non-Reversible Hashing:</strong> Your access PIN is never stored in plain text. It is mathematically transformed using a one-way cryptographic hash function. This means even Ledgehold's own systems cannot derive or reconstruct your original PIN from the stored record.</li>
+            <li><strong>Zero Staff Visibility:</strong> No Ledgehold employee, administrator, contractor, or developer has any access to, or visibility of, your private credential. There is no "admin override" to view a PIN.</li>
+            <li><strong>Lost PIN Policy:</strong> Because your credential is irretrievable by design, a lost PIN cannot be "recovered." The existing credential record must be administratively revoked and the account holder must complete a re-onboarding process to generate a new key. This is a security feature, not a limitation.</li>
+            <li><strong>Session Timeouts:</strong> Active dashboard sessions automatically terminate after 2 minutes of inactivity to prevent unauthorised access on shared or unattended devices.</li>
+            <li><strong>Exact-Match Validation:</strong> All credential inputs are subject to strict exact-match validation including capitalisation, spacing, and character patterns to prevent guessing or enumeration attacks.</li>
+          </ul>
+          <div class="pp-callout pp-callout-green">
+            <strong><i class="bi bi-shield-check-fill"></i>What this means for you</strong>
+            No one at Ledgehold can read your PIN. If someone claiming to be our staff asks for it, that is a social engineering attack. Never share your credentials with anyone.
+          </div>
+        </div>
+      </div>
+
+      <!-- 5 -->
+      <div class="pp-section" id="p5">
+        <div class="pp-section-header">
+          <h2>5. Data Storage & Retention</h2>
+          <span class="sec-num">05</span>
+        </div>
+        <div class="pp-section-body">
+          <p>All data processed by ProlyfiQ is stored on encrypted cloud infrastructure. We apply a tiered retention schedule based on the sensitivity and operational purpose of each data category:</p>
+          <ul>
+            <li><strong>Student ID Uploads:</strong> Automatically purged from our systems within <strong>12 hours</strong> of upload, after the verification check is complete. ID images are never archived or retained long-term.</li>
+            <li><strong>Live Selfie Uploads:</strong> Also automatically purged from our systems within <strong>6 hours</strong> of upload, after the verification check is complete. Live selfie images are never archived or retained long-term.</li>
+            <li><strong>Transaction Records & Delivery Logs:</strong> Retained for a minimum of <strong>7 years</strong> from the date of the transaction, as required for tax compliance and audit purposes under Ghanaian financial regulations.</li>
+            <li><strong>Account Data (active accounts):</strong> Retained for the duration of your account activity and for a period of up to <strong>2 years</strong> following account closure, to support dispute resolution and legal obligation compliance.</li>
+            <li><strong>Support Correspondence:</strong> Retained for up to <strong>3 years</strong> from the date of resolution to support quality assurance and any subsequent disputes.</li>
+            <li><strong>Aggregated Analytics Data:</strong> Anonymised and retained indefinitely for platform improvement purposes. This data cannot be traced back to any individual.</li>
+          </ul>
+          <p>Data stored in encrypted form on our cloud infrastructure is protected using <strong>AES-256 encryption</strong> at rest and TLS 1.2 or higher in transit.</p>
+        </div>
+      </div>
+
+      <!-- 6 -->
+      <div class="pp-section" id="p6">
+        <div class="pp-section-header">
+          <h2>6. Third-Party Data Processors</h2>
+          <span class="sec-num">06</span>
+        </div>
+        <div class="pp-section-body">
+          <p>We engage a limited number of carefully selected third-party service providers as data processors to support our platform operations. Each processor is bound by contractual data protection obligations consistent with Act 843 and their own applicable security certifications:</p>
+          <ul>
+            <li><strong>Paystack (Financial Settlements):</strong> All payment initiation, processing, and settlement flows are handled by Paystack, a PCI-DSS Level 1 certified payment processor operating under Central Bank of Nigeria (CBN) and international financial regulatory oversight. ProlyfiQ does not store card numbers or mobile money authentication credentials. Paystack's privacy practices are governed by their published privacy policy.</li>
+            <li><strong>Cloudinary (Media Processing):</strong> Product listing images and time-limited identity verification uploads are transiently processed and hosted via Cloudinary's secure CDN infrastructure. Data is handled in accordance with our agreed short-term retention windows and Cloudinary's ISO 27001-certified security framework.</li>
+            <li><strong>Hosting & Infrastructure Provider:</strong> Our web application and database infrastructure is hosted on a reputable cloud provider maintaining industry-standard physical and logical security controls, including encryption at rest and access logging.</li>
+          </ul>
+          <p>We do not share your personal data with any other third party except where required by law, by a lawful order of a competent Ghanaian authority, or where explicitly described in this Policy. We do not share data with advertisers.</p>
+        </div>
+      </div>
+
+      <!-- 7 -->
+      <div class="pp-section" id="p7">
+        <div class="pp-section-header">
+          <h2>7. The Gatekeeper Policy & Audit Logs</h2>
+          <span class="sec-num">07</span>
+        </div>
+        <div class="pp-section-body">
+          <p>ProlyfiQ operates a strict delivery verification mandate (the Gatekeeper Policy) which requires platform-confirmed proof of delivery before any merchant disbursement is authorised. The data collected as part of this process is treated with specific care:</p>
+          <ul>
+            <li><strong>Verification Event Data:</strong> Each delivery confirmation event (PIN entry or QR code scan) generates a tamper-evident log record containing the timestamp, transaction reference, and anonymised event fingerprint. This record is the sole authoritative proof of delivery on the platform.</li>
+            <li><strong>Audit Retention:</strong> Verification logs are retained as part of the transaction record for the full 7-year compliance window to support financial auditing, tax reporting, and dispute arbitration.</li>
+            <li><strong>Access Controls:</strong> Audit log data is accessible only to authorised Ledgehold compliance personnel for defined operational and legal purposes, and is not used for commercial profiling of any kind.</li>
+            <li><strong>Payout Ineligibility Records:</strong> Where a payout request is flagged as ineligible due to missing proof of delivery, a record of the flag reason is retained in the merchant's account log for transparency and dispute review purposes.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 8 -->
+      <div class="pp-section" id="p8">
+        <div class="pp-section-header">
+          <h2>8. Cookies & Session Tracking</h2>
+          <span class="sec-num">08</span>
+        </div>
+        <div class="pp-section-body">
+          <p>ProlyfiQ uses a minimal set of cookies and session-based storage mechanisms necessary for platform functionality and security. We do not use third-party advertising cookies or behavioural tracking networks.</p>
+          <ul>
+            <li><strong>Strictly Necessary Cookies:</strong> Used to maintain your session state, remember security preferences (such as the one-time security alert acknowledgement), and enable core platform functionality. These cannot be disabled without breaking the platform.</li>
+            <li><strong>Session Storage:</strong> We use browser sessionStorage to track short-term state such as whether you have viewed the security advisory in your current session. This data exists only for the duration of your browser session and is never transmitted to our servers.</li>
+            <li><strong>No Advertising or Tracking Cookies:</strong> We do not deploy any third-party advertising pixels, social media trackers, or cross-site behavioural profiling cookies.</li>
+            <li><strong>Third-Party Script Cookies:</strong> Some embedded third-party tools (such as the Trustpilot review widget and Paystack checkout) may set their own cookies when you interact with them. These are governed by the respective provider's cookie and privacy policies.</li>
+          </ul>
+          <div class="pp-callout pp-callout-amber">
+            <strong><i class="bi bi-exclamation-triangle-fill"></i>Your Cookie Control</strong>
+            You can configure your browser to block or delete cookies at any time. Note that disabling strictly necessary cookies may impair platform functionality, including checkout and merchant dashboard access.
+          </div>
+        </div>
+      </div>
+
+      <!-- 9 -->
+      <div class="pp-section" id="p9">
+        <div class="pp-section-header">
+          <h2>9. Children's Privacy</h2>
+          <span class="sec-num">09</span>
+        </div>
+        <div class="pp-section-body">
+          <p>ProlyfiQ is not directed at or designed for use by individuals under the age of 18. We do not knowingly collect, process, or retain personal data from anyone under 18 years of age.</p>
+          <p>If we become aware that we have inadvertently collected personal data from a minor, we will take immediate steps to delete that data from our systems and close the associated account. If you believe a minor has registered on our platform or submitted personal data without appropriate consent, please contact us at <a href="mailto:support@prolyfiq.store" style="color:#6366f1;">support@prolyfiq.store</a> so we can act promptly.</p>
+        </div>
+      </div>
+
+      <!-- 10 -->
+      <div class="pp-section" id="p10">
+        <div class="pp-section-header">
+          <h2>10. Your Rights Under Act 843</h2>
+          <span class="sec-num">10</span>
+        </div>
+        <div class="pp-section-body">
+          <p>As a data subject under Ghana's Data Protection Act, 2012 (Act 843), you have the following rights with respect to your personal data held by Ledgehold:</p>
+          <ul>
+            <li><strong>Right of Access:</strong> You have the right to request a copy of the personal data we hold about you, along with information about how it is processed.</li>
+            <li><strong>Right to Rectification:</strong> You have the right to request correction of any inaccurate or incomplete personal data we hold about you.</li>
+            <li><strong>Right to Erasure:</strong> You may request deletion of your personal data where it is no longer necessary for the purpose for which it was collected, subject to our legal retention obligations (for example, the 7-year financial record requirement cannot be overridden by an erasure request).</li>
+            <li><strong>Right to Object:</strong> You have the right to object to the processing of your personal data where we rely on legitimate interests as the lawful basis, subject to our overriding legitimate grounds.</li>
+            <li><strong>Right to Restrict Processing:</strong> You may request that we restrict the processing of your data in certain circumstances, such as while a rectification request is under review.</li>
+            <li><strong>Right to Data Portability:</strong> Where technically feasible, you may request a structured, machine-readable copy of personal data you have provided to us.</li>
+            <li><strong>Right to Lodge a Complaint:</strong> If you believe your data protection rights have been violated, you have the right to lodge a formal complaint with the <strong>Data Protection Commission of Ghana</strong></li>
+          </ul>
+          <p>To exercise any of the above rights, contact our compliance team at <a href="mailto:support@prolyfiq.store" style="color:#6366f1;">support@prolyfiq.store</a> with the subject line <strong>"DATA RIGHTS REQUEST"</strong>. We will acknowledge your request within 5 business days and respond substantively within 30 days as required by law.</p>
+        </div>
+      </div>
+
+      <!-- 11 -->
+      <div class="pp-section" id="p11">
+        <div class="pp-section-header">
+          <h2>11. Data Security Measures</h2>
+          <span class="sec-num">11</span>
+        </div>
+        <div class="pp-section-body">
+          <p>Ledgehold maintains a layered security posture designed to protect your personal data against unauthorised access, disclosure, alteration, or destruction. Our measures include:</p>
+          <ul>
+            <li><strong>Encryption at Rest:</strong> All personal data stored in our cloud infrastructure is encrypted using AES-256 encryption.</li>
+            <li><strong>Encryption in Transit:</strong> All data transmitted between your device and our servers is encrypted using TLS 1.2 or higher, preventing interception.</li>
+            <li><strong>Credential Hashing:</strong> All access credentials (PINs) are processed through one-way cryptographic hash functions before storage. See Section 4 for full details.</li>
+            <li><strong>Access Controls:</strong> Access to production systems and user data is restricted to a minimum set of authorised personnel on a strict need-to-know basis, with access logging and audit trails.</li>
+            <li><strong>Short-Lived Media Storage:</strong> Sensitive uploads (student IDs and photos) are subject to automatic purge schedules as detailed in Section 5, minimising the window of data exposure.</li>
+            <li><strong>Session Security:</strong> Inactive dashboard sessions are automatically terminated after 2 minutes to prevent access on unattended devices.</li>
+            <li><strong>Security Monitoring:</strong> Our platform and infrastructure are subject to ongoing monitoring for anomalous activity, with incident response procedures in place.</li>
+          </ul>
+          <p>While we employ commercially reasonable security measures, no system is completely immune to breach. We strongly encourage you to maintain the security of your own account credentials and to notify us immediately if you suspect any unauthorised access.</p>
+        </div>
+      </div>
+
+      <!-- 12 -->
+      <div class="pp-section" id="p12">
+        <div class="pp-section-header">
+          <h2>12. Data Breach Notification</h2>
+          <span class="sec-num">12</span>
+        </div>
+        <div class="pp-section-body">
+          <p>In the event of a personal data breach that is likely to result in a risk to the rights and freedoms of affected individuals, Ledgehold will act in accordance with its obligations under Act 843 and applicable DPC guidance:</p>
+          <ul>
+            <li><strong>DPC Notification:</strong> We will notify the Data Protection Commission within the timeframe prescribed by applicable regulations where a notifiable breach has occurred.</li>
+            <li><strong>User Notification:</strong> Where a breach is likely to result in a high risk to your individual rights or freedoms, for example, exposure of account credentials or financial information, we will notify affected users directly via their registered contact details without undue delay.</li>
+            <li><strong>Notification Content:</strong> Breach notifications will describe the nature of the breach, the categories and approximate number of individuals and data records affected, likely consequences, and the measures taken or proposed to address it.</li>
+            <li><strong>Internal Response:</strong> We maintain internal incident response procedures to contain, assess, and remediate data breaches as quickly and thoroughly as possible.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 13 -->
+      <div class="pp-section" id="p13">
+        <div class="pp-section-header">
+          <h2>13. Changes to This Policy</h2>
+          <span class="sec-num">13</span>
+        </div>
+        <div class="pp-section-body">
+          <p>Ledgehold may update this Privacy Policy from time to time to reflect changes in our data practices, applicable law, or platform features. When we do, we will revise the "Last Updated" date at the top of this page.</p>
+          <p>Where a change is material, meaning it substantially affects how we handle your personal data or your rights under this Policy, we will endeavour to provide at least seven (7) days' advance notice through the platform interface or via your registered contact details before the change takes effect.</p>
+          <p>Your continued use of the platform after any updated Policy takes effect constitutes your acceptance of the revised terms. We encourage you to review this page periodically. Archived versions of previous policies are available upon request to our compliance team.</p>
+        </div>
+      </div>
+
+      <!-- 14 -->
+      <div class="pp-section" id="p14">
+        <div class="pp-section-header">
+          <h2>14. Contact & DPC Enquiries</h2>
+          <span class="sec-num">14</span>
+        </div>
+        <div class="pp-section-body">
+          <p>For any questions, requests, or concerns regarding this Privacy Policy or the handling of your personal data, please contact our Compliance Team:</p>
+          <ul>
+            <li><strong>Email:</strong> <a href="mailto:support@prolyfiq.store" style="color:#6366f1;">support@prolyfiq.store</a> | use subject line <strong>"PRIVACY ENQUIRY"</strong></li>
+            <li><strong>WhatsApp:</strong> <a href="https://wa.me/233551681706" style="color:#6366f1;">+233 55 168 1706</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Acceptance footer -->
+      <div class="pp-acceptance">
+        <div>
+          <h3 class="text-white-50">Your privacy is our responsibility</h3>
+          <p>By using ProlyfiQ, you confirm that you have read and understood this Privacy Policy. It was last updated on 29 May 2026 and is governed by Ghana's Data Protection Act, 2012 (Act 843).</p>
+        </div>
+        <a href="https://wa.me/233551681706" class="btn-contact">
+          <i class="bi bi-whatsapp me-2"></i>Contact Compliance
+        </a>
+      </div>
+            <!-- DPC Registration Badge -->
+      <div style="text-align: center; margin-top: 40px; padding: 0 0 20px;">
+        <img 
+          src="https://cdn.prod.website-files.com/69cecfcd51ce55fce000c092/6a1855f0b4b2caf5ac411f74_DPC%20logo%201.png" 
+          alt="Data Protection Commission Ghana — Registered" 
+          style="max-width: 160px; height: auto; opacity: 0.7; filter: grayscale(0.3);"
+        >
+        <p style="font-size: 0.7rem; color: #94a3b8; margin-top: 8px; letter-spacing: 0.03em;">
+          Registered with the Data Protection Commission, Ghana
+        </p>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script>
+  const ppSections = document.querySelectorAll('.pp-section');
+  const ppLinks = document.querySelectorAll('.pp-toc a');
+  const ppObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        ppLinks.forEach(a => {
+          a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+        });
+      }
+    });
+  }, { rootMargin: '-80px 0px -60% 0px', threshold: 0 });
+  ppSections.forEach(s => ppObserver.observe(s));
+</script>
+
+{% endblock %}

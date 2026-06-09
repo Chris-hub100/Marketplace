@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Frequently Asked Questions | ProlyfiQ{% endblock %}
+
+{% block content %}
+
+<!-- BACK BUTTON -->
+<div class="mb-6">
+  <a href="javascript:history.back()" 
+    style="display: inline-flex; align-items: center; gap: 12px; padding: 8px 4px; font-size: 0.875rem; font-weight: bold; color: #64748b; text-decoration: none; transition: all 0.3s ease;"
+    class="hover:text-slate-900"
+  >
+    <div style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background-color: #f1f5f9;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m15 18-6-6 6-6"/>
+      </svg>
+    </div>
+    <span>Back</span>
+  </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold text-dark">Frequently Asked Questions</h2>
+            <p class="text-muted">Answers to common questions about Marketplace, Payments, and Refunds.</p>
+        </div>
+
+        <!-- FAQ ACCORDION -->
+        <div class="accordion accordion-flush shadow-sm rounded-4 overflow-hidden border" id="faqAccordion">
+            
+            <!-- PRICING & FEES -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button fw-bold py-4" type="button" data-bs-toggle="collapse" data-bs-target="#pricingFAQ">
+                         What fees does ProlyfiQ charge?
+                    </button>
+                </h2>
+                <div id="pricingFAQ" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted small px-4 pb-4">
+                        <p><strong>For Buyers:</strong> No hidden charges. If you choose <strong>Protected Escrow</strong> (Option 1), a 2% non-refundable premium is added to the item price at checkout. Options 2 and 3 have no upfront premium.</p>
+                        
+                        <p class="mt-3"><strong>For Sellers (Merchant Service Fee):</strong></p>
+                        <ul>
+                            <li>Sales below <strong>GHS 500</strong> = 3.5% service fee</li>
+                            <li>Sales between <strong>GHS 500 and GHS 1,999.99</strong> = 3% service fee</li>
+                            <li>Sales <strong>GHS 2,000 and above</strong> = 2.5% service fee</li>
+                        </ul>
+                        
+                        <p><strong>Transfer Fee:</strong> A flat <strong>GHS 0.40</strong> is deducted from every payout (or <strong>GHS 0.80</strong> for transactions at or below GHS 25.00).
+                        
+                        <p class="mt-3 mb-0"><strong>Important:</strong> You are only charged when a transaction completes successfully. Nothing is deducted on failed or cancelled orders.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BUYER PROTECTION OPTIONS -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold py-4" type="button" data-bs-toggle="collapse" data-bs-target="#protectionFAQ">
+                         What are the Buyer Protection Options?
+                    </button>
+                </h2>
+                <div id="protectionFAQ" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted small px-4 pb-4">
+                        <p>At checkout, you choose how your funds are protected:</p>
+                        
+                        <p class="mt-3"><strong>Option 1 | Protected Escrow:</strong> You pay a 2% non-refundable premium added to the item price. If you inspect the item at the meetup and reject it, you receive <strong>100% of the item price back</strong>. The 2% premium is retained by Ledgehold. <em>This is mandatory for items GHS 1,000 and above to make sure your funds are protected regardless.</em></p>
+                        
+                        <p><strong>Option 2 | Flexible Escrow:</strong> No upfront premium. If you request a refund, you receive <strong>95% of the item price back</strong>. Ledgehold retains 5% as an escrow and routing fee. The exact amount you'd get back is always shown at checkout.</p>
+                        
+                        <p><strong>Option 3 | No Protection:</strong> No upfront premium. No refund path under any circumstance. You are contractually bound to complete the transaction. <em>Only available on items below GHS 100.</em></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SELLER PAYOUTS -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold py-4" type="button" data-bs-toggle="collapse" data-bs-target="#payoutFAQ">
+                         How do I get my payout as a seller?
+                    </button>
+                </h2>
+                <div id="payoutFAQ" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted small px-4 pb-4">
+                        <p>To receive your payout, you must satisfy <strong>The Gatekeeper Policy</strong>.</p>
+                        
+                        <p>The primary method is the <strong>QR Handshake</strong>: have the buyer scan the unique QR code displayed on your Merchant Dashboard at the point of delivery. The buyer enters their 4-digit Delivery PIN and swipes to confirm. This instantly authorizes your payout.</p>
+                        
+                        <p>Once confirmed, your payout is processed automatically to your registered MoMo number. You'll receive an SMS confirmation when the transfer is initiated. Funds typically arrive within minutes.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MARKETPLACE REFUNDS -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold py-4" type="button" data-bs-toggle="collapse" data-bs-target="#refundFAQ">
+                         How do refunds work?
+                    </button>
+                </h2>
+                <div id="refundFAQ" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted small px-4 pb-4">
+                        <p>Refunds depend on which protection option you selected at checkout:</p>
+                        
+                        <p class="mt-3"><strong>Option 1 (Protected Escrow):</strong> If you reject the item at the meetup landmark, you receive <strong>100% of the item price</strong> back. The 2% premium is non-refundable as it covers processing costs already incurred.</p>
+                        
+                        <p><strong>Option 2 (Flexible Escrow):</strong> You receive <strong>95% of the item price</strong> back. The 5% retained covers escrow and routing costs.</p>
+                        
+                        <p><strong>Option 3 (No Protection):</strong> No refunds are available. You agreed to complete the transaction at the point of selection.</p>
+                        
+                        <p class="mt-3 mb-0">To request a refund, use the <strong>Request Refund</strong> button in the Customer Support options (available on every page). Have your transaction reference ready; it was sent to you via SMS after your purchase.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FOOD RUN REFUNDS -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold py-4" type="button" data-bs-toggle="collapse" data-bs-target="#foodRefundFAQ">
+                         Can I cancel my Food Run order?
+                    </button>
+                </h2>
+                <div id="foodRefundFAQ" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted small px-4 pb-4">
+                        Cancellations and refunds for Food Run orders are only possible <strong>before the Run begins</strong>. Once our delivery agents have started the fulfillment process, no refunds can be issued as food is a perishable good. Please ensure you are at the pickup landmark within 10 minutes of arrival to avoid forfeiture.
+                    </div>
+                </div>
+            </div>
+
+            <!-- ESCROW SECURITY -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold py-4" type="button" data-bs-toggle="collapse" data-bs-target="#escrowFAQ">
+                         How does the Escrow system protect me?
+                    </button>
+                </h2>
+                <div id="escrowFAQ" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted small px-4 pb-4">
+                        <p>ProlyfiQ acts as a neutral third party through <strong>Ledgehold Escrow</strong>. When you pay, your money is held securely; it is not released to the seller until you confirm satisfactory receipt at the agreed campus landmark.</p>
+                        
+                        <p>This prevents "runaway sellers" and ensures you only pay for what you actually receive. The seller cannot access your funds without your explicit confirmation via the QR handshake and Delivery PIN.</p>
+                        
+                        <p class="mb-0">All payments are processed through <strong>Paystack</strong>, a PCI-DSS compliant payment processor used by thousands of businesses across Africa.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DELIVERY PIN -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold py-4" type="button" data-bs-toggle="collapse" data-bs-target="#pinFAQ">
+                         What is the Delivery PIN and why is it important?
+                    </button>
+                </h2>
+                <div id="pinFAQ" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted small px-4 pb-4">
+                        <p>Your <strong>Delivery PIN</strong> is a 4-digit code you create at checkout. It acts as your digital signature to release funds from escrow.</p>
+                        
+                        <p>When you meet the seller, you scan their QR code and enter this PIN. This proves you are the authorised buyer and confirms you've received the item. <strong>Never share your Delivery PIN with anyone</strong>; not even the seller. Just like your MoMo PIN, it protects your money.</p>
+                        
+                        <p class="mb-0">If you enter the wrong PIN 5 times, the transaction is permanently locked for security. You'll need to contact support to resolve it.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EXTERNAL LINKS -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed fw-bold py-4" type="button" data-bs-toggle="collapse" data-bs-target="#amazonFAQ">
+                         Why am I seeing Amazon links in the TV Hub?
+                    </button>
+                </h2>
+                <div id="amazonFAQ" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body text-muted small px-4 pb-4">
+                        The ProlyfiQ TV Hub includes curated discovery and entertainment content. Some links are part of the <strong>Amazon Associates Program</strong>. By using these links, Ledgehold earns a small commission which helps us keep the platform running for students. Your price remains exactly the same.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="mt-5 p-4 bg-light rounded-4 text-center border">
+            <h6 class="fw-bold mb-2">Still need help?</h6>
+            <p class="small text-muted mb-3">Our support team is available via WhatsApp for assistance.</p>
+            <a href="https://wa.me/233551681706" class="btn btn-dark rounded-pill px-4 fw-bold">
+                <i class="bi bi-whatsapp me-2"></i> Chat with Support
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .accordion-button:not(.collapsed) {
+        background-color: #f8fafc;
+        color: #0f172a;
+        box-shadow: none;
+    }
+    .accordion-button:focus {
+        border-color: rgba(0,0,0,0.125);
+        box-shadow: none;
+    }
+    .accordion-item {
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .accordion-item:first-child {
+        border-top: none;
+    }
+    .accordion-item:last-child {
+        border-bottom: none;
+    }
+</style>
+
+{% endblock %}

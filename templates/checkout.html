@@ -1,0 +1,1520 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="checkout-shell">
+
+    <!-- ── ITEM PREVIEW STRIP ── -->
+    <div class="item-strip">
+        <div class="item-strip-inner">
+            <div class="item-img-wrap">
+                <img id="checkoutItemImage"
+                    src="{{ authoritative_img }}"
+                    alt="{{ request.args.get('item') }}"
+                    onerror="this.closest('.item-img-wrap').classList.add('img-hidden')">
+                <div class="img-fallback"><i class="bi bi-bag"></i></div>
+            </div>
+            <div class="item-meta">
+                {% if request.args.get('campus') %}
+                <span class="campus-badge"><i class="bi bi-geo-alt-fill me-1"></i>{{ request.args.get('campus') }}</span>
+                {% endif %}
+                <p class="item-name">{{ request.args.get('item') }}</p>
+                {% if request.args.get('variety') %}
+                <span class="variety-pill">{{ request.args.get('variety') }}</span>
+                {% endif %}
+            </div>
+            <div class="item-price-tag">
+                <span class="price-currency">GHS</span>
+                <span class="price-amount" id="stripPrice">{{ request.args.get('price') }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- STAGE 1: PROTECTION PLAN                  -->
+    <!-- ══════════════════════════════════════════ -->
+    <div id="protectionStage" class="stage-wrapper">
+
+        <div class="stage-header">
+            <h2 class="stage-title">Buyer Protection Plan</h2>
+            <p class="stage-subtitle">Select how you want us to protect your funds.</p>
+        </div>
+
+        <!-- DESKTOP/TABLET: horizontal tier cards -->
+        <div class="tiers-grid" id="tiersGrid">
+
+            <!-- OPTION 1 -->
+            <div class="tier-card" id="cardOpt1" onclick="selectProtectionOption(1)" data-opt="1">
+                <div class="tier-header tier-header--blue">
+                    <div class="tier-icon"><i class="bi bi-star-fill" style="color: #ffc107;"></i></div>
+                    <div class="tier-badge-wrap">
+                        <span class="tier-recommended-badge">Recommended</span>
+                    </div>
+                </div>
+                <div class="tier-body">
+                    <p class="tier-name">Protected Escrow</p>
+                    <p class="tier-option-label">Option One</p>
+                    <div class="tier-premium-display">
+                        <span class="tier-premium-amount" id="premiumLabelCard">+ GHS —</span>
+                        <span class="tier-premium-note">one-time</span>
+                    </div>
+                    <p class="tier-desc">Pay a small non-refundable protection fee upfront. Reject the item at pickup and receive a <strong>100% full refund</strong> of the item price.</p>
+                    <div class="tier-refund-block tier-refund-block--blue">
+                        <span class="refund-label">If you reject the item at pickup, you get back</span>
+                        <strong class="refund-amount" id="refundLabelOpt1">GHS —</strong>
+                    </div>
+                    <ul class="tier-perks">
+                        <li><i class="bi bi-check2"></i> Full item price refund</li>
+                        <li><i class="bi bi-check2"></i> Dispute resolution support</li>
+                        <li><i class="bi bi-check2"></i> Priority claim processing</li>
+                    </ul>
+                </div>
+                <div class="tier-select-indicator">
+                    <div class="radio-dot"></div>
+                </div>
+            </div>
+
+            <!-- OPTION 2 -->
+            <div class="tier-card" id="cardOpt2" onclick="selectProtectionOption(2)" data-opt="2">
+                <div class="tier-header tier-header--amber">
+                    <div class="tier-icon"><i class="bi bi-shield-half"></i></div>
+                    <div class="tier-badge-wrap"></div>
+                </div>
+                <div class="tier-body">
+                    <p class="tier-name">Flexible Escrow</p>
+                    <p class="tier-option-label">Option Two</p>
+                    <div class="tier-premium-display">
+                        <span class="tier-premium-amount">+ GHS 0.00</span>
+                        <span class="tier-premium-note">no upfront fee</span>
+                    </div>
+                    <p class="tier-desc">No fee to get started. Reject the item at pickup and receive back <strong>95%</strong> of the item price. We retain a 5% escrow and routing fee.</p>
+                    <div class="tier-refund-block tier-refund-block--amber">
+                        <span class="refund-label">If you reject the item at pickup, you get back</span>
+                        <strong class="refund-amount" id="refundLabelOpt2">GHS —</strong>
+                    </div>
+                    <ul class="tier-perks">
+                        <li><i class="bi bi-check2"></i> No upfront commitment</li>
+                        <li><i class="bi bi-check2"></i> 95% refund on rejection</li>
+                        <li class="perk-muted"><i class="bi bi-x"></i> 5% escrow and routing fee retained</li>
+                    </ul>
+                </div>
+                <div class="tier-select-indicator">
+                    <div class="radio-dot"></div>
+                </div>
+            </div>
+
+            <!-- OPTION 3 -->
+            <div class="tier-card" id="cardOpt3" onclick="selectProtectionOption(3)" data-opt="3">
+                <div class="tier-header tier-header--red">
+                    <div class="tier-icon"><i class="bi bi-shield-x"></i></div>
+                    <div class="tier-badge-wrap"></div>
+                </div>
+                <div class="tier-body">
+                    <p class="tier-name">No Protection</p>
+                    <p class="tier-option-label">Option Three</p>
+                    <div class="tier-premium-display">
+                        <span class="tier-premium-amount">+ GHS 0.00</span>
+                        <span class="tier-premium-note">no upfront fee</span>
+                    </div>
+                    <p class="tier-desc">No fee, no safety net. You are contractually obligated to collect the item at pickup. <strong>No refund path exists</strong> under any circumstance.</p>
+                    <div class="tier-refund-block tier-refund-block--red">
+                        <span class="refund-label">If you reject the item at pickup, you get back</span>
+                        <strong class="refund-amount refund-amount--zero">GHS 0.00</strong>
+                    </div>
+                    <ul class="tier-perks">
+                        <li class="perk-muted"><i class="bi bi-x"></i> No refund under any circumstance</li>
+                        <li class="perk-muted"><i class="bi bi-x"></i> No dispute resolution</li>
+                        <li class="perk-muted"><i class="bi bi-x"></i> Contractually binding</li>
+                    </ul>
+                </div>
+                <div class="tier-select-indicator">
+                    <div class="radio-dot"></div>
+                </div>
+            </div>
+
+        </div><!-- /tiers-grid -->
+
+        <div id="protectionError" class="protection-error d-none">
+            <i class="bi bi-exclamation-circle-fill"></i> Please select a protection plan to proceed.
+        </div>
+
+    </div><!-- /protectionStage -->
+
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- STAGE 2: CREDENTIALS                       -->
+    <!-- ══════════════════════════════════════════ -->
+    <div id="credentialsStage" class="stage-wrapper d-none">
+
+        <div class="stage-header cred-header">
+            <div>
+                <h2 class="stage-title">Account Details</h2>
+                <p class="stage-subtitle">The seller will contact you using this number.</p>
+            </div>
+            <button onclick="goToProtectionStage()" class="back-link">
+                <i class="bi bi-arrow-left"></i> Change Plan
+            </button>
+        </div>
+
+        <div class="creds-grid">
+
+            <div class="cred-fields-panel">
+
+                <div class="field-group">
+                    <label class="field-label">PHONE NUMBER</label>
+                    <div class="field-input-wrap">
+                        <span class="field-icon"><i class="bi bi-telephone"></i></span>
+                        <input type="tel" id="buyerPhone"
+                            class="field-input"
+                            placeholder="024 XXX XXXX"
+                            maxlength="10">
+                    </div>
+                    <div id="phoneError" class="field-error d-none"></div>
+                </div>
+
+                <div class="field-group">
+                <label class="field-label">CREATE DELIVERY PIN</label>
+                <p class="field-hint">Choose 4 digits. You will enter this on your phone when you collect the item.</p>
+                <div class="field-input-wrap">
+                    <span class="field-icon"><i class="bi bi-lock-fill"></i></span>
+                    <input type="text" 
+                        inputmode="numeric" 
+                        pattern="[0-9]{4}" 
+                        maxlength="4"
+                        id="deliveryPin" 
+                        class="field-input secure-pin-mask" 
+                        placeholder="e.g. 1234"
+                        autocomplete="new-password">
+                </div>
+            </div>
+
+            <div class="field-group">
+                <label class="field-label">CONFIRM PIN</label>
+                <div class="field-input-wrap">
+                    <span class="field-icon"><i class="bi bi-check-circle-fill"></i></span>
+                    <input type="text" 
+                        inputmode="numeric" 
+                        pattern="[0-9]{4}" 
+                        maxlength="4"
+                        id="confirmPin" 
+                        class="field-input secure-pin-mask" 
+                        placeholder="Re-enter PIN"
+                        autocomplete="new-password">
+                </div>
+                <div id="pinError" class="field-error d-none"></div>
+            </div>
+
+            </div><!-- /cred-fields-panel -->
+
+            <div class="order-summary-panel">
+                <p class="summary-heading">Order Summary</p>
+
+                <div class="summary-plan-badge" id="summaryPlanBadge">
+                    <i class="bi bi-shield-check-fill" id="summaryPlanIcon"></i>
+                    <span id="summaryPlanName">Protected Escrow</span>
+                </div>
+
+                <div class="summary-lines">
+                    <div class="summary-line">
+                        <span>Base Price</span>
+                        <span>GHS <span id="summaryBasePrice">0.00</span></span>
+                    </div>
+                    <div class="summary-line">
+                        <span>Protection Premium</span>
+                        <span>GHS <span id="summaryPremiumPrice">0.00</span></span>
+                    </div>
+                    <div class="summary-line summary-line--total">
+                        <span>Total Checkout Charge</span>
+                        <span class="total-amount">GHS <span id="summaryTotalPrice">0.00</span></span>
+                    </div>
+                </div>
+
+                <div class="summary-security-note">
+                    <i class="bi bi-lock-fill"></i>
+                    <span>Secured via Paystack · GHS is the transaction currency</span>
+                </div>
+            </div>
+
+        </div><!-- /creds-grid -->
+
+    </div><!-- /credentialsStage -->
+
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- FLOATING PROCEED BAR (always visible)     -->
+    <!-- ══════════════════════════════════════════ -->
+    <div class="floating-bar" id="floatingBar">
+        <div class="floating-bar-inner">
+            <div class="floating-bar-summary">
+                <span class="floating-bar-label">Total</span>
+                <span class="floating-bar-total">GHS <span id="floatingTotal">0.00</span></span>
+            </div>
+            <button id="floatingBtn" class="floating-proceed-btn" onclick="handleFloatingAction()">
+                <span id="floatingBtnText">Proceed to Account Details</span>
+                <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+</div><!-- /checkout-shell -->
+
+
+<!-- ══════════════════════════════════════════ -->
+<!-- REFUND POLICY NOTICE MODAL                -->
+<!-- ══════════════════════════════════════════ -->
+<div class="modal fade" id="refundPolicyModal" tabindex="-1" aria-labelledby="refundPolicyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-body p-0">
+                <div class="d-flex align-items-center gap-3 px-4 py-4" style="background-color: #eff4ff; border-bottom: 2px solid #93c5fd;">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                         style="width: 48px; height: 48px; background-color: #dbeafe;">
+                        <i class="bi bi-info-circle-fill fs-4" style="color: #1a56db;"></i>
+                    </div>
+                    <div>
+                        <p class="fw-bold mb-0 text-dark" style="font-size: 1rem;">Before You Continue</p>
+                        <p class="text-muted mb-0 small">Important note about refunds.</p>
+                    </div>
+                </div>
+                <div class="px-4 py-4">
+                    <p class="text-dark mb-3" style="line-height: 1.65; font-size: 0.92rem;">
+                        Refunds only apply when you request it <strong>before scanning the QR code</strong> provided to you at pickup. Our system is automated to release payment to the merchant the moment you scan and follow the prompts.
+                    </p>
+                    <p class="text-muted mb-0" style="line-height: 1.55; font-size: 0.85rem;">
+                        Once the QR code has been scanned and the prompts completed, the transaction is considered final and cannot be reversed.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer border-0 px-4 pb-4 pt-0 gap-2">
+                <button type="button" class="btn btn-dark rounded-pill px-4 fw-bold flex-grow-1 py-2 shadow-sm"
+                        onclick="confirmAndProceedToCredentials()">
+                    I Understand, Continue <i class="bi bi-arrow-right ms-1 small"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════ -->
+<!-- PIN WARNING MODAL                         -->
+<!-- ══════════════════════════════════════════ -->
+<div class="modal fade" id="pinWarningModal" tabindex="-1" aria-labelledby="pinWarningModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-body p-0">
+                <div class="d-flex align-items-center gap-3 px-4 py-4" style="background-color: #fffbeb; border-bottom: 2px solid #f59e0b;">
+                    <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                         style="width: 48px; height: 48px; background-color: #fef3c7;">
+                        <i class="bi bi-shield-lock-fill fs-4 text-warning"></i>
+                    </div>
+                    <div>
+                        <p class="fw-bold mb-0 text-dark" style="font-size: 1rem;">Protection Notice</p>
+                        <p class="text-muted mb-0 small">One more important thing before you pay.</p>
+                    </div>
+                </div>
+                <div class="px-4 py-4">
+                    <p class="text-dark mb-3" style="line-height: 1.6; font-size: 0.92rem;">
+                        Just like you never share your <strong>MoMo PIN</strong>, never share your
+                        <strong>Delivery PIN</strong> with anyone, not even the seller.
+                    </p>
+                    <p class="text-muted mb-0" style="line-height: 1.6; font-size: 0.85rem;">
+                        Your phone number will be saved on this device so future checkouts are faster.
+                    </p>
+                </div>
+                <div class="mx-4 mb-4 rounded-3 p-3 d-flex align-items-center gap-3" style="background: #f8f9fa;">
+                    <!-- Item Image -->
+                    <div class="rounded-3 overflow-hidden flex-shrink-0" 
+                         style="width: 56px; height: 56px; background: #e9ecef;">
+                        <img id="modalItemImage" 
+                             src="{{ authoritative_img }}" 
+                             alt="{{ request.args.get('item') }}"
+                             style="width: 100%; height: 100%; object-fit: cover;"
+                             onerror="this.closest('div').innerHTML='<i class=\'bi bi-bag-check-fill text-dark fs-5\'></i>'; this.closest('div').style.display='flex'; this.closest('div').style.alignItems='center'; this.closest('div').style.justifyContent='center';">
+                    </div>
+                    <div class="small w-100">
+                        <span class="text-muted">Paying for</span>
+                        <span class="fw-bold text-dark ms-1 d-block">{{ request.args.get('item') }}</span>
+                        {% if request.args.get('variety') %}
+                        <span class="badge bg-light text-dark border rounded-pill mt-1" style="font-size: 0.65rem;">
+                            {{ request.args.get('variety') }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 px-4 pb-4 pt-0 gap-2">
+                <button type="button" class="btn btn-light rounded-pill px-4 fw-semibold" data-bs-dismiss="modal">Go Back</button>
+                <button type="button" class="btn btn-dark rounded-pill px-4 fw-bold flex-grow-1 py-2 shadow-sm"
+                        id="modalPayBtn" onclick="initiateSecureCheckout()">
+                    <i class="bi bi-lock-fill me-2 small"></i>Pay GHS <span id="modalPayBtnText">0.00</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script src="https://js.paystack.co/v1/inline.js"></script>
+
+<script>
+const PAYSTACK_PUB_KEY = '{{ paystack_pub_key }}';
+const rawPrice = parseFloat("{{ request.args.get('price', 0) }}");
+let selectedOption = null;
+let computedPremium = 0;
+let computedTotal = rawPrice;
+let currentStage = 'protection'; // 'protection' | 'credentials'
+
+document.addEventListener("DOMContentLoaded", () => {
+    evaluateGatedOptionsStructure(rawPrice);
+    
+    const cachedPhone = localStorage.getItem('ledgehold_cached_phone');
+    if (cachedPhone) {
+        document.getElementById('buyerPhone').value = cachedPhone;
+    }
+
+    // Mobile bottom nav clearance
+    updateFloatingBarOffset();
+    window.addEventListener('resize', updateFloatingBarOffset);
+});
+
+function updateFloatingBarOffset() {
+    // Account for base.html mobile bottom nav (fixed-bottom, ~70px) on small screens
+    const isMobile = window.innerWidth < 768;
+    const bar = document.getElementById('floatingBar');
+    if (isMobile) {
+        bar.style.bottom = '78px';
+    } else {
+        bar.style.bottom = '0';
+    }
+}
+
+// ── STAGE 1: OPTIONS MATRIX ──
+function evaluateGatedOptionsStructure(price) {
+    const option1Premium = (price * 0.02).toFixed(2);
+    const option2Refund  = (price * 0.95).toFixed(2);
+
+    document.getElementById('premiumLabelCard').innerText = `+ GHS ${option1Premium}`;
+    document.getElementById('refundLabelOpt1').innerText  = `GHS ${price.toFixed(2)}`;
+    document.getElementById('refundLabelOpt2').innerText  = `GHS ${option2Refund}`;
+
+    // Option 2: available only below GHS 1000, else gray it out
+    const card2 = document.getElementById('cardOpt2');
+    if (price >= 1000.00) {
+        card2.classList.add('tier-card--locked');
+        card2.onclick = null;
+        addLockedOverlay(card2, 'Available for items under GHS 1,000');
+    }
+
+    // Option 3: available only below GHS 100, else gray it out
+    const card3 = document.getElementById('cardOpt3');
+    if (price >= 100.00) {
+        card3.classList.add('tier-card--locked');
+        card3.onclick = null;
+        addLockedOverlay(card3, 'Available for items under GHS 100');
+    }
+
+    // Auto-select option 1
+    selectProtectionOption(1);
+}
+
+function addLockedOverlay(card, reason) {
+    const overlay = document.createElement('div');
+    overlay.className = 'tier-locked-overlay';
+    overlay.innerHTML = `<i class="bi bi-lock-fill"></i><span>${reason}</span>`;
+    card.appendChild(overlay);
+}
+
+function selectProtectionOption(optionId) {
+    // Don't allow selecting locked cards
+    const target = document.getElementById(`cardOpt${optionId}`);
+    if (target && target.classList.contains('tier-card--locked')) return;
+
+    selectedOption = optionId;
+
+    document.querySelectorAll('.tier-card:not(.tier-card--locked)').forEach(el => {
+        el.classList.remove('tier-card--active');
+    });
+    target.classList.add('tier-card--active');
+
+    if (optionId === 1) {
+        computedPremium = parseFloat((rawPrice * 0.02).toFixed(2));
+    } else {
+        computedPremium = 0;
+    }
+    computedTotal = parseFloat((rawPrice + computedPremium).toFixed(2));
+
+    // Sync all price displays
+    syncPriceDisplays();
+}
+
+function syncPriceDisplays() {
+    document.getElementById('summaryBasePrice').innerText    = rawPrice.toFixed(2);
+    document.getElementById('summaryPremiumPrice').innerText = computedPremium.toFixed(2);
+    document.getElementById('summaryTotalPrice').innerText   = computedTotal.toFixed(2);
+    document.getElementById('floatingTotal').innerText       = computedTotal.toFixed(2);
+    document.getElementById('modalPayBtnText').innerText     = computedTotal.toFixed(2);
+
+    // Sync plan name in summary panel
+    const planNames = { 1: 'Protected Escrow', 2: 'Flexible Escrow', 3: 'No Protection' };
+    const planIcons = { 1: 'bi-shield-fill-check', 2: 'bi-shield-half', 3: 'bi-shield-x' };
+    if (selectedOption) {
+        document.getElementById('summaryPlanName').innerText = planNames[selectedOption];
+        const iconEl = document.getElementById('summaryPlanIcon');
+        iconEl.className = `bi ${planIcons[selectedOption]}`;
+    }
+}
+
+// ── STAGE TRANSITIONS ──
+
+// Step 1: "Proceed to Account Details" → show refund policy notice first
+function goToCredentialsStage() {
+    if (!selectedOption) {
+        const err = document.getElementById('protectionError');
+        err.classList.remove('d-none');
+        err.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+    }
+    document.getElementById('protectionError').classList.add('d-none');
+
+    // Show the refund policy modal; actual stage switch happens on confirm
+    const modal = new bootstrap.Modal(document.getElementById('refundPolicyModal'));
+    modal.show();
+}
+
+// Step 2: User clicks "I Understand, Continue" in the refund policy modal
+function confirmAndProceedToCredentials() {
+    bootstrap.Modal.getInstance(document.getElementById('refundPolicyModal'))?.hide();
+
+    document.getElementById('protectionStage').classList.add('d-none');
+    document.getElementById('credentialsStage').classList.remove('d-none');
+    currentStage = 'credentials';
+
+    document.getElementById('floatingBtnText').innerText = 'Review & Pay';
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    if (document.getElementById('buyerPhone').value) {
+        document.getElementById('deliveryPin').focus();
+    }
+}
+
+function goToProtectionStage() {
+    document.getElementById('credentialsStage').classList.add('d-none');
+    document.getElementById('protectionStage').classList.remove('d-none');
+    currentStage = 'protection';
+    document.getElementById('floatingBtnText').innerText = 'Proceed to Account Details';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── FLOATING BUTTON DISPATCHER ──
+window.handleFloatingAction = function () {
+    if (currentStage === 'protection') {
+        goToCredentialsStage();
+    } else {
+        handleProceed();
+    }
+};
+
+// ── FOCUS HELPER: scrolls to the field and focuses it ──
+function focusField(el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Small delay so scroll completes before focus fires the keyboard on mobile
+    setTimeout(() => el.focus(), 300);
+}
+
+// ── STAGE 2 VALIDATION ──
+window.handleProceed = function () {
+    const phone      = document.getElementById('buyerPhone').value.trim();
+    const pin        = document.getElementById('deliveryPin').value.trim();
+    const confirmPin = document.getElementById('confirmPin').value.trim();
+    const phoneError = document.getElementById('phoneError');
+    const pinError   = document.getElementById('pinError');
+
+    phoneError.classList.add('d-none');
+    pinError.classList.add('d-none');
+
+    const phoneClean = phone.replace(/\s/g, '');
+    if (!phoneClean) {
+        phoneError.innerText = "Please enter your phone number.";
+        phoneError.classList.remove('d-none');
+        focusField(document.getElementById('buyerPhone'));
+        return;
+    }
+    if (!/^0\d{9}$/.test(phoneClean)) {
+        phoneError.innerText = "Enter a valid 10-digit number starting with 0 (e.g. 024 XXX XXXX).";
+        phoneError.classList.remove('d-none');
+        focusField(document.getElementById('buyerPhone'));
+        return;
+    }
+    if (!pin) {
+        pinError.innerText = "Please fill in your delivery PIN.";
+        pinError.classList.remove('d-none');
+        focusField(document.getElementById('deliveryPin'));
+        return;
+    }
+    if (pin.length !== 4 || !/^\d+$/.test(pin)) {
+        pinError.innerText = "PIN must be exactly 4 digits.";
+        pinError.classList.remove('d-none');
+        focusField(document.getElementById('deliveryPin'));
+        return;
+    }
+    if (!confirmPin) {
+        pinError.innerText = "Please confirm your delivery PIN.";
+        pinError.classList.remove('d-none');
+        focusField(document.getElementById('confirmPin'));
+        return;
+    }
+    if (pin !== confirmPin) {
+        pinError.innerText = "The PINs you entered do not match.";
+        pinError.classList.remove('d-none');
+        focusField(document.getElementById('confirmPin'));
+        return;
+    }
+
+    const modal = new bootstrap.Modal(document.getElementById('pinWarningModal'));
+    modal.show();
+};
+
+// ── CHECKOUT DISPATCH ──
+window.initiateSecureCheckout = async function () {
+    const modalPayBtn = document.getElementById('modalPayBtn');
+    modalPayBtn.disabled = true;
+    modalPayBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Processing...';
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const listingId = urlParams.get('id');
+    const phone = document.getElementById('buyerPhone').value.trim().replace(/\s/g, '');
+    const pin   = document.getElementById('deliveryPin').value.trim();
+    const item  = "{{ request.args.get('item') }}";
+
+    try {
+        const initRes = await fetch('/api/checkout/init', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                listingId,
+                buyerPhone: phone,
+                plaintextPin: pin,
+                protectionOption: selectedOption,
+                amount: rawPrice,
+                itemName: item
+            })
+        });
+
+        const session = await initRes.json();
+        if (!initRes.ok || !session.success) throw new Error(session.error || "Session initialization failed.");
+
+        document.getElementById('deliveryPin').value  = '';
+        document.getElementById('confirmPin').value   = '';
+        localStorage.setItem('ledgehold_cached_phone', phone);
+        localStorage.setItem('ledgehold_device_token', session.sessionToken);
+
+        const handler = PaystackPop.setup({
+            key: PAYSTACK_PUB_KEY,
+            email: session.secureEmailAnchor,
+            amount: session.amountInPesewas,
+            currency: "GHS",
+            metadata: {
+                custom_fields: [
+                    { display_name: "Session Token",    variable_name: "session_token",    value: session.sessionToken },
+                    { display_name: "Listing ID",       variable_name: "listing_id",       value: listingId },
+                    { display_name: "Protection Option",variable_name: "protection_option",value: selectedOption }
+                ]
+            },
+            callback: function (response) {
+                bootstrap.Modal.getInstance(document.getElementById('pinWarningModal'))?.hide();
+                window.location.href = "/success?ref=" + response.reference
+                    + "&item=" + encodeURIComponent(item)
+                    + "&price=" + rawPrice 
+                    + "&premium=" + computedPremium
+                    + "&protection=" + selectedOption
+                    + "&total=" + computedTotal 
+                    + "&id=" + listingId;
+            },
+            onClose: function () {
+                modalPayBtn.disabled = false;
+                modalPayBtn.innerHTML = `<i class="bi bi-lock-fill me-2 small"></i>Pay GHS ${computedTotal.toFixed(2)}`;
+            }
+        });
+        handler.openIframe();
+
+    } catch (err) {
+        console.error("Ledgehold Checkout Error:", err);
+        modalPayBtn.disabled = false;
+        modalPayBtn.innerHTML = 'Error — Retry';
+        const pinError = document.getElementById('pinError');
+        pinError.innerText = err.message;
+        pinError.classList.remove('d-none');
+    }
+};
+</script>
+
+<style>
+/* ══════════════════════════════════════════════════
+   CHECKOUT PAGE — DESIGN SYSTEM
+   ══════════════════════════════════════════════════ */
+
+:root {
+    --co-bg:          #f5f6fa;
+    --co-surface:     #ffffff;
+    --co-border:      #e8eaf0;
+    --co-text-head:   #0d0f1a;
+    --co-text-body:   #4b5263;
+    --co-text-muted:  #9aa0ae;
+    --co-blue:        #1a56db;
+    --co-blue-light:  #eff4ff;
+    --co-blue-border: #93c5fd;
+    --co-amber:       #d97706;
+    --co-amber-light: #fffbeb;
+    --co-amber-border:#fbbf24;
+    --co-red:         #dc2626;
+    --co-red-light:   #fff1f1;
+    --co-red-border:  #fca5a5;
+    --co-radius:      16px;
+    --co-radius-sm:   10px;
+    --co-shadow:      0 2px 12px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04);
+    --co-shadow-lg:   0 8px 32px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04);
+    --co-bar-height:  80px;
+}
+
+/* ── Shell ── */
+.checkout-shell {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 16px;
+    padding-bottom: calc(var(--co-bar-height) + 32px);
+}
+
+/* ── Item Strip ── */
+.item-strip {
+    background: var(--co-surface);
+    border: 1px solid var(--co-border);
+    border-radius: var(--co-radius);
+    padding: 14px 20px;
+    margin-bottom: 28px;
+    box-shadow: var(--co-shadow);
+}
+.item-strip-inner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    /* Prevent children from overflowing */
+    min-width: 0;
+}
+.item-img-wrap {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: #f0f2f5;
+}
+.item-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.item-img-wrap.img-hidden img { display: none; }
+.item-img-wrap.img-hidden .img-fallback { display: flex; }
+.img-fallback {
+    display: none;
+    width: 100%; height: 100%;
+    align-items: center;
+    justify-content: center;
+    color: var(--co-text-muted);
+    font-size: 1.5rem;
+}
+.item-meta {
+    flex: 1;
+    min-width: 0; /* crucial: allows text-overflow to work inside flex child */
+}
+.campus-badge {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--co-blue);
+    color: #fff;
+    border-radius: 20px;
+    padding: 2px 8px;
+    margin-bottom: 4px;
+    /* Truncate with ellipsis when campus name is too long */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.item-name {
+    font-weight: 700;
+    color: var(--co-text-head);
+    font-size: 0.95rem;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.variety-pill {
+    display: inline-block;
+    font-size: 0.72rem;
+    border: 1px solid var(--co-border);
+    border-radius: 20px;
+    padding: 1px 8px;
+    color: var(--co-text-body);
+    margin-top: 3px;
+    /* Also truncate variety if needed */
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.item-price-tag {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+}
+.price-currency {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--co-text-muted);
+    letter-spacing: 0.05em;
+}
+.price-amount {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--co-text-head);
+    line-height: 1;
+}
+
+/* ── Stage Wrapper ── */
+.stage-wrapper {
+    margin-bottom: 24px;
+}
+.stage-header {
+    margin-bottom: 24px;
+}
+.stage-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--co-text-head);
+    margin: 0 0 4px;
+    letter-spacing: -0.02em;
+}
+.stage-subtitle {
+    font-size: 0.875rem;
+    color: var(--co-text-muted);
+    margin: 0;
+}
+.cred-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+.back-link {
+    background: none;
+    border: 1px solid var(--co-border);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--co-text-body);
+    padding: 6px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 0.15s, color 0.15s;
+    text-decoration: none;
+}
+.back-link:hover {
+    border-color: var(--co-blue);
+    color: var(--co-blue);
+}
+
+/* ════════════════════════════════════════
+   TIER CARDS — DESKTOP (3-column grid)
+   ════════════════════════════════════════ */
+.tiers-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    align-items: stretch;
+}
+
+.tier-card {
+    position: relative;
+    background: var(--co-surface);
+    border: 2px solid var(--co-border);
+    border-radius: var(--co-radius);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s;
+    display: flex;
+    flex-direction: column;
+}
+.tier-card:hover:not(.tier-card--locked) {
+    transform: translateY(-3px);
+    box-shadow: var(--co-shadow-lg);
+}
+.tier-card--active {
+    border-color: var(--co-blue) !important;
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.10), var(--co-shadow-lg) !important;
+}
+.tier-card--locked {
+    cursor: not-allowed;
+    opacity: 0.55;
+    filter: grayscale(0.35);
+}
+
+/* Tier header band */
+.tier-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px 12px;
+}
+.tier-header--blue  { background: var(--co-blue-light); }
+.tier-header--amber { background: var(--co-amber-light); }
+.tier-header--red   { background: var(--co-red-light); }
+
+.tier-icon {
+    font-size: 1.5rem;
+}
+.tier-header--blue  .tier-icon { color: var(--co-blue); }
+.tier-header--amber .tier-icon { color: var(--co-amber); }
+.tier-header--red   .tier-icon { color: var(--co-red); }
+
+.tier-recommended-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: var(--co-blue);
+    color: #fff;
+    border-radius: 20px;
+    padding: 3px 10px;
+}
+
+/* Tier body */
+.tier-body {
+    padding: 18px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.tier-name {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--co-text-head);
+    margin: 0 0 2px;
+    letter-spacing: -0.01em;
+}
+.tier-option-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--co-text-muted);
+    margin: 0 0 14px;
+}
+.tier-premium-display {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+.tier-premium-amount {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--co-text-head);
+}
+.tier-premium-note {
+    font-size: 0.72rem;
+    color: var(--co-text-muted);
+}
+.tier-desc {
+    font-size: 0.82rem;
+    color: var(--co-text-body);
+    line-height: 1.55;
+    margin-bottom: 14px;
+    flex: 1;
+}
+.tier-refund-block {
+    border-radius: var(--co-radius-sm);
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.tier-refund-block--blue  { background: var(--co-blue-light);  border-left: 3px solid var(--co-blue); }
+.tier-refund-block--amber { background: var(--co-amber-light); border-left: 3px solid var(--co-amber); }
+.tier-refund-block--red   { background: var(--co-red-light);   border-left: 3px solid var(--co-red); }
+.refund-label {
+    font-size: 0.72rem;
+    color: var(--co-text-muted);
+}
+.refund-amount {
+    font-size: 0.9rem;
+    color: var(--co-text-head);
+}
+.refund-amount--zero {
+    color: var(--co-red);
+}
+
+/* Perks list */
+.tier-perks {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.tier-perks li {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--co-text-body);
+}
+.tier-perks li .bi-check2 { color: #16a34a; font-size: 0.9rem; }
+.tier-perks li .bi-x      { color: var(--co-red); font-size: 0.9rem; }
+.perk-muted { opacity: 0.65; }
+
+/* Selection indicator */
+.tier-select-indicator {
+    display: flex;
+    justify-content: center;
+    padding: 10px 0 14px;
+    border-top: 1px solid var(--co-border);
+}
+.radio-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--co-border);
+    background: #fff;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+}
+.tier-card--active .radio-dot {
+    border-color: var(--co-blue);
+    background: var(--co-blue);
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.15);
+}
+.tier-card--active .radio-dot::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #fff;
+}
+
+/* Locked overlay */
+.tier-locked-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(245,246,250,0.70);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--co-text-muted);
+    text-align: center;
+    padding: 16px;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    border-radius: calc(var(--co-radius) - 2px);
+    z-index: 2;
+}
+.tier-locked-overlay .bi {
+    font-size: 1.2rem;
+}
+
+/* Protection error */
+.protection-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    color: var(--co-red);
+    font-size: 0.83rem;
+    font-weight: 600;
+}
+
+/* ════════════════════════════════════════
+   CREDENTIALS STAGE
+   ════════════════════════════════════════ */
+.creds-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 20px;
+    align-items: start;
+}
+
+/* Fields panel */
+.cred-fields-panel {
+    background: var(--co-surface);
+    border: 1px solid var(--co-border);
+    border-radius: var(--co-radius);
+    padding: 28px;
+    box-shadow: var(--co-shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--co-text-muted);
+    text-transform: uppercase;
+}
+.field-hint {
+    font-size: 0.75rem;
+    color: var(--co-text-muted);
+    margin: 0;
+    line-height: 1.4;
+}
+.field-input-wrap {
+    display: flex;
+    align-items: center;
+    background: #f5f6fa;
+    border: 1.5px solid var(--co-border);
+    border-radius: 50px;
+    overflow: hidden;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field-input-wrap:focus-within {
+    border-color: var(--co-blue);
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.08);
+    background: #fff;
+}
+.field-icon {
+    padding: 0 14px 0 18px;
+    color: var(--co-text-muted);
+    font-size: 0.95rem;
+    flex-shrink: 0;
+}
+.field-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 13px 18px 13px 0;
+    font-size: 0.9rem;
+    color: var(--co-text-head);
+    outline: none;
+}
+.field-input::placeholder { color: var(--co-text-muted); }
+.field-error {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--co-red);
+    padding-left: 6px;
+}
+/* ── HYPER-SECURE FRAUD PROTECTION MASK ── */
+.secure-pin-mask {
+    /* Uses browser native webkit engine to substitute typed characters into secure circles */
+    -webkit-text-security: disc !important;
+    text-security: disc !important;
+}
+
+/* Summary panel */
+.order-summary-panel {
+    background: var(--co-surface);
+    border: 1px solid var(--co-border);
+    border-radius: var(--co-radius);
+    padding: 24px;
+    box-shadow: var(--co-shadow);
+    position: sticky;
+    top: 80px;
+}
+.summary-heading {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--co-text-muted);
+    margin: 0 0 14px;
+}
+.summary-plan-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--co-blue-light);
+    border-radius: var(--co-radius-sm);
+    padding: 10px 14px;
+    margin-bottom: 18px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--co-blue);
+}
+.summary-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.summary-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.83rem;
+    color: var(--co-text-body);
+}
+.summary-line--total {
+    border-top: 1px solid var(--co-border);
+    padding-top: 10px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--co-text-head);
+}
+.total-amount { color: var(--co-blue); font-weight: 800; }
+.summary-security-note {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.73rem;
+    color: var(--co-text-muted);
+    padding-top: 12px;
+    border-top: 1px solid var(--co-border);
+}
+
+/* ════════════════════════════════════════
+   FLOATING PROCEED BAR
+   ════════════════════════════════════════ */
+.floating-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--co-border);
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.08);
+    padding: 12px 16px;
+}
+.floating-bar-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+.floating-bar-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.floating-bar-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--co-text-muted);
+}
+.floating-bar-total {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--co-text-head);
+    letter-spacing: -0.01em;
+}
+.floating-proceed-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #0d0f1a;
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 14px 28px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(13,15,26,0.25);
+    letter-spacing: -0.01em;
+}
+.floating-proceed-btn:hover {
+    background: #1a56db;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(26,86,219,0.35);
+}
+.floating-proceed-btn:active {
+    transform: translateY(0);
+}
+.floating-proceed-btn .bi {
+    font-size: 1rem;
+    transition: transform 0.15s;
+}
+.floating-proceed-btn:hover .bi {
+    transform: translateX(3px);
+}
+
+/* ════════════════════════════════════════
+   TABLET  (768px – 991px)
+   ════════════════════════════════════════ */
+@media (min-width: 768px) and (max-width: 991.98px) {
+    .tiers-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .tiers-grid #cardOpt3 {
+        grid-column: span 2;
+    }
+    .creds-grid {
+        grid-template-columns: 1fr;
+    }
+    .order-summary-panel {
+        position: static;
+    }
+}
+
+/* ════════════════════════════════════════
+   MOBILE  (< 768px)
+   ════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+
+    .checkout-shell {
+        padding-bottom: calc(70px + var(--co-bar-height) + 16px);
+    }
+
+    /* ── Item strip: tighten image on very small screens ── */
+    .item-img-wrap {
+        width: 48px;
+        height: 48px;
+    }
+    .price-amount {
+        font-size: 1.1rem;
+    }
+
+    /* Tier cards: single-column vertical stack on mobile */
+    .tiers-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    /* ──────────────────────────────────────────────────────
+       NARROW-WIDTH CARD LAYOUT
+       Cards switch to a two-column grid:
+         [left accent column]  [right content column]
+       The accent column holds the colour-coded header band
+       (icon + recommended badge) in a compact vertical strip.
+       The content column shows only the essential info:
+         name, price/fee, and the refund outcome block.
+       Verbose elements (description, perks list) are hidden.
+       ────────────────────────────────────────────────────── */
+    .tier-card {
+        display: grid;
+        grid-template-columns: 72px 1fr 44px;
+        grid-template-rows: 1fr;
+        border-radius: var(--co-radius-sm);
+        min-height: 0; /* collapse to content */
+    }
+
+    /* Left accent strip — colour header band */
+    .tier-header {
+        grid-column: 1;
+        grid-row: 1 / 2;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 14px 10px;
+        gap: 6px;
+        border-right: 1px solid rgba(0,0,0,0.06);
+        border-radius: 0;
+    }
+    .tier-icon {
+        font-size: 1.25rem;
+    }
+
+    .tier-badge-wrap {
+        display: none; /* hide from the left accent strip on mobile */
+    }
+
+    /* Middle content column */
+    .tier-body {
+        grid-column: 2;
+        grid-row: 1 / 2;
+        padding: 12px 14px;
+        gap: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    /* Plan name — keep prominent */
+    .tier-name {
+        font-size: 0.95rem;
+        margin-bottom: 1px;
+    }
+
+    /* Option label — keep as secondary context */
+    .tier-option-label {
+        font-size: 0.65rem;
+        margin-bottom: 8px;
+    }
+
+    /* Fee/premium line — essential financial info */
+    .tier-premium-display {
+        margin-bottom: 8px;
+        flex-wrap: nowrap;
+        align-items: baseline;
+        gap: 4px;
+    }
+    .tier-premium-amount {
+        font-size: 0.95rem;
+    }
+    .tier-premium-note {
+        font-size: 0.68rem;
+    }
+
+    /* Refund outcome block — most critical info, keep it */
+    .tier-refund-block {
+        margin-bottom: 0;
+        padding: 7px 10px;
+        gap: 2px;
+    }
+    .refund-label {
+        font-size: 0.67rem;
+        line-height: 1.3;
+    }
+    .refund-amount {
+        font-size: 0.85rem;
+        font-weight: 700;
+    }
+
+    /* Hide verbose content — not needed on narrow cards */
+    .tier-desc  { display: none; }
+    .tier-perks { display: none; }
+
+    /* Right radio column */
+    .tier-select-indicator {
+        grid-column: 3;
+        grid-row: 1 / 2;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 0 12px;
+        border-top: none;
+        border-left: 1px solid var(--co-border);
+    }
+    .radio-dot {
+        width: 16px;
+        height: 16px;
+    }
+
+    /* Credentials stage: single column */
+    .creds-grid {
+        grid-template-columns: 1fr;
+    }
+    .order-summary-panel {
+        position: static;
+        order: -1; /* Summary above fields on mobile */
+    }
+    .cred-fields-panel {
+        padding: 20px;
+    }
+
+    /* Floating bar adjustments */
+    .floating-bar-total { font-size: 1rem; }
+    .floating-proceed-btn {
+        padding: 12px 20px;
+        font-size: 0.85rem;
+    }
+}
+
+/* ════════════════════════════════════════
+   EXTRA NARROW  (< 380px)
+   For very small phones — tighten further
+   ════════════════════════════════════════ */
+@media (max-width: 379.98px) {
+
+    /* Shrink the accent strip a touch */
+    .tier-card {
+        grid-template-columns: 60px 1fr 38px;
+    }
+    
+    .tier-card[data-opt="1"]::before {
+        content: 'Recommended';
+        position: absolute;
+        top: 14px;
+        right: -28px;
+        width: 110px;
+        padding: 4px 0;
+        background: #1a56db;
+        color: #fff;
+        font-size: 0.4rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        text-align: center;
+        transform: rotate(45deg);
+        transform-origin: center;
+        z-index: 3;
+        pointer-events: none;
+    }
+    .tier-header {
+        padding: 12px 8px;
+    }
+    .tier-icon {
+        font-size: 1.1rem;
+    }
+    .tier-recommended-badge {
+        font-size: 0.5rem;
+        padding: 2px 4px;
+    }
+
+    /* Tighten body */
+    .tier-body {
+        padding: 10px 12px;
+    }
+    .tier-name {
+        font-size: 0.88rem;
+    }
+    .tier-premium-amount {
+        font-size: 0.88rem;
+    }
+
+    /* Tighten radio column */
+    .tier-select-indicator {
+        padding: 0 10px;
+    }
+    .radio-dot {
+        width: 14px;
+        height: 14px;
+    }
+    .tier-card--active .radio-dot::after {
+        width: 5px;
+        height: 5px;
+    }
+
+    /* Item strip: hide image on very small screens to save space */
+    .item-img-wrap {
+        width: 40px;
+        height: 40px;
+    }
+    .price-amount {
+        font-size: 1rem;
+    }
+    .floating-proceed-btn {
+        padding: 11px 16px;
+        font-size: 0.8rem;
+        gap: 6px;
+    }
+}
+</style>
+
+{% endblock %}

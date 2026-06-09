@@ -1,0 +1,832 @@
+{% extends "base.html" %}
+
+{% block title %}Terms of Service | ProlyfiQ{% endblock %}
+
+{% block description %}Read the full Terms of Service for ProlyfiQ, a campus community, logistics, and utility platform operated by Ledgehold Enterprise. Governing marketplace escrow, utility payments, delivery, merchant fees, and dispute resolution.{% endblock %}
+
+{% block content %}
+
+<style>
+  /* ── Platform Standard Overrides ── */
+  .tos-root {
+    background: #f8fafc;
+    min-height: 100vh;
+  }
+
+  /* ── Hero Banner ── */
+  .tos-hero {
+    background: #111;
+    color: #fff;
+    padding: 64px 0 48px;
+    position: relative;
+    overflow: hidden;
+    border-radius: 28px;
+    margin: 20px;
+  }
+  .tos-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 80% at 80% 50%, rgba(13, 110, 253, 0.13) 0%, transparent 70%),
+                radial-gradient(ellipse 40% 60% at 10% 80%, rgba(245,158,11,0.09) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .tos-hero-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 32px;
+    position: relative;
+    z-index: 1;
+  }
+  .tos-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.7);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+  }
+  .tos-badge i { color: #f59e0b; }
+  .tos-hero h1 {
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0 0 14px;
+    letter-spacing: -0.5px;
+  }
+  .tos-hero p {
+    color: rgba(255,255,255,0.55);
+    font-size: 0.95rem;
+    max-width: 620px;
+    margin: 0 0 28px;
+    line-height: 1.65;
+  }
+  .tos-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    align-items: center;
+    border-top: 1px solid rgba(255,255,255,0.09);
+    padding-top: 24px;
+    margin-top: 8px;
+  }
+  .tos-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.45);
+  }
+  .tos-meta-item i { color: #0d6efd; font-size: 0.9rem; }
+  .tos-meta-item strong { color: rgba(255,255,255,0.75); }
+
+  /* ── Two-column layout ── */
+  .tos-layout {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 32px 80px;
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 48px;
+    align-items: start;
+  }
+
+  /* ── Sticky TOC sidebar ── */
+  .tos-toc {
+    position: sticky;
+    top: 80px;
+    padding: 24px 0;
+  }
+  .tos-toc-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 16px;
+    padding: 0 4px;
+  }
+  .tos-toc a {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    text-decoration: none;
+    padding: 9px 12px;
+    border-radius: 8px;
+    margin-bottom: 2px;
+    transition: background 0.15s, color 0.15s;
+    font-size: 0.82rem;
+    color: #64748b;
+    line-height: 1.4;
+  }
+  .tos-toc a .toc-num {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    min-width: 18px;
+    margin-top: 1px;
+  }
+  .tos-toc a:hover, .tos-toc a.active {
+    background: #fff;
+    color: #1e293b;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  }
+  .tos-toc a:hover .toc-num, .tos-toc a.active .toc-num {
+    color: #0d6efd;
+  }
+
+  /* ── Main content ── */
+  .tos-body {
+    padding-top: 40px;
+  }
+
+  /* Back button */
+  .tos-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: #64748b;
+    text-decoration: none;
+    margin-bottom: 32px;
+    padding: 7px 14px 7px 10px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    transition: all 0.2s;
+  }
+  .tos-back:hover { background: #f1f5f9; color: #1e293b; border-color: #cbd5e1; }
+  .tos-back svg { width: 14px; height: 14px; }
+
+  /* ── Section cards ── */
+  .tos-section {
+    margin-bottom: 10px;
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e9ecef;
+    overflow: hidden;
+    scroll-margin-top: 90px;
+  }
+  .tos-section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 22px 28px;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    user-select: none;
+  }
+  .tos-section-icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    background: #eff6ff;
+    color: #0d6efd;
+  }
+  .tos-section-header h2 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+    flex: 1;
+    line-height: 1.3;
+  }
+  .tos-section-header .sec-num {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #94a3b8;
+    letter-spacing: 1px;
+  }
+  .tos-section-body {
+    padding: 26px 28px 28px;
+  }
+  .tos-section-body p, .tos-section-body li {
+    font-size: 0.875rem;
+    color: #475569;
+    line-height: 1.75;
+    margin-bottom: 0;
+  }
+  .tos-section-body p { margin-bottom: 12px; }
+  .tos-section-body ul, .tos-section-body ol {
+    padding-left: 0;
+    list-style: none;
+    margin: 0;
+  }
+  .tos-section-body li {
+    padding: 9px 0 9px 28px;
+    position: relative;
+    border-bottom: 1px solid #f8fafc;
+  }
+  .tos-section-body li:last-child { border-bottom: none; }
+  .tos-section-body li::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 18px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #0d6efd;
+    opacity: 0.5;
+  }
+  .tos-section-body li strong { color: #1e293b; }
+
+  /* Special callout boxes */
+  .tos-callout {
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin: 16px 0 8px;
+    font-size: 0.85rem;
+    line-height: 1.65;
+  }
+  .tos-callout-warning {
+    background: #fffbeb;
+    border-left: 4px solid #f59e0b;
+    color: #78350f;
+  }
+  .tos-callout-danger {
+    background: #fff1f2;
+    border-left: 4px solid #ef4444;
+    color: #7f1d1d;
+  }
+  .tos-callout-info {
+    background: #eff6ff;
+    border-left: 4px solid #0d6efd;
+    color: #1e3a8a;
+  }
+  .tos-callout-success {
+    background: #f0fdf4;
+    border-left: 4px solid #22c55e;
+    color: #14532d;
+  }
+  .tos-callout strong { display: block; margin-bottom: 6px; font-size: 0.88rem; }
+  .tos-callout i { margin-right: 6px; }
+
+  /* Fee table */
+  .tos-fee-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    margin-top: 12px;
+  }
+  .tos-fee-table th {
+    background: #f8fafc;
+    font-weight: 600;
+    color: #374151;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 2px solid #e5e7eb;
+  }
+  .tos-fee-table td {
+    padding: 10px 14px;
+    color: #475569;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: top;
+  }
+  .tos-fee-table tr:last-child td { border-bottom: none; }
+  .tos-fee-table .badge-rate {
+    display: inline-block;
+    background: #e0e7ff;
+    color: #4338ca;
+    font-weight: 700;
+    font-size: 0.78rem;
+    padding: 3px 9px;
+    border-radius: 100px;
+  }
+  .tos-fee-table .badge-avail {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 100px;
+  }
+  .badge-avail-all { background: #dcfce7; color: #15803d; }
+  .badge-avail-two { background: #fef9c3; color: #92400e; }
+  .badge-avail-one { background: #fee2e2; color: #991b1b; }
+
+  /* Acceptance footer */
+  .tos-acceptance {
+    background: #111;
+    color: #fff;
+    border-radius: 14px;
+    padding: 36px 32px;
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .tos-acceptance h3 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin: 0 0 6px;
+  }
+  .tos-acceptance p {
+    color: rgba(255,255,255,0.5);
+    font-size: 0.82rem;
+    margin: 0;
+    max-width: 500px;
+    line-height: 1.6;
+  }
+  .tos-acceptance .btn-accept {
+    background: #0d6efd;
+    color: #fff;
+    border: none;
+    border-radius: 100px;
+    padding: 13px 28px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+    display: inline-block;
+    transition: background 0.2s;
+  }
+  .tos-acceptance .btn-accept:hover { background: #0b5ed7; color: #fff; }
+
+  /* Mobile responsive */
+  @media (max-width: 900px) {
+    .tos-layout {
+      grid-template-columns: 1fr;
+      padding: 0 16px 80px;
+      gap: 0;
+    }
+    .tos-toc { display: none; }
+    .tos-hero-inner { padding: 0 20px; }
+    .tos-section-header { padding: 18px 20px; }
+    .tos-section-body { padding: 20px 20px 22px; }
+    .tos-acceptance { padding: 28px 20px; }
+    .tos-fee-table { font-size: 0.78rem; }
+    .tos-fee-table th, .tos-fee-table td { padding: 8px 10px; }
+  }
+</style>
+
+<div class="tos-root">
+
+  <div class="tos-hero">
+    <div class="tos-hero-inner">
+      <h1 class="text-white-50">Terms of Service</h1>
+      <p>This agreement governs your use of all platforms, tools, and services operated by Ledgehold Enterprise, trading as ProlyfiQ. Please read it carefully before using any part of our platform.</p>
+      <div class="tos-meta-row">
+        <div class="tos-meta-item"><i class="bi bi-calendar3"></i> Last Updated: <strong>29 May 2026</strong></div>
+        <div class="tos-meta-item"><i class="bi bi-building"></i> Operated by: <strong>Ledgehold Enterprise</strong></div>
+        <div class="tos-meta-item"><i class="bi bi-geo-alt-fill"></i> Jurisdiction: <strong>Republic of Ghana</strong></div>
+        <div class="tos-meta-item"><i class="bi bi-patch-check-fill"></i> DPC Registered</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tos-layout">
+
+    <aside class="tos-toc">
+      <div class="tos-toc-label">Contents</div>
+      <a href="#s1"><span class="toc-num">01</span> Acceptance of Terms</a>
+      <a href="#s2"><span class="toc-num">02</span> Scope of Services</a>
+      <a href="#s3"><span class="toc-num">03</span> Eligibility & Registration</a>
+      <a href="#s4"><span class="toc-num">04</span> Account Security & PIN Policy</a>
+      <a href="#s5"><span class="toc-num">05</span> Marketplace & Escrow</a>
+      <a href="#s6"><span class="toc-num">06</span> The Gatekeeper Policy</a>
+      <a href="#s7"><span class="toc-num">07</span> User Safety & Exchange Policy</a>
+      <a href="#s8"><span class="toc-num">08</span> Delivery & FoodRun™</a>
+      <a href="#s9"><span class="toc-num">09</span> Utility & Bill Payments</a>
+      <a href="#s10"><span class="toc-num">10</span> Merchant Terms & Fees</a>
+      <a href="#s11"><span class="toc-num">11</span> Prohibited Conduct</a>
+      <a href="#s12"><span class="toc-num">12</span> Intellectual Property</a>
+      <a href="#s13"><span class="toc-num">13</span> Privacy & Data</a>
+      <a href="#s14"><span class="toc-num">14</span> TV Hub & External Content</a>
+      <a href="#s15"><span class="toc-num">15</span> Disclaimer of Warranties</a>
+      <a href="#s16"><span class="toc-num">16</span> Limitation of Liability</a>
+      <a href="#s17"><span class="toc-num">17</span> Suspension & Termination</a>
+      <a href="#s18"><span class="toc-num">18</span> Amendments</a>
+      <a href="#s19"><span class="toc-num">19</span> Governing Law & Disputes</a>
+      <a href="#s20"><span class="toc-num">20</span> Contact & Compliance</a>
+    </aside>
+
+    <main class="tos-body">
+
+      <a href="javascript:history.back()" class="tos-back">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        Back
+      </a>
+
+      <!-- S1: Acceptance -->
+      <div class="tos-section" id="s1">
+        <div class="tos-section-header">
+          <h2>1. Acceptance of Terms</h2>
+          <span class="sec-num">01</span>
+        </div>
+        <div class="tos-section-body">
+          <p>By accessing, registering on, or otherwise using any service, feature, or page operated by <strong>Ledgehold Enterprise</strong> (trading as <strong>ProlyfiQ</strong>) including but not limited to the campus marketplace, utility hub, FoodRun™ logistics service, merchant tools, and TV Hub, you acknowledge that you have read, understood, and unconditionally agree to be bound by these Terms of Service ("Terms"), our Privacy Policy, and any additional guidelines or policies published on the platform.</p>
+          <div class="tos-callout tos-callout-info">
+            <strong><i class="bi bi-info-circle-fill"></i>Summary</strong>
+            Using ProlyfiQ means you agree to these rules. If you disagree with anything here, please do not use the platform.
+          </div>
+        </div>
+      </div>
+
+      <!-- S2: Scope -->
+      <div class="tos-section" id="s2">
+        <div class="tos-section-header">
+          <h2>2. Scope of Services</h2>
+          <span class="sec-num">02</span>
+        </div>
+        <div class="tos-section-body">
+          <p>ProlyfiQ is a campus-focused digital platform operated by Ledgehold Enterprise and designed to consolidate student commerce, logistics, and digital utility access. Our active service lines include:</p>
+          <ul>
+            <li><strong>Campus Marketplace:</strong> A secure peer-to-peer buying and selling environment enabling merchants to list goods, with escrow-protected buyer payment flows.</li>
+            <li><strong>Utility Hub:</strong> Instant digital fulfilment for mobile airtime, data bundles, ECG electricity credit purchases, DStv, and GOtv subscription renewals.</li>
+            <li><strong>FoodRun™ Logistics:</strong> An on-campus delivery service linking buyers with student delivery agents specifically for food orders within supported campus zones.</li>
+            <li><strong>Merchant Tools:</strong> A dedicated suite providing verified merchants with storefronts, sales activity logs, and marketing tools.</li>
+            <li><strong>TV Hub:</strong> A curated entertainment discovery layer featuring publicly available third-party content and selective affiliate links.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- S3: Eligibility -->
+      <div class="tos-section" id="s3">
+        <div class="tos-section-header">
+          <h2>3. Eligibility & Registration</h2>
+          <span class="sec-num">03</span>
+        </div>
+        <div class="tos-section-body">
+          <p><strong>For Buyers:</strong> Buyers can browse the marketplace, purchase items, and pay for utilities seamlessly without ever needing to create an account.</p>
+          <p><strong>For Merchants:</strong> To list items or utilise our merchant tools, you must register for a Merchant Account and meet the following eligibility requirements at all times:</p>
+          <ul>
+            <li><strong>Age & Affiliation:</strong> You must be at least 18 years of age and possess a valid institutional or campus affiliation where required.</li>
+            <li><strong>Accuracy of Information:</strong> All information you provide including your name, contact details, and payment credentials must be accurate, current, and complete.</li>
+            <li><strong>Single Account Policy:</strong> Creating duplicate or fraudulent merchant accounts to circumvent platform limitations is strictly prohibited.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- S4: Security -->
+      <div class="tos-section" id="s4">
+        <div class="tos-section-header">
+          <h2>4. Account Security & PIN Policy</h2>
+          <span class="sec-num">04</span>
+        </div>
+        <div class="tos-section-body">
+          <p>Security is a shared responsibility. Ledgehold employs strong server-side hashing so that no employee or third party can ever view your access credentials. Despite these protections, you bear full responsibility for the confidentiality of your account.</p>
+          <ul>
+            <li><strong>Credential Confidentiality:</strong> Your access PIN and merchant credentials must never be disclosed to anyone. Our support team will never ask for your PIN.</li>
+            <li><strong>Exact Match Requirement:</strong> All identifier inputs must exactly match the spelling and formatting you established during registration.</li>
+            <li><strong>Resetting Your PIN:</strong> If you forget your PIN, you do not lose access to your account. You can reset it at any time by clicking the "Forgot PIN" button on your merchant login screen and providing the exact Merchant ID format (e.g., "Kwadwo Nkansah 1234") that was sent to you in your registration success SMS.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- S5: Marketplace & Escrow — UPDATED -->
+      <div class="tos-section" id="s5">
+        <div class="tos-section-header">
+          <h2>5. Marketplace & Escrow Protection</h2>
+          <span class="sec-num">05</span>
+        </div>
+        <div class="tos-section-body">
+          <p>The ProlyfiQ Marketplace facilitates peer-to-peer trading. All marketplace payments are processed through a mandatory escrow mechanism where funds are securely held by Ledgehold until the physical handoff is confirmed at a designated campus exchange location.</p>
+
+          <p>At checkout, buyers are presented with protection options gated by transaction value. The options available to you are determined automatically based on the item price:</p>
+
+          <table class="tos-fee-table" style="margin-top:16px;">
+            <thead>
+              <tr>
+                <th>Option</th>
+                <th>Upfront Fee</th>
+                <th>Refund on Rejection</th>
+                <th>Availability</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Option 1 | Protected Escrow</strong></td>
+                <td>+2% of item price (non-refundable escrow &amp; routing fee, charged upfront)</td>
+                <td><span class="badge-rate">100%</span> of item price</td>
+                <td><span>All transactions</span></td>
+              </tr>
+              <tr>
+                <td><strong>Option 2 | Flexible Escrow</strong></td>
+                <td>None</td>
+                <td><span class="badge-rate">95%</span> of item price (5% non-refundable escrow &amp; routing fee retained)</td>
+                <td><span>Below GHS 1,000</span></td>
+              </tr>
+              <tr>
+                <td><strong>Option 3 | No Protection</strong></td>
+                <td>None</td>
+                <td>None; all refund rights waived at checkout</td>
+                <td><span>Below GHS 100 only</span></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="tos-callout tos-callout-info" style="margin-top:20px;">
+            <strong><i class="bi bi-info-circle-fill"></i>What Buyer Protection Fees Cover</strong>
+            All buyer-side protection fees: whether the 2% upfront premium under Option 1 or the 5% retained amount under Option 2; are charged exclusively as compensation for the escrow holding service and payment routing costs incurred by Ledgehold in processing, securing, and managing your transaction, regardless of its outcome. These fees are not penalties. They represent the cost of the financial infrastructure that protects your transaction from the moment of payment to the point of physical handoff.
+          </div>
+
+          <div class="tos-callout tos-callout-warning" style="margin-top:12px;">
+            <strong><i class="bi bi-exclamation-triangle-fill"></i>Off-Platform Trading Warning</strong>
+            Escrow protection applies exclusively to payments processed through the ProlyfiQ platform interface. If you pay a seller using cash or personal mobile money outside the platform, Ledgehold cannot mediate disputes or recover funds.
+          </div>
+
+          <div class="tos-callout tos-callout-danger" style="margin-top:12px;">
+            <strong><i class="bi bi-exclamation-octagon-fill"></i>The Point of No Return; Critical</strong>
+            As a buyer, you must physically inspect the item at the point of handoff before completing verification. <strong>Scanning the merchant's QR code, entering your 4-digit Delivery PIN, and swiping constitutes your absolute and irrevocable confirmation that you have personally inspected and accepted the item in the condition presented.</strong> Because our disbursement systems are automated to release merchant earnings at the exact moment this confirmation is recorded, no refund or reversal can be processed after the swipe under any circumstance. If you have any concern about the item, you must reject it BEFORE completing the verification step.
+          </div>
+        </div>
+      </div>
+
+      <!-- S6: Gatekeeper -->
+      <div class="tos-section" id="s6">
+        <div class="tos-section-header">
+          <h2>6. The Gatekeeper Policy</h2>
+          <span class="sec-num">06</span>
+        </div>
+        <div class="tos-section-body">
+          <div class="tos-callout tos-callout-warning">
+            <strong><i class="bi bi-shield-check-fill"></i>No Proof, No Pay</strong>
+            Merchant disbursements are never automatic upon order placement. Funds are released only upon the platform receiving valid, system-generated delivery confirmation achieved by the buyer scanning the merchant's QR code, entering their PIN, and swiping through the official interface. Log requests or screenshots will not be accepted as proof of delivery.
+          </div>
+          <ul style="margin-top:12px;">
+            <li><strong>Merchant Responsibility:</strong> Merchants must ensure buyers complete the verification step during the physical handoff. Failure to obtain platform-confirmed delivery proof forfeits the merchant's right to disbursement for that transaction.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- S7: USER SAFETY — NEW SECTION -->
+      <div class="tos-section" id="s7">
+        <div class="tos-section-header">
+          <h2>7. User Safety & Exchange Policy</h2>
+          <span class="sec-num">07</span>
+        </div>
+        <div class="tos-section-body">
+          <p>The safety of every ProlyfiQ user is a non-negotiable platform standard. All physical exchanges between buyers and merchants must take place strictly within the conditions established by this policy. Deviation from these conditions voids all platform protections applicable to the transaction.</p>
+
+          <div class="tos-callout tos-callout-success" style="margin-top:4px; margin-bottom:16px;">
+            <strong><i class="bi bi-shield-fill-check"></i>Your Safety Is the Platform's Responsibility</strong>
+            ProlyfiQ designates specific campus exchange locations and operating time windows for all marketplace handoffs precisely to protect buyers and merchants from unsafe or unverifiable exchange conditions. These are not suggestions, they are mandatory conditions of the escrow service.
+          </div>
+
+          <ul>
+            <li><strong>Designated Exchange Locations Only:</strong> All physical handoffs between buyers and merchants must occur exclusively at ProlyfiQ-designated campus exchange landmarks as listed on the platform at the time of purchase. Exchanges must not take place in private residences, off-campus locations, moving vehicles, or any location not listed as an approved exchange point.</li>
+            <li><strong>Listed Exchange Times:</strong> Exchanges must be completed within the platform-published operating time windows for the relevant campus. Arrangements made outside listed exchange hours are not covered by escrow protection and will not be eligible for dispute resolution.</li>
+            <li><strong>Buyer's Right to Refuse Relocation:</strong> A merchant may not request, suggest, or pressure a buyer to change the agreed exchange location or time at any point after an order is placed. If a merchant requests that the exchange be moved to an unlisted location or outside listed hours, the buyer has the absolute right to decline, cancel the order, and report the request to ProlyfiQ support. Such a request by a merchant is a violation of these Terms and will be investigated.</li>
+            <li><strong>Do Not Agree to Off-Platform Changes:</strong> Buyers must not agree to any alteration of exchange location, time, or payment method proposed by a merchant after checkout. All exchange conditions are set by the platform at the time of purchase and are not subject to renegotiation between the parties. Any merchant who proposes such changes should be reported immediately.</li>
+            <li><strong>Reporting Unsafe Requests:</strong> If a merchant asks you to meet in an unusual or unlisted location, requests cash payment, or attempts to conduct the transaction outside the platform, report it immediately via our WhatsApp support line before proceeding. Do not attend any exchange that feels unsafe or inconsistent with the platform's confirmed details.</li>
+            <li><strong>Protection Void on Policy Breach:</strong> If a buyer knowingly agrees to conduct an exchange outside a designated location or outside listed hours and a dispute subsequently arises, Ledgehold reserves the right to decline escrow mediation on the grounds that the platform's safety conditions were not observed. Escrow protection is contingent on compliance with this policy.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- S8: Delivery (was S7) -->
+      <div class="tos-section" id="s8">
+        <div class="tos-section-header">
+          <h2>8. Delivery & FoodRun™ Logistics</h2>
+          <span class="sec-num">08</span>
+        </div>
+        <div class="tos-section-body">
+          <p>FoodRun™ connects you with student delivery agents ("Runners") exclusively for food orders from third-party vendors.</p>
+          <ul>
+            <li><strong>Approved Handover Locations:</strong> All deliveries must be completed at officially designated campus landmarks or hostel collection points. Runners will wait a maximum of ten (10) minutes at the designated handover point before the order is marked as a failed delivery.</li>
+            <li><strong>Food Order Finality:</strong> Due to the perishable nature of food items, you may not cancel a FoodRun™ order once a Runner has collected it from the vendor.</li>
+            <li><strong>Vendor Quality & Support:</strong> If you experience quality, accuracy, or hygiene issues with your food, please report it immediately through our support system. We will step in to mediate and contact the vendor on your behalf to help find a fair resolution.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- S9: Utility (was S8) -->
+      <div class="tos-section" id="s9">
+        <div class="tos-section-header">
+          <h2>9. Utility Payments & Top-Ups</h2>
+          <span class="sec-num">09</span>
+        </div>
+        <div class="tos-section-body">
+          <p>All utility and airtime/data purchases are routed through licensed third-party payment networks.</p>
+          <ul>
+            <li><strong>No Reversals After Confirmation:</strong> Once a digital top-up or bill payment has been confirmed by the network, the transaction is final and irreversible.</li>
+            <li><strong>User Verification Responsibility:</strong> You are solely responsible for verifying the correctness of the destination phone number or meter address. Ledgehold accepts no liability for funds disbursed to an incorrect destination due to user error.</li>
+            <li><strong>Failed Transactions:</strong> If a payment is debited but the service is not delivered, contact our support team within 24 hours. We will investigate and credit your account if a platform-side failure is confirmed.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- S10: Merchant Terms — UPDATED -->
+      <div class="tos-section" id="s10">
+        <div class="tos-section-header">
+          <h2>10. Merchant Terms & Fees</h2>
+          <span class="sec-num">10</span>
+        </div>
+        <div class="tos-section-body">
+          <p>Merchants selling on the platform agree to the following financial frameworks:</p>
+          <ul>
+            <li><strong>Minimum Listing Value:</strong> The minimum allowable price for any single item or bundled package listed on the marketplace is <strong>GHS 5.00</strong>.</li>
+          </ul>
+
+          <p style="margin-top:16px;"><strong>Platform Service Fee Schedule:</strong></p>
+          <p style="font-size:0.82rem; color:#64748b; margin-bottom:8px;">Deducted from merchant payout on successful transactions only. No fee is charged on transactions that do not complete.</p>
+          <table class="tos-fee-table">
+            <thead>
+              <tr><th>Transaction Value</th><th>Platform Service Fee</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>GHS 0.00 – GHS 499.99</td><td><span class="badge-rate">3.5%</span></td></tr>
+              <tr><td>GHS 500.00 – GHS 1,999.99</td><td><span class="badge-rate">3.0%</span></td></tr>
+              <tr><td>GHS 2,000.00 and above</td><td><span class="badge-rate">2.5%</span></td></tr>
+            </tbody>
+          </table>
+
+          <p style="margin-top:20px;"><strong>Outbound Network Transfer Fee Schedule:</strong></p>
+          <p style="font-size:0.82rem; color:#64748b; margin-bottom:8px;">A flat transfer fee is deducted from each merchant disbursement to cover outbound network routing costs.</p>
+          <table class="tos-fee-table">
+            <thead>
+              <tr><th>Disbursement Amount</th><th>Transfer Fee</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>GHS 25.00 and below</td><td>GHS 0.80</td></tr>
+              <tr><td>Above GHS 25.00</td><td>GHS 0.40</td></tr>
+            </tbody>
+          </table>
+
+          <ul style="margin-top:16px;">
+            <li><strong>Transparency Disclosure:</strong> All applicable platform fees and transfer charges are calculated and displayed clearly on the listing creation screen before a merchant publishes an item.</li>
+            <li><strong>Merchant Accountability:</strong> Merchants with frequent or consecutive refund requests against their listings are subject to warning, temporary suspension, or permanent account termination on the basis of listing accuracy and item authenticity standards. Merchants are solely responsible for ensuring that listed items accurately represent the goods presented at the point of physical exchange.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- S11: Prohibited (was S10) -->
+      <div class="tos-section" id="s11">
+        <div class="tos-section-header">
+          <h2>11. Prohibited Conduct</h2>
+          <span class="sec-num">11</span>
+        </div>
+        <div class="tos-section-body">
+          <p>The following conduct is strictly prohibited and may result in immediate account suspension and fund forfeiture:</p>
+          <ul>
+            <li><strong>Fraud & Impersonation:</strong> Impersonating any person or brand, or misrepresenting the condition of goods.</li>
+            <li><strong>Fee Circumvention:</strong> Soliciting transactions outside the platform to avoid escrow requirements or fees.</li>
+            <li><strong>Exchange Policy Violations:</strong> Requesting, pressuring, or facilitating an exchange outside a designated campus location or outside published exchange hours.</li>
+            <li><strong>System Manipulation:</strong> Attempting to tamper with payment flows or delivery confirmation systems.</li>
+            <li><strong>Unlawful Listings:</strong> Listing stolen property, weapons, or any item prohibited under Ghanaian law.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- S12: IP (was S11) -->
+      <div class="tos-section" id="s12">
+        <div class="tos-section-header">
+          <h2>12. Intellectual Property</h2>
+          <span class="sec-num">12</span>
+        </div>
+        <div class="tos-section-body">
+          <p>All platform content, code, branding, visual design elements, and proprietary methodologies are the exclusive intellectual property of Ledgehold.</p>
+          <ul>
+            <li><strong>Limited Licence:</strong> You are granted a non-exclusive licence to access the platform solely for its intended purposes. You may not reproduce, modify, or distribute platform content.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- S13: Privacy (was S12) -->
+      <div class="tos-section" id="s13">
+        <div class="tos-section-header">
+          <h2>13. Privacy & Data</h2>
+          <span class="sec-num">13</span>
+        </div>
+        <div class="tos-section-body">
+          <p>Ledgehold Enterprise complies with the Ghana Data Protection Act, 2012 (Act 843). The collection and processing of your data are governed by our Privacy Policy.</p>
+          <ul>
+            <li><strong>Data We Collect:</strong> We collect necessary operational data to provide our services, prevent fraud, and process transactions. We do not sell your personal data.</li>
+            <li><strong>Payment Data:</strong> All payments are handled by PCI-compliant third-party processors. Ledgehold does not store full card numbers on its servers.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- S14: TV Hub (was S13) -->
+      <div class="tos-section" id="s14">
+        <div class="tos-section-header">
+          <h2>14. TV Hub & External Content</h2>
+          <span class="sec-num">14</span>
+        </div>
+        <div class="tos-section-body">
+          <p>The TV Hub provides a curated interface for discovering entertainment and commerce links.</p>
+          <ul>
+            <li><strong>Third-Party Media:</strong> Content is sourced from public hosting platforms. We do not claim ownership of this media.</li>
+            <li><strong>Affiliate Disclosures:</strong> We participate in commercial affiliate programmes. Clicking external product links may earn Ledgehold a referral commission at no additional cost to you.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- S15: Disclaimer (was S14) -->
+      <div class="tos-section" id="s15">
+        <div class="tos-section-header">
+          <h2>15. Disclaimer of Warranties</h2>
+          <span class="sec-num">15</span>
+        </div>
+        <div class="tos-section-body">
+          <p>To the fullest extent permissible under Ghanaian law, Ledgehold provides the platform on an <strong>"as is" and "as available"</strong> basis, without any warranty regarding uninterrupted access, the quality of goods listed by merchants, or the reliability of third-party networks.</p>
+        </div>
+      </div>
+
+      <!-- S16: Liability (was S15) -->
+      <div class="tos-section" id="s16">
+        <div class="tos-section-header">
+          <h2>16. Limitation of Liability</h2>
+          <span class="sec-num">16</span>
+        </div>
+        <div class="tos-section-body">
+          <p>Ledgehold shall not be liable for any indirect, incidental, or consequential damages arising out of your use of the platform, disputes with other users, incorrect utility entries, or third-party network failures.</p>
+        </div>
+      </div>
+
+      <!-- S17: Suspension (was S16) -->
+      <div class="tos-section" id="s17">
+        <div class="tos-section-header">
+          <h2>17. Suspension & Termination</h2>
+          <span class="sec-num">17</span>
+        </div>
+        <div class="tos-section-body">
+          <p>Ledgehold reserves the right to suspend or permanently terminate your access to the platform if you breach these Terms, if we suspect fraudulent activity, or if required by law.</p>
+        </div>
+      </div>
+
+      <!-- S18: Amendments (was S17) -->
+      <div class="tos-section" id="s18">
+        <div class="tos-section-header">
+          <h2>18. Amendments</h2>
+          <span class="sec-num">18</span>
+        </div>
+        <div class="tos-section-body">
+          <p>We may update these Terms at any time. Your continued use of the platform after an amendment takes effect constitutes your binding acceptance of the revised Terms.</p>
+        </div>
+      </div>
+
+      <!-- S19: Governing Law (was S18) -->
+      <div class="tos-section" id="s19">
+        <div class="tos-section-header">
+          <h2>19. Governing Law & Disputes</h2>
+          <span class="sec-num">19</span>
+        </div>
+        <div class="tos-section-body">
+          <p>These Terms shall be governed by the laws of the <strong>Republic of Ghana</strong>.</p>
+          <ul>
+            <li><strong>Informal Resolution:</strong> You agree to contact our support team to attempt to resolve any dispute through direct dialogue before initiating formal proceedings.</li>
+            <li><strong>Formal Arbitration:</strong> Unresolved disputes shall be referred to binding arbitration under the Arbitration Act, 2010 (Act 798) of Ghana, conducted in Accra.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- S20: Contact (was S19) -->
+      <div class="tos-section" id="s20">
+        <div class="tos-section-header">
+          <h2>20. Contact & Compliance</h2>
+          <span class="sec-num">20</span>
+        </div>
+        <div class="tos-section-body">
+          <p>For all support enquiries, operational questions, and general correspondence:</p>
+          <ul>
+            <li><strong>Email:</strong> <a href="mailto:support@prolyfiq.store" style="color:#0d6efd;">support@prolyfiq.store</a></li>
+            <li><strong>WhatsApp Support:</strong> <a href="https://wa.me/233551681706" style="color:#0d6efd;">+233 55 168 1706</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="tos-acceptance">
+        <div>
+          <h3 class="text-white-50">You are bound by these Terms</h3>
+          <p>By using ProlyfiQ in any capacity including browsing, transacting, or registering, you confirm that you have read, understood, and accepted these Terms of Service in full.</p>
+        </div>
+        <a href="https://wa.me/233551681706" class="btn-accept">
+          <i class="bi bi-whatsapp me-2"></i>Contact Compliance
+        </a>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script>
+  // Highlight active TOC item on scroll
+  const sections = document.querySelectorAll('.tos-section');
+  const tocLinks = document.querySelectorAll('.tos-toc a');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        tocLinks.forEach(a => {
+          a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+        });
+      }
+    });
+  }, { rootMargin: '-80px 0px -60% 0px', threshold: 0 });
+  sections.forEach(s => observer.observe(s));
+</script>
+
+{% endblock %}

@@ -1,0 +1,1387 @@
+{% extends "base.html" %}
+
+{% block title %}{{ item.itemName }} | ProlyfiQ {% endblock %}
+
+{% block description %}{{ item.itemName }} — {{ item.university }}. {{ item.description[:120] if item.description else 'Verified campus listing.' }}{% endblock %}
+
+{% block content %}
+
+<div class="detail-shell">
+
+    <!-- ── BACK NAVIGATION ── -->
+    <div class="detail-back-nav">
+        <a href="javascript:history.back()" class="back-btn">
+            <i class="bi bi-arrow-left"></i>
+            <span>Back to Marketplace</span>
+        </a>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- ITEM PREVIEW STRIP (mirrors checkout strip)    -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="item-strip d-none d-lg-flex">
+        <div class="item-strip-inner">
+            <div class="strip-img-wrap">
+                <img src="{{ all_images[0] if all_images else '' }}" alt="{{ item.itemName }}"
+                     onerror="this.closest('.strip-img-wrap').classList.add('img-hidden')">
+                <div class="img-fallback"><i class="bi bi-bag"></i></div>
+            </div>
+            <div class="strip-meta">
+                <span class="campus-badge">
+                    <i class="bi bi-geo-alt-fill me-1"></i>{{ item.university }}
+                </span>
+                <p class="strip-item-name">{{ item.itemName }}</p>
+                {% if item.has_variations and item.variations %}
+                <span class="variety-pill" id="stripVarietyPill">{{ item.variations[0].label }}</span>
+                {% endif %}
+            </div>
+            <!-- Price pushed to far right via margin-left: auto on the price-tag itself -->
+            <div class="strip-price-tag">
+                <span class="price-currency">GHS</span>
+                <span class="price-amount" id="stripPriceDisplay">{{ "%.2f"|format(item.price) }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- DESKTOP THREE-COLUMN LAYOUT                    -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="detail-layout">
+
+        <!-- ── FAR LEFT: THUMBNAIL STRIP ── -->
+        <div class="thumbnail-col d-none d-lg-flex" id="thumbnailStrip">
+            {% for img in all_images %}
+            <div class="thumb-item {% if loop.first %}thumb-active{% endif %}"
+                 onclick="switchMainImage('{{ img }}', this)"
+                 data-img="{{ img }}">
+                <img src="{{ img }}" alt="Product image {{ loop.index }}" loading="lazy">
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- ── CENTER: MAIN PANEL ── -->
+        <div class="main-panel" id="mainContentPanel">
+
+            <!-- MOBILE CAROUSEL -->
+            <div class="mobile-carousel d-lg-none" id="mobileCarousel">
+                <div class="carousel-track" id="carouselTrack">
+                    {% for img in all_images %}
+                    <div class="carousel-slide" onclick="openFullscreenViewer('{{ img }}')">
+                        <img src="{{ img }}" alt="Product image {{ loop.index }}">
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="carousel-dots" id="carouselDots">
+                    {% for img in all_images %}
+                    <span class="carousel-dot {% if loop.first %}dot-active{% endif %}" data-index="{{ loop.index0 }}"></span>
+                    {% endfor %}
+                </div>
+                {% if all_images|length > 1 %}
+                <div class="carousel-hint">
+                    <i class="bi bi-chevron-left"></i>
+                    <span>Swipe to see more</span>
+                    <i class="bi bi-chevron-right"></i>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- DESKTOP MAIN IMAGE -->
+            <div class="desktop-main-img d-none d-lg-block"
+                 id="desktopMainImage"
+                 data-image-target="{{ all_images[0] if all_images else '' }}"
+                 onclick="openFullscreenViewer(this.getAttribute('data-image-target'))">
+                <img src="{{ all_images[0] if all_images else '' }}" alt="{{ item.itemName }}" id="mainDisplayImage">
+                <div class="zoom-hint">
+                    <i class="bi bi-arrows-fullscreen"></i>
+                    <span>Click to view full</span>
+                </div>
+            </div>
+
+            <!-- ── ITEM DETAILS BODY ── -->
+            <div class="detail-body" id="itemDetailsBody">
+
+                <!-- Title + price row -->
+                <div class="detail-title-row">
+                    <div class="detail-title-meta">
+                        <h3 class="detail-item-name">{{ item.itemName }}</h3>
+                    </div>
+                    <div class="detail-price-block">
+                        <span class="price-currency-sm">GHS</span>
+                        <span class="detail-price-num" id="detailPriceDisplay">{{ "%.2f"|format(item.price) }}</span>
+                    </div>
+                </div>
+
+                <!-- ── VARIATIONS ── -->
+                {% if item.has_variations and item.variations %}
+                <div class="detail-section">
+                    <div class="section-header-row">
+                        <h6 class="section-title">
+                            <i class="bi bi-diagram-3-fill section-icon" style="color: #4f46e5;"></i>
+                            {{ item.variation_type or 'Available Options' }}
+                        </h6>
+                        <span class="section-hint">Select one</span>
+                    </div>
+
+                    <div class="variations-stack" id="variationsGrid">
+                        {% for var in item.variations %}
+                        <div class="var-card {% if loop.first %}var-card--active{% endif %}"
+                             data-label="{{ var.label }}"
+                             data-price="{{ var.price }}"
+                             data-img="{{ var.imgUrl or (all_images[0] if all_images else '') }}"
+                             data-desc="{{ var.description or '' }}"
+                             onclick="selectVariation(this)">
+
+                            {% if var.imgUrl %}
+                            <div class="var-card-img">
+                                <img src="{{ var.imgUrl }}" alt="{{ var.label }}" loading="lazy">
+                            </div>
+                            {% endif %}
+
+                            <div class="var-card-body">
+                                <span class="var-card-label">{{ var.label }}</span>
+                                <span class="var-card-price">GHS {{ "%.2f"|format(var.price) }}</span>
+                                {% if var.description %}
+                                <span class="var-card-desc">{{ var.description[:60] }}{% if var.description|length > 60 %}...{% endif %}</span>
+                                {% endif %}
+                            </div>
+
+                            <div class="var-radio">
+                                <div class="radio-dot"></div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <input type="hidden" id="selectedVariationLabel" value="{{ item.variations[0].label if item.variations else '' }}">
+                    <input type="hidden" id="selectedVariationPrice" value="{{ item.price }}">
+                    <input type="hidden" id="selectedVariationImg" value="{{ all_images[0] if all_images else '' }}">
+                </div>
+                {% endif %}
+
+                <!-- ── DESCRIPTION ── -->
+                <div class="detail-section">
+                    <h6 class="section-title">
+                        <i class="bi bi-file-text-fill section-icon" style="color: #4f46e5;"></i>
+                        Description
+                    </h6>
+                    <p class="section-body-text">
+                        {{ item.description or 'No description provided. This is a verified campus listing.' }}
+                    </p>
+                </div>
+
+                <!-- ── PICKUP & LOGISTICS ── -->
+                <div class="detail-section">
+                    <h6 class="section-title">
+                        <i class="bi bi-truck-fill section-icon" style="color: #4f46e5;"></i>
+                        Pickup &amp; Logistics
+                    </h6>
+
+                    <div class="logistics-grid">
+
+                        <div class="logistics-tile">
+                            <div class="logistics-tile-icon">
+                                <i class="bi bi-clock-fill"></i>
+                            </div>
+                            <div class="logistics-tile-content">
+                                <span class="logistics-label">Availability</span>
+                                <span class="logistics-value fw-bold">{{ item.availability or 'Ready for Instant Pickup' }}</span>
+                            </div>
+                        </div>
+
+                        {% if item.schedule %}
+                        <div class="logistics-tile">
+                            <div class="logistics-tile-icon">
+                                <i class="bi bi-calendar-check-fill"></i>
+                            </div>
+                            <div class="logistics-tile-content">
+                                <span class="logistics-label">Delivery Window</span>
+                                <span class="logistics-value">{{ item.schedule }}</span>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="logistics-tile">
+                            <div class="logistics-tile-icon">
+                                <i class="bi bi-geo-alt-fill"></i>
+                            </div>
+                            <div class="logistics-tile-content">
+                                <span class="logistics-label">Pickup Point</span>
+                                <span class="logistics-value fw-bold">{{ item.landmark or 'Campus — coordinate with seller' }}</span>
+                            </div>
+                        </div>
+
+                        <div class="logistics-tile">
+                            <div class="logistics-tile-icon">
+                                <i class="bi bi-box-seam-fill"></i>
+                            </div>
+                            <div class="logistics-tile-content">
+                                <span class="logistics-label">Stock Available</span>
+                                <span class="logistics-value fw-bold {% if item.stock <= 5 %}logistics-stock-low{% endif %}">
+                                    {% if item.stock <= 0 %}Sold Out
+                                    {% elif item.stock <= 5 %}Only {{ item.stock }} left
+                                    {% else %}{{ item.stock }} units{% endif %}
+                                </span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- ── SELLER INFORMATION ── -->
+                <div class="detail-section">
+                    <h6 class="section-title">
+                        <i class="bi bi-person-badge-fill section-icon" style="color: #4f46e5;"></i>
+                        Seller Information
+                    </h6>
+                    <div class="seller-card">
+                        <div class="seller-avatar">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                        <div class="seller-info">
+                            <p class="seller-name">{{ merchant_display_name }}</p>
+                            <span class="verified-badge">
+                                <i class="bi bi-patch-check-fill me-1"></i>Verified
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── ESCROW TRUST NOTE ── -->
+                <div class="escrow-note">
+                    <div>
+                        <i class="bi bi-fingerprint"></i>
+                    </div>
+                    <div>
+                        <p class="escrow-note-title">Ledgehold Escrow Protected</p>
+                        <p class="escrow-note-body">
+                            Your payment is held securely and only released to the seller after you confirm satisfaction by scanning the QR code they provide to you.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Spacer for floating bar clearance -->
+                <div style="height: 80px;"></div>
+
+            </div><!-- /detail-body -->
+
+            <!-- ── FLOATING BUY BAR (mirrors checkout's floating bar) ── -->
+            <div class="floating-bar" id="stickyBuyBar">
+                <div class="floating-bar-inner">
+                    <div class="floating-bar-summary d-lg-none">
+                        <span class="floating-bar-label">Total</span>
+                        <span class="floating-bar-total">GHS <span id="stickyBuyPrice">{{ "%.2f"|format(item.price) }}</span></span>
+                    </div>
+                    <button class="floating-proceed-btn"
+                            id="confirmBuyBtn"
+                            onclick="proceedToSecureCheckout()"
+                            {% if item.stock <= 0 %}disabled{% endif %}>
+                        {% if item.stock <= 0 %}
+                            <i class="bi bi-x-circle me-2"></i> Sold Out
+                        {% else %}
+                            <i class="bi bi-shield-lock-fill me-2"></i> Confirm &amp; Buy
+                        {% endif %}
+                        <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div><!-- /main-panel -->
+
+        <!-- ── RIGHT SIDEBAR ── -->
+        <div class="sidebar-col d-none d-lg-block" id="rightSidebar">
+
+            {% if merchant_items and merchant_items|length > 0 %}
+            <div class="sidebar-block">
+                <div class="sidebar-block-header">
+                    <div class="sidebar-icon-wrap"><i class="bi bi-person-lines-fill"></i></div>
+                    <h6 class="sidebar-block-title">More from this Seller</h6>
+                </div>
+                <div class="sidebar-items-grid">
+                    {% for m_item in merchant_items %}
+                    <div class="sidebar-item sidebar-item--merchant" onclick="window.location.href='/item?id={{ m_item.id }}'">
+                        <div class="sidebar-item-img">
+                            <img src="{{ m_item.imgUrl or '' }}" alt="{{ m_item.itemName }}" loading="lazy" onerror="this.style.display='none'">
+                        </div>
+                        <div class="sidebar-item-info">
+                            <p class="sidebar-item-name">{{ m_item.itemName }}</p>
+                            <span class="sidebar-item-price">GHS {{ "%.2f"|format(m_item.price) }}</span>
+                            <div>
+                                <i class="bi bi-patch-check-fill me-1"style="font-size: 0.7rem;"></i><span class="text-muted text-truncate" style="font-size: 0.65rem; max-width: 85%;">Verified Merchant</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="sidebar-block">
+                <div class="sidebar-block-header">
+                    <div class="sidebar-icon-wrap"><i class="bi bi-grid-fill"></i></div>
+                    <h6 class="sidebar-block-title">More from Marketplace</h6>
+                </div>
+                <div class="sidebar-items-grid">
+                    {% for r_item in random_items %}
+                    <div class="sidebar-item" onclick="window.location.href='/item?id={{ r_item.id }}'">
+                        <div class="sidebar-item-img">
+                            <img src="{{ r_item.imgUrl or '' }}" alt="{{ r_item.itemName }}" loading="lazy" onerror="this.style.display='none'">
+                        </div>
+                        <div class="sidebar-item-info">
+                            <p class="sidebar-item-name">{{ r_item.itemName }}</p>
+                            <span class="sidebar-item-price">GHS {{ "%.2f"|format(r_item.price) }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="text-center mt-3">
+                    <a href="/marketplace" class="sidebar-view-all-btn">
+                        <i class="bi bi-intersect"></i> View Full Marketplace
+                    </a>
+                </div>
+            </div>
+
+        </div><!-- /sidebar-col -->
+
+    </div><!-- /detail-layout -->
+
+    <!-- ── MOBILE: MORE ITEMS (below main) ── -->
+    <div class="d-lg-none mobile-more">
+
+        {% if merchant_items and merchant_items|length > 0 %}
+        <div class="mobile-more-block">
+            <div class="sidebar-block-header">
+                <div class="sidebar-icon-wrap"><i class="bi bi-person-lines-fill"></i></div>
+                <h6 class="sidebar-block-title">More from this Seller</h6>
+            </div>
+            <div class="row g-2">
+                {% for m_item in merchant_items %}
+                <div class="col-6">
+                    <div class="mobile-item-card mobile-item-card--merchant" onclick="window.location.href='/item?id={{ m_item.id }}'">
+                        <div class="ratio ratio-1x1 bg-light rounded-top overflow-hidden">
+                            <img src="{{ m_item.imgUrl or '' }}" class="object-fit-cover" alt="{{ m_item.itemName }}" loading="lazy" onerror="this.style.display='none'">
+                        </div>
+                        <div class="mobile-item-card-body">
+                            <p class="mobile-item-name">{{ m_item.itemName }}</p>
+                            <span class="mobile-item-price">GHS {{ "%.2f"|format(m_item.price) }}</span>
+                            <div>
+                                <i class="bi bi-patch-check-fill text-info me-1" style="font-size: 0.7rem;"></i><span class="text-muted text-truncate" style="font-size: 0.65rem; max-width: 85%;">Verified Merchant</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="mobile-more-block">
+            <div class="sidebar-block-header">
+                <div class="sidebar-icon-wrap"><i class="bi bi-grid-fill"></i></div>
+                <h6 class="sidebar-block-title">More from Marketplace</h6>
+            </div>
+            <div class="row g-2">
+                {% for r_item in random_items %}
+                <div class="col-6">
+                    <div class="mobile-item-card" onclick="window.location.href='/item?id={{ r_item.id }}'">
+                        <div class="ratio ratio-1x1 bg-light rounded-top overflow-hidden">
+                            <img src="{{ r_item.imgUrl or '' }}" class="object-fit-cover" alt="{{ r_item.itemName }}" loading="lazy" onerror="this.style.display='none'">
+                        </div>
+                        <div class="mobile-item-card-body">
+                            <p class="mobile-item-name">{{ r_item.itemName }}</p>
+                            <span class="mobile-item-price">GHS {{ "%.2f"|format(r_item.price) }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="text-center mt-3 mb-4">
+                <a href="/marketplace" class="sidebar-view-all-btn">
+                    <i class="bi bi-intersect me-1"></i> View Full Marketplace
+                </a>
+            </div>
+        </div>
+
+    </div><!-- /mobile-more -->
+
+</div><!-- /detail-shell -->
+
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- FULLSCREEN IMAGE VIEWER MODAL                   -->
+<!-- ═══════════════════════════════════════════════ -->
+<div class="modal fade" id="fullscreenViewerModal" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 bg-transparent shadow-none">
+            <div class="modal-header border-0 p-0 justify-content-end">
+                <button type="button" class="btn-close btn-close-white p-3" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 text-center">
+                <img id="fullscreenViewerImage" src="" class="img-fluid rounded-4 shadow-lg" style="max-height: 85vh; object-fit: contain;">
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- SCRIPTS (logic unchanged)                       -->
+<!-- ═══════════════════════════════════════════════ -->
+<script>
+const listingId = "{{ item.id if (item and item.id) else '' }}";
+const allImages = JSON.parse('{{ all_images | tojson | safe if all_images else "[]" }}');
+const variations = JSON.parse('{{ item.variations | tojson | safe if (item and item.variations) else "[]" }}');
+
+let currentMainImage = allImages.length > 0 ? allImages[0] : '';
+let currentSelectedVariation = (Array.isArray(variations) && variations.length > 0) ? String(variations[0].label) : '';
+let currentSelectedPrice = parseFloat("{{ item.price if (item and item.price) else 0 }}");
+
+function switchMainImage(imgUrl, thumbElement) {
+    currentMainImage = imgUrl;
+    const mainImg = document.getElementById('mainDisplayImage');
+    if (mainImg) mainImg.src = imgUrl;
+    const mainDiv = document.getElementById('desktopMainImage');
+    if (mainDiv) mainDiv.setAttribute('data-image-target', imgUrl);
+    document.querySelectorAll('.thumb-item').forEach(el => {
+        el.classList.remove('thumb-active');
+        if (el.getAttribute('data-img') === imgUrl) el.classList.add('thumb-active');
+    });
+    if (thumbElement) thumbElement.classList.add('thumb-active');
+}
+
+function openFullscreenViewer(imgUrl) {
+    document.getElementById('fullscreenViewerImage').src = imgUrl;
+    new bootstrap.Modal(document.getElementById('fullscreenViewerModal')).show();
+}
+
+function selectVariation(card) {
+    document.querySelectorAll('.var-card').forEach(c => c.classList.remove('var-card--active'));
+    card.classList.add('var-card--active');
+
+    const label = card.getAttribute('data-label');
+    const price = parseFloat(card.getAttribute('data-price'));
+    const img   = card.getAttribute('data-img');
+
+    currentSelectedVariation = label;
+    currentSelectedPrice     = price;
+
+    document.getElementById('selectedVariationLabel').value = label;
+    document.getElementById('selectedVariationPrice').value = price;
+    document.getElementById('selectedVariationImg').value   = img;
+
+    const formatted = price.toFixed(2);
+    document.getElementById('detailPriceDisplay').innerText = formatted;
+    document.getElementById('stripPriceDisplay').innerText  = formatted;
+    const stickyPrice = document.getElementById('stickyBuyPrice');
+    if (stickyPrice) stickyPrice.innerText = formatted;
+    const stripVariety = document.getElementById('stripVarietyPill');
+    if (stripVariety) stripVariety.innerText = label;
+
+    if (img) {
+        currentMainImage = img;
+        const mainImg = document.getElementById('mainDisplayImage');
+        if (mainImg) mainImg.src = img;
+        const mainDiv = document.getElementById('desktopMainImage');
+        if (mainDiv) mainDiv.setAttribute('data-image-target', img);
+        document.querySelectorAll('.thumb-item').forEach(el => {
+            el.classList.remove('thumb-active');
+            if (el.getAttribute('data-img') === img) el.classList.add('thumb-active');
+        });
+    }
+}
+
+(function initMobileCarousel() {
+    const track = document.getElementById('carouselTrack');
+    const dots  = document.querySelectorAll('.carousel-dot');
+    if (!track || dots.length === 0) return;
+    let currentSlide = 0;
+    const totalSlides = dots.length;
+
+    function updateCarousel(index) {
+        currentSlide = index;
+        track.style.transform = `translateX(-${index * 100}%)`;
+        dots.forEach((d, i) => d.classList.toggle('dot-active', i === index));
+    }
+
+    let touchStartX = 0;
+    track.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
+    track.addEventListener('touchend', (e) => {
+        const diff = touchStartX - e.changedTouches[0].screenX;
+        if (Math.abs(diff) > 50) {
+            if (diff > 0 && currentSlide < totalSlides - 1) updateCarousel(currentSlide + 1);
+            else if (diff < 0 && currentSlide > 0) updateCarousel(currentSlide - 1);
+        }
+    });
+    dots.forEach(dot => dot.addEventListener('click', () => updateCarousel(parseInt(dot.getAttribute('data-index')))));
+})();
+
+function proceedToSecureCheckout() {
+    const itemName = "{{ item.itemName | e }}";
+    const campus   = "{{ item.university | e }}";
+    const variety  = currentSelectedVariation;
+    const price    = currentSelectedPrice;
+    const selectedImg = document.getElementById('selectedVariationImg')
+        ? document.getElementById('selectedVariationImg').value
+        : (allImages.length > 0 ? allImages[0] : '');
+
+    let checkoutUrl = `/checkout?item=${encodeURIComponent(itemName)}&price=${price}&id=${listingId}&campus=${encodeURIComponent(campus)}`;
+    if (variety)     checkoutUrl += `&variety=${encodeURIComponent(variety)}`;
+    if (selectedImg) checkoutUrl += `&img=${encodeURIComponent(selectedImg)}`;
+    window.location.href = checkoutUrl;
+}
+
+(function initFloatingBar() {
+    function updateOffset() {
+        const bar = document.getElementById('stickyBuyBar');
+        if (!bar) return;
+        const isMobile = window.innerWidth < 992;
+        bar.style.bottom = isMobile ? '78px' : '0';
+    }
+    window.addEventListener('resize', updateOffset);
+    updateOffset();
+})();
+</script>
+
+
+<style>
+/* ═══════════════════════════════════════════════
+   ITEM DETAIL — UNIFIED DESIGN SYSTEM
+   Shares CSS variable palette with checkout.html
+   ═══════════════════════════════════════════════ */
+
+:root {
+    --co-bg:           #f5f6fa;
+    --co-surface:      #ffffff;
+    --co-border:       #e8eaf0;
+    --co-text-head:    #0d0f1a;
+    --co-text-body:    #4b5263;
+    --co-text-muted:   #9aa0ae;
+    --co-blue:         #1a56db;
+    --co-blue-light:   #eff4ff;
+    --co-blue-border:  #93c5fd;
+    --co-radius:       16px;
+    --co-radius-sm:    10px;
+    --co-shadow:       0 2px 12px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04);
+    --co-shadow-lg:    0 8px 32px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.04);
+    --co-bar-height:   72px;
+}
+
+/* ── Shell ── */
+.detail-shell {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 0 16px;
+    padding-bottom: calc(var(--co-bar-height) + 32px);
+}
+
+/* ── Back nav ── */
+.detail-back-nav {
+    margin-bottom: 16px;
+}
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    border: 1px solid var(--co-border);
+    border-radius: 50px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--co-text-body);
+    text-decoration: none;
+    transition: border-color 0.15s, color 0.15s;
+    background: var(--co-surface);
+}
+.back-btn:hover {
+    border-color: var(--co-blue);
+    color: var(--co-blue);
+}
+
+/* ── Item strip (desktop, mirrors checkout) ── */
+.item-strip {
+    background: var(--co-surface);
+    border: 1px solid var(--co-border);
+    border-radius: var(--co-radius);
+    padding: 14px 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--co-shadow);
+}
+/* ── CHANGE 1: price pushed to far right ── */
+.item-strip-inner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+}
+.strip-img-wrap {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    border-radius: var(--co-radius-sm);
+    overflow: hidden;
+    flex-shrink: 0;
+    background: #f0f2f5;
+}
+.strip-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.strip-img-wrap.img-hidden img { display: none; }
+.strip-img-wrap.img-hidden .img-fallback { display: flex; }
+.img-fallback {
+    display: none;
+    width: 100%; height: 100%;
+    align-items: center; justify-content: center;
+    color: var(--co-text-muted);
+    font-size: 1.4rem;
+}
+.strip-meta { flex: 1; min-width: 0; }
+.campus-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--co-blue);
+    color: #fff;
+    border-radius: 20px;
+    padding: 2px 8px;
+    margin-bottom: 4px;
+}
+.strip-item-name {
+    font-weight: 700;
+    color: var(--co-text-head);
+    font-size: 0.95rem;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.variety-pill {
+    display: inline-block;
+    font-size: 0.72rem;
+    border: 1px solid var(--co-border);
+    border-radius: 20px;
+    padding: 1px 8px;
+    color: var(--co-text-body);
+    margin-top: 3px;
+}
+/* Price block: margin-left:auto pushes it flush to far right */
+.strip-price-tag {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+    margin-left: auto;
+    padding-left: 20px;
+    border-left: 1px solid var(--co-border);
+}
+.price-currency {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--co-text-muted);
+    letter-spacing: 0.05em;
+}
+.price-amount {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--co-text-head);
+    line-height: 1;
+}
+
+/* ── Three-column layout ── */
+.detail-layout {
+    display: grid;
+    grid-template-columns: 80px 1fr 340px;
+    gap: 20px;
+    align-items: start;
+}
+
+/* ── Thumbnail column ── */
+.thumbnail-col {
+    flex-direction: column;
+    gap: 8px;
+    position: sticky;
+    top: 90px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.thumbnail-col::-webkit-scrollbar { width: 3px; }
+.thumbnail-col::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+.thumb-item {
+    width: 72px;
+    height: 72px;
+    border-radius: var(--co-radius-sm);
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    flex-shrink: 0;
+    background: #f1f5f9;
+}
+.thumb-item:hover { border-color: var(--co-blue-border); }
+.thumb-active {
+    border-color: var(--co-blue) !important;
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.12);
+}
+.thumb-item img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── Main panel ── */
+.main-panel {
+    position: relative;
+    background: var(--co-surface);
+    border: 1px solid var(--co-border);
+    border-radius: var(--co-radius);
+    box-shadow: var(--co-shadow);
+    overflow: hidden;
+    min-height: 400px;
+}
+
+/* Desktop main image */
+.desktop-main-img {
+    position: relative;
+    width: 100%;
+    background: #f1f5f9;
+    cursor: zoom-in;
+    overflow: hidden;
+}
+.desktop-main-img img {
+    width: 100%;
+    height: auto;
+    max-height: 420px;
+    object-fit: cover;
+    display: block;
+}
+.zoom-hint {
+    position: absolute;
+    bottom: 12px; right: 12px;
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+}
+.desktop-main-img:hover .zoom-hint { opacity: 1; }
+
+/* ── Detail body ── */
+.detail-body {
+    padding: 22px 24px;
+}
+
+/* Title row */
+.detail-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.detail-item-name {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--co-text-head);
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+.detail-price-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+}
+.price-currency-sm {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--co-text-muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+.detail-price-num {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--co-blue);
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+
+/* ── Detail sections ── */
+.detail-section {
+    margin-bottom: 22px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--co-border);
+}
+.detail-section:last-of-type {
+    border-bottom: none;
+}
+.section-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--co-text-muted);
+    margin: 0 0 14px;
+}
+.section-header-row .section-title { margin-bottom: 0; }
+.section-icon { font-size: 0.85rem; }
+.section-hint {
+    font-size: 0.72rem;
+    color: var(--co-text-muted);
+}
+.section-body-text {
+    font-size: 0.88rem;
+    color: var(--co-text-body);
+    line-height: 1.7;
+    margin: 0;
+}
+
+/* ── Variations — tier-card style ── */
+.variations-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.var-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 2px solid var(--co-border);
+    border-radius: var(--co-radius-sm);
+    background: var(--co-surface);
+    cursor: pointer;
+    transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s;
+    position: relative;
+}
+.var-card:hover {
+    border-color: var(--co-blue-border);
+    transform: translateY(-1px);
+    box-shadow: var(--co-shadow);
+}
+.var-card--active {
+    border-color: var(--co-blue) !important;
+    background: var(--co-blue-light) !important;
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.10), var(--co-shadow) !important;
+}
+.var-card-img {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: #f1f5f9;
+}
+.var-card-img img { width: 100%; height: 100%; object-fit: cover; }
+.var-card-body { flex: 1; min-width: 0; }
+.var-card-label {
+    display: block;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--co-text-head);
+}
+.var-card-price {
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: var(--co-blue);
+}
+.var-card-desc {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--co-text-muted);
+    margin-top: 2px;
+}
+.var-radio {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.radio-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--co-border);
+    background: #fff;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+}
+.var-card--active .radio-dot {
+    border-color: var(--co-blue);
+    background: var(--co-blue);
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.15);
+}
+.var-card--active .radio-dot::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #fff;
+}
+
+/* ── CHANGE 2: Unified logistics grid — monochrome, no coloured icons ── */
+.logistics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.logistics-tile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f8fafc;
+    border: 1px solid var(--co-border);
+    border-radius: var(--co-radius-sm);
+    padding: 12px 14px;
+}
+/* Single unified icon style — no colour coding */
+.logistics-tile-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.9rem;
+    background: #eef0f5;
+    color: var(--co-text-body);
+}
+.logistics-tile-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.logistics-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--co-text-muted);
+}
+.logistics-value {
+    font-size: 0.83rem;
+    color: var(--co-text-head);
+}
+/* Only the low-stock text turns red — nothing else */
+.logistics-stock-low {
+    color: #dc2626 !important;
+}
+
+/* ── Seller card ── */
+.seller-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #f8fafc;
+    border: 1px solid var(--co-border);
+    border-radius: var(--co-radius-sm);
+    padding: 14px 16px;
+}
+.seller-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6c757d, #adb5bd);  /* Grey gradient */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #fff;
+    font-size: 1.1rem;
+}
+.seller-info { display: flex; flex-direction: column; gap: 4px; }
+.seller-name {
+    font-weight: 700;
+    color: var(--co-text-head);
+    font-size: 0.9rem;
+    margin: 0;
+}
+.verified-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--co-blue-light);
+    color: var(--co-blue);
+    border-radius: 20px;
+    padding: 2px 8px;
+}
+
+/* ── Escrow trust note ── */
+.escrow-note {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    background: #f0fdf4;
+    border: 1px solid #a7f3d0;
+    border-radius: var(--co-radius-sm);
+    padding: 14px 16px;
+    margin-bottom: 0;
+}
+.escrow-note-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: #d1fae5;
+    color: #059669;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1rem;
+}
+.escrow-note-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--co-text-head);
+    margin: 0 0 4px;
+}
+.escrow-note-body {
+    font-size: 0.75rem;
+    color: var(--co-text-body);
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* ── Floating buy bar (matches checkout's floating-bar exactly) ── */
+.floating-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--co-border);
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.08);
+    padding: 12px 16px;
+}
+.floating-bar-inner {
+    max-width: 1300px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 25px;
+}
+.floating-bar-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+.floating-bar-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--co-text-muted);
+}
+.floating-bar-total {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--co-text-head);
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+.floating-proceed-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #0d0f1a;
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 14px 28px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(13,15,26,0.25);
+    letter-spacing: -0.01em;
+}
+.floating-proceed-btn:hover:not(:disabled) {
+    background: var(--co-blue);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(26,86,219,0.35);
+}
+.floating-proceed-btn:hover:not(:disabled) .bi-arrow-right {
+    transform: translateX(3px);
+    transition: transform 0.15s;
+}
+.floating-proceed-btn:disabled {
+    background: #9aa0ae;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+.floating-proceed-btn .bi-arrow-right { transition: transform 0.15s; }
+
+/* ── Right sidebar ── */
+.sidebar-col {
+    position: sticky;
+    top: 90px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+}
+.sidebar-col::-webkit-scrollbar { width: 3px; }
+.sidebar-col::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+.sidebar-block { margin-bottom: 20px; }
+.sidebar-block-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.sidebar-icon-wrap {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--co-blue-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--co-blue);
+    font-size: 0.82rem;
+    flex-shrink: 0;
+}
+.sidebar-block-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--co-text-head);
+    margin: 0;
+}
+.sidebar-items-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+/* Standard marketplace card */
+.sidebar-item {
+    background: var(--co-surface);
+    border: 1px solid var(--co-border);
+    border-radius: var(--co-radius-sm);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.sidebar-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--co-shadow);
+}
+
+/* ── CHANGE 3: Merchant cards — thick black border + verified badge ── */
+.sidebar-item--merchant {
+    border: 2.5px solid #0d0f1a;
+    box-shadow: 0 3px 10px rgba(13,15,26,0.12);
+}
+.sidebar-item--merchant:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(13,15,26,0.20);
+}
+
+.sidebar-item-img {
+    width: 100%;
+    aspect-ratio: 1;
+    background: #f1f5f9;
+    overflow: hidden;
+}
+.sidebar-item-img img { width: 100%; height: 100%; object-fit: cover; }
+.sidebar-item-info { padding: 8px 10px; }
+.sidebar-item-name {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--co-text-head);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sidebar-item-price {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--co-blue);
+}
+/* Verified badge inside merchant sidebar card */
+.sidebar-verified-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    background: var(--co-blue-light);
+    color: var(--co-blue);
+    border-radius: 20px;
+    padding: 2px 6px;
+    margin-top: 4px;
+}
+
+.sidebar-view-all-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 18px;
+    border: 1px solid var(--co-border);
+    border-radius: 50px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--co-text-body);
+    text-decoration: none;
+    transition: border-color 0.15s, color 0.15s;
+}
+.sidebar-view-all-btn:hover { border-color: var(--co-blue); color: var(--co-blue); }
+
+/* ── Mobile carousel ── */
+.mobile-carousel {
+    position: relative;
+    width: 100%;
+    background: #f1f5f9;
+    overflow: hidden;
+}
+.carousel-track {
+    display: flex;
+    transition: transform 0.3s ease;
+    touch-action: pan-y pinch-zoom;
+}
+.carousel-slide { min-width: 100%; cursor: zoom-in; }
+.carousel-slide img {
+    width: 100%;
+    height: auto;
+    max-height: 360px;
+    object-fit: cover;
+    display: block;
+}
+.carousel-dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+}
+.carousel-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.5);
+    transition: background 0.2s, transform 0.2s;
+    cursor: pointer;
+}
+.dot-active { background: #fff; transform: scale(1.3); }
+.carousel-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 0 10px;
+    font-size: 0.65rem;
+    color: var(--co-text-muted);
+    font-weight: 600;
+    background: #f8fafc;
+}
+
+/* ── Mobile more sections ── */
+.mobile-more { margin-top: 20px; }
+.mobile-more-block { margin-bottom: 24px; }
+.mobile-item-card {
+    background: var(--co-surface);
+    border: 1px solid var(--co-border);
+    border-radius: var(--co-radius-sm);
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+.mobile-item-card:hover { transform: translateY(-2px); }
+
+/* ── CHANGE 3 (mobile): thick black border + verified badge ── */
+.mobile-item-card--merchant {
+    border: 2.5px solid #0d0f1a;
+    box-shadow: 0 3px 10px rgba(13,15,26,0.12);
+}
+.mobile-item-card--merchant:hover {
+    box-shadow: 0 6px 18px rgba(13,15,26,0.20);
+}
+
+.mobile-item-card-body { padding: 8px 10px; }
+.mobile-item-name {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--co-text-head);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mobile-item-price {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--co-blue);
+}
+/* Mobile verified badge */
+.mobile-verified-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    background: var(--co-blue-light);
+    color: var(--co-blue);
+    border-radius: 20px;
+    padding: 2px 6px;
+    margin-top: 4px;
+}
+
+.object-fit-cover { object-fit: cover; }
+
+/* ═══════ RESPONSIVE ═══════ */
+@media (max-width: 991.98px) {
+    .detail-layout {
+        display: block;
+        max-width: 100%;
+    }
+    .main-panel {
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        margin-left: -16px;
+        margin-right: -16px;
+    }
+    .detail-body { padding: 16px; }
+    .logistics-grid { grid-template-columns: 1fr; }
+    .detail-shell {
+        padding-bottom: calc(70px + var(--co-bar-height) + 16px);
+    }
+    .floating-bar { bottom: 75px; }
+}
+
+@media (min-width: 1200px) {
+    .detail-layout {
+        grid-template-columns: 88px 1fr 360px;
+    }
+}
+</style>
+
+{% endblock %}
