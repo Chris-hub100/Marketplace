@@ -15,184 +15,589 @@
     const UPLOAD_PRESET = 'ledgehold_uploads';
 </script>
 
+<style>
+  /* ── RESET & BASE ── */
+  *, *::before, *::after { box-sizing: border-box; }
+  #mainFooter, #mobileBottomNav { display: none !important; }
+
+
+  /* ── TOP BAR ── */
+  #adminTopBar {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #e8e8e8;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  #adminTopBar.visible { display: flex; }
+
+  .tab-group {
+    display: flex;
+    gap: 2px;
+    background: #f2f2f2;
+    border-radius: 8px;
+    padding: 3px;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    font-size: 13px;
+    font-weight: 500;
+    padding: 5px 14px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    position: relative;
+  }
+  .tab-btn.active {
+    background: #fff;
+    color: #111;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+  }
+  .tab-btn .badge-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #c0392b;
+    color: #fff;
+    border-radius: 10px;
+    font-size: 9px;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    margin-left: 5px;
+    vertical-align: middle;
+  }
+  .badge-dot.hidden { display: none; }
+
+  #sessionBtn {
+    font-size: 12px;
+    padding: 6px 16px;
+    border: 1px solid #e0e0e0;
+    background: #fff;
+    border-radius: 20px;
+    color: #c0392b;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  #sessionBtn:hover { background: #fdf2f0; }
+
+  /* ── SCREENS ── */
+  .admin-screen { display: none; flex-direction: column; min-height: 72vh; }
+  .admin-screen.active { display: flex; }
+  .admin-screen.centered { align-items: center; justify-content: center; }
+
+  /* ── LOADING & AUTH ── */
+  .lh-spinner {
+    width: 22px; height: 22px;
+    border: 2px solid #e0e0e0;
+    border-top-color: #111;
+    border-radius: 50%;
+    animation: lhspin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes lhspin { to { transform: rotate(360deg); } }
+
+  .login-box { width: 320px; text-align: center; }
+  .login-box h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.4px; color: #111; margin-bottom: 6px; }
+  .login-box p { font-size: 13px; color: #999; margin-bottom: 24px; }
+  .login-err { font-size: 13px; color: #c0392b; margin-bottom: 12px; display: none; }
+  .login-box input {
+    width: 100%; padding: 11px 16px;
+    border: 1px solid #e0e0e0; border-radius: 10px;
+    font-size: 14px; margin-bottom: 12px; outline: none;
+  }
+  .btn-auth {
+    width: 100%; padding: 12px;
+    background: #111; color: #fff;
+    border: none; border-radius: 10px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .btn-auth:hover { background: #333; }
+
+  /* ── PAGE TITLES ── */
+  .lh-page-title { font-size: 19px; font-weight: 600; letter-spacing: -0.3px; color: #111; margin-bottom: 4px; }
+  .lh-page-sub { font-size: 13px; color: #999; margin-bottom: 20px; font-family: monospace; }
+
+  /* ── SECTION CARD ── */
+  .admin-card {
+    border: 1px solid #ececec;
+    border-radius: 14px;
+    padding: 28px 32px;
+    background: #fff;
+    margin-bottom: 24px;
+  }
+  .admin-card-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #aaa;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .admin-card-title-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #111;
+    display: inline-block;
+  }
+
+  /* ── MERCHANT REQUEST CARDS ── */
+  .request-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .request-card { border: 1px solid #ececec; border-radius: 12px; overflow: hidden; background: #fff; }
+  .request-card-header {
+    background: #111; color: #fff;
+    padding: 12px 16px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .request-card-header span { font-size: 13px; font-weight: 600; }
+  .request-card-header small { font-size: 11px; opacity: 0.55; font-family: monospace; }
+  .request-card-body { padding: 16px; }
+  .request-card-links { display: flex; gap: 8px; margin-bottom: 14px; }
+  .btn-link-pill {
+    flex: 1; text-align: center;
+    padding: 6px 10px;
+    border: 1px solid #e0e0e0; border-radius: 20px;
+    font-size: 11px; font-weight: 600; color: #111;
+    text-decoration: none; background: #fafafa;
+    transition: all 0.15s;
+  }
+  .btn-link-pill:hover { background: #111; color: #fff; border-color: #111; }
+  .request-info { font-size: 12px; color: #888; margin-bottom: 12px; }
+  .request-momo-block {
+    background: #fdfbe8; border: 1px solid #ede7a0;
+    border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;
+  }
+  .request-momo-row { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: #111; margin-bottom: 4px; }
+  .request-momo-row:last-child { margin-bottom: 0; }
+  .request-momo-row .icon { font-size: 13px; }
+  .request-actions { display: grid; grid-template-columns: 1fr; gap: 4px; }
+  .btn-approve {
+    padding: 9px 16px;
+    background: #111; color: #fff;
+    border: none; border-radius: 20px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-approve:hover { background: #27ae60; }
+  .btn-approve:disabled { background: #ccc; cursor: not-allowed; }
+  .btn-deny {
+    padding: 7px 16px;
+    background: none; color: #c0392b;
+    border: none; border-radius: 20px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    text-align: center;
+  }
+  .btn-deny:hover { background: #fdf2f0; }
+
+  /* ── TOKEN REGISTRY ── */
+  .token-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    background: #fafafa;
+    font-size: 12px;
+  }
+  .token-row code { font-size: 14px; font-weight: 700; font-family: monospace; color: #111; }
+  .token-row .token-meta { color: #888; font-size: 11px; margin-top: 2px; }
+  .btn-revoke-token {
+    padding: 4px 12px;
+    background: none; border: 1px solid #f0a0a0;
+    border-radius: 20px; color: #c0392b;
+    font-size: 11px; font-weight: 600; cursor: pointer;
+  }
+  .btn-revoke-token:hover { background: #fdf2f0; }
+
+  /* ── LISTINGS GRID ── */
+  .listings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+  .listing-card { border: 1px solid #ececec; border-radius: 12px; overflow: hidden; background: #fff; }
+  .listing-img { width: 100%; aspect-ratio: 1/1; object-fit: cover; background: #f5f5f5; display: block; }
+  .listing-body { padding: 12px; }
+  .listing-name { font-size: 13px; font-weight: 600; color: #111; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .listing-meta { font-size: 11px; color: #888; margin-bottom: 10px; font-family: monospace; line-height: 1.6; }
+  .btn-takedown {
+    width: 100%; padding: 7px;
+    background: none; border: 1px solid #f0a0a0;
+    border-radius: 20px; color: #c0392b;
+    font-size: 11px; font-weight: 600; cursor: pointer;
+  }
+  .btn-takedown:hover { background: #c0392b; color: #fff; }
+
+  /* ── WAITLIST TABLE ── */
+  .admin-table { width: 100%; border-collapse: collapse; }
+  .admin-table thead th {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    color: #aaa; padding: 10px 14px;
+    border-bottom: 1px solid #f0f0f0; text-align: left;
+  }
+  .admin-table tbody tr { border-bottom: 1px solid #f5f5f5; }
+  .admin-table tbody tr:hover { background: #fafafa; }
+  .admin-table tbody td { padding: 13px 14px; font-size: 13px; color: #333; vertical-align: middle; }
+  .admin-table tbody td.td-id { font-weight: 600; color: #111; font-family: monospace; }
+  .btn-table-action {
+    padding: 4px 12px;
+    background: none; border: 1px solid #f0a0a0;
+    border-radius: 20px; color: #c0392b;
+    font-size: 11px; font-weight: 600; cursor: pointer;
+  }
+  .btn-table-action:hover { background: #fdf2f0; }
+
+  /* ── STATUS BADGES ── */
+  .pb { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; padding: 3px 9px; border-radius: 10px; }
+  .pb-pending { background: #fff8e0; color: #9a6c00; }
+  .pb-active  { background: #e8f5ee; color: #1e7e45; }
+  .pb-warning { background: #fff3cd; color: #856404; }
+
+  /* ── CHANNEL TAB ── */
+  .channel-layout { display: grid; grid-template-columns: 380px 1fr; gap: 24px; }
+  @media (max-width: 900px) { .channel-layout { grid-template-columns: 1fr; } }
+  .form-label-tiny { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #aaa; display: block; margin-bottom: 6px; letter-spacing: 0.5px; }
+  .admin-input {
+    width: 100%; padding: 10px 14px;
+    border: 1px solid #e8e8e8; border-radius: 8px;
+    font-size: 13px; color: #111; background: #fafafa;
+    outline: none; transition: border-color 0.15s;
+  }
+  .admin-input:focus { border-color: #111; background: #fff; }
+  .admin-textarea {
+    width: 100%; padding: 10px 14px;
+    border: 1px solid #e8e8e8; border-radius: 8px;
+    font-size: 13px; color: #111; background: #fafafa;
+    outline: none; resize: vertical;
+    transition: border-color 0.15s;
+  }
+  .admin-textarea:focus { border-color: #111; background: #fff; }
+  .admin-select {
+    width: 100%; padding: 10px 14px;
+    border: 1px solid #e8e8e8; border-radius: 8px;
+    font-size: 13px; color: #111; background: #fafafa;
+    outline: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+  }
+  .btn-publish {
+    width: 100%; padding: 11px;
+    background: #111; color: #fff;
+    border: none; border-radius: 20px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-publish:hover { background: #333; }
+  .btn-publish:disabled { background: #ccc; cursor: not-allowed; }
+  .form-field { margin-bottom: 16px; }
+
+  /* Channel feed items */
+  .channel-item {
+    border: 1px solid #ececec; border-radius: 10px;
+    padding: 14px 16px; margin-bottom: 8px;
+    background: #fff; position: relative;
+  }
+  .channel-item-title { font-size: 13px; font-weight: 600; color: #111; margin-bottom: 6px; padding-right: 30px; }
+  .channel-item-img { width: 100%; max-height: 80px; object-fit: cover; border-radius: 6px; margin-bottom: 8px; display: block; }
+  .channel-item-msg { font-size: 12px; color: #666; line-height: 1.5; }
+  .btn-delete-inline {
+    position: absolute; top: 10px; right: 10px;
+    background: none; border: none;
+    color: #ccc; cursor: pointer; font-size: 14px;
+    padding: 4px;
+    transition: color 0.15s;
+  }
+  .btn-delete-inline:hover { color: #c0392b; }
+
+  /* ── BROADCAST / NOTIFICATION ── */
+  .broadcast-layout { display: grid; grid-template-columns: 380px 1fr; gap: 24px; }
+  @media (max-width: 900px) { .broadcast-layout { grid-template-columns: 1fr; } }
+  .notif-item {
+    padding: 12px 14px;
+    border-left: 3px solid #ddd;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    background: #fafafa;
+    font-size: 12px;
+    position: relative;
+    border-top: 1px solid #f0f0f0;
+    border-right: 1px solid #f0f0f0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .notif-item.type-primary { border-left-color: #2980b9; }
+  .notif-item.type-warning { border-left-color: #e67e22; }
+  .notif-item.type-success { border-left-color: #27ae60; }
+  .notif-item.type-danger  { border-left-color: #c0392b; }
+  .notif-id { font-family: monospace; font-size: 11px; font-weight: 700; color: #111; text-transform: uppercase; }
+  .notif-msg { color: #555; margin-top: 3px; line-height: 1.5; }
+  .btn-clear-notif {
+    position: absolute; top: 8px; right: 8px;
+    background: none; border: none;
+    color: #ccc; cursor: pointer; font-size: 13px; padding: 2px;
+    transition: color 0.15s;
+  }
+  .btn-clear-notif:hover { color: #c0392b; }
+
+  /* ── MERCHANT REGISTRY ── */
+  .registry-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .registry-card {
+    border: 1px solid #ececec; border-radius: 12px;
+    padding: 18px 20px; background: #fff;
+  }
+  .registry-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .registry-merchant-id { font-size: 13px; font-weight: 600; color: #111; }
+  .registry-detail-btn {
+    background: none; border: none;
+    font-size: 11px; color: #888; cursor: pointer; padding: 0;
+    text-decoration: underline; text-underline-offset: 2px;
+  }
+  .registry-detail-btn:hover { color: #111; }
+  .registry-payout-info {
+    background: #f9f9f9; border: 1px solid #eeeeee;
+    border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;
+  }
+  .registry-payout-row { font-size: 11px; color: #888; margin-bottom: 3px; }
+  .registry-payout-row span { color: #111; font-weight: 600; font-family: monospace; }
+  .registry-actions { display: flex; gap: 8px; }
+  .btn-reset-pin {
+    flex: 1; padding: 7px;
+    background: #fff8e0; border: 1px solid #ede7a0;
+    border-radius: 20px; color: #9a6c00;
+    font-size: 11px; font-weight: 600; cursor: pointer;
+  }
+  .btn-reset-pin:hover { background: #fdf5b0; }
+  .btn-wipe {
+    flex: 1; padding: 7px;
+    background: none; border: 1px solid #f0a0a0;
+    border-radius: 20px; color: #c0392b;
+    font-size: 11px; font-weight: 600; cursor: pointer;
+  }
+  .btn-wipe:hover { background: #fdf2f0; }
+
+  /* ── EMPTY STATES ── */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 60px 20px;
+    color: #aaa; font-size: 13px; text-align: center; gap: 10px;
+  }
+  .empty-state i { font-size: 26px; color: #ddd; }
+
+  /* ── LOADING STATE ── */
+  .loading-state { display: flex; align-items: center; gap: 10px; color: #aaa; font-size: 13px; padding: 40px 0; }
+
+  /* ── SECTION DIVIDER ── */
+  .section-divider { border: none; border-top: 1px solid #f0f0f0; margin: 24px 0; }
+  .section-sub-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #aaa; margin-bottom: 14px; letter-spacing: 0.5px; }
+
+  /* ── COUNT BADGE ── */
+  .count-chip {
+    display: inline-block;
+    padding: 3px 10px;
+    background: #111; color: #fff;
+    border-radius: 20px; font-size: 11px; font-weight: 600;
+  }
+
+  /* ── SCROLLABLE CONTAINER ── */
+  .scroll-container { overflow-y: auto; }
+  .scroll-container::-webkit-scrollbar { width: 3px; }
+  .scroll-container::-webkit-scrollbar-thumb { background: #ddd; border-radius: 10px; }
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
 <div class="container py-4" style="min-height: 80vh;">
-    <div id="loadingView" class="text-center py-5">
-        <div class="spinner-border text-primary" role="status"></div>
-        <p class="mt-3 text-muted small">Synchronizing...</p>
+
+  <!-- TOP BAR -->
+  <div id="adminTopBar">
+    <div class="tab-group">
+      <button class="tab-btn active" id="btn-requests" onclick="switchTab('requests')">
+        Requests <span id="pendingBadge" class="badge-dot hidden">0</span>
+      </button>
+      <button class="tab-btn" id="btn-listings"  onclick="switchTab('listings')">Mod-Listings</button>
+      <button class="tab-btn" id="btn-waitlist"  onclick="switchTab('waitlist')">Wait-List</button>
+      <button class="tab-btn" id="btn-channel"   onclick="switchTab('channel')">Feed</button>
+      <button class="tab-btn" id="btn-broadcast" onclick="switchTab('broadcast')">Messaging</button>
+      <button class="tab-btn" id="btn-revoke"    onclick="switchTab('revoke')">Registry</button>
     </div>
-
-    <div id="loginSection" class="row justify-content-center d-none">
-        <div class="col-md-5 text-center py-5">
-            <div class="mb-4">
-                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3 shadow-lg" style="width: 80px; height: 80px; border: 4px solid #fff;">
-                    <i class="bi bi-shield-lock-fill fs-1"></i>
-                </div>
-                <h4 class="fw-bold text-dark">ProlyfiQ</h4>
-                <p class="text-muted small">Infrastructure Management.</p>
-            </div>
-            <div id="loginError" class="alert alert-danger d-none rounded-4 border-0 small mb-3 text-start">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i> <span id="errorMsg">Invalid Credentials.</span>
-            </div>
-            <div class="card border-0 shadow-lg p-4 rounded-4 bg-white">
-                <div class="mb-3 text-start">
-                    <label class="form-label small fw-bold text-muted text-uppercase">Officer ID</label>
-                    <input type="text" id="adminIdInput" class="form-control rounded-pill border-light bg-light py-2 px-4" placeholder="Enter ID">
-                </div>
-                <div class="mb-4 text-start">
-                    <label class="form-label small fw-bold text-muted text-uppercase">6-Digit PIN</label>
-                    <input type="password" id="adminPinInput" maxlength="6" class="form-control rounded-pill border-light bg-light py-2 px-4 text-center fw-bold" style="letter-spacing: 8px;" placeholder="••••••" inputmode="numeric">
-                </div>
-                <button onclick="handleAdminLogin()" class="btn btn-primary w-100 rounded-pill py-3 fw-bold shadow-sm">Authorise</button>
-            </div>
-        </div>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span style="font-size:12px; color:#888;">Root: <strong id="activeAdminDisplay" style="color:#111;"></strong></span>
+      <button id="sessionBtn" onclick="handleLogout()">End Session</button>
     </div>
+  </div>
 
-    <div id="commandSection" class="d-none">
-        <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
-            <div>
-                <h4 class="fw-bold text-dark mb-0">Command Center</h4>
-                <p class="text-muted small mb-0"><i class="bi bi-person-badge-fill me-1 text-primary"></i> Root: <span id="activeAdminDisplay" class="fw-bold"></span></p>
-            </div>
-            <button onclick="handleLogout()" class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold">Logout</button>
-        </div>
+  <!-- SCREEN: LOADING -->
+  <div class="admin-screen centered active" id="screen-loading">
+    <div class="lh-spinner"></div>
+  </div>
 
-        <div class="overflow-auto no-scrollbar mb-4">
-            <ul class="nav nav-pills bg-light p-1 rounded-pill d-inline-flex border flex-nowrap" id="adminTabs" style="white-space: nowrap;">
-                <li class="nav-item"><button class="nav-link active rounded-pill fw-bold px-3" id="btn-requests" onclick="switchTab('requests')">Requests <span id="pendingBadge" class="badge rounded-pill bg-danger d-none">0</span></button></li>
-                <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-listings" onclick="switchTab('listings')">Mod-Listings</button></li>
-                <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-waitlist" onclick="switchTab('waitlist')">Wait-List</button></li>
-                <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-channel" onclick="switchTab('channel')">Feed</button></li>
-                <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-broadcast" onclick="switchTab('broadcast')">Messaging</button></li>
-                <li class="nav-item"><button class="nav-link rounded-pill fw-bold px-3" id="btn-revoke" onclick="switchTab('revoke')">Registry</button></li>
-            </ul>
-        </div>
-
-        <div id="requestsTab" class="admin-tab">
-            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white border mb-4">
-                <h6 class="fw-bold mb-4 text-primary"><i class="bi bi-person-plus-fill me-2"></i>Merchant Onboarding Queue</h6>
-                <div id="requestsList" class="row g-3 mb-4">
-                    <div class="col-12 text-center py-5 text-muted small">No pending verification requests.</div>
-                </div>
-
-                <h6 class="fw-bold mb-3 text-muted border-top pt-4 mt-2">Active CMS Invitations</h6>
-                <div id="tokenRegistry" class="overflow-auto" style="max-height: 250px;">
-                    <div class="text-center text-muted small py-3">No active tokens found.</div>
-                </div>
-            </div>
-        </div>
-
-        <div id="listingsTab" class="admin-tab d-none">
-            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white border mb-4">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h6 class="fw-bold mb-0 text-primary">Active Marketplace Listings</h6>
-                    <span id="listingsCount" class="badge bg-secondary rounded-pill px-3">0 Active</span>
-                </div>
-                <div id="listingsList" class="row g-3 overflow-auto" style="max-height: 700px; padding-bottom: 20px;">
-                    <div class="col-12 text-center py-5 text-muted small">Loading...</div>
-                </div>
-            </div>
-        </div>
-
-        <div id="waitlistTab" class="admin-tab d-none">
-            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white border mb-4">
-                <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
-                    <h6 class="fw-bold mb-0 text-primary"><i class="bi bi-stars me-2"></i>Endorsement Waitlist</h6>
-                    <span id="waitlistCount" class="badge bg-dark rounded-pill px-3">0 Pending Audit</span>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle border-0">
-                        <thead class="bg-light text-muted x-small text-uppercase fw-bold">
-                            <tr>
-                                <th class="ps-3 border-0">Merchant Identifier</th>
-                                <th class="border-0">Joined Date</th>
-                                <th class="border-0">Audit Status</th>
-                                <th class="text-end pe-3 border-0">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="waitlistEntries">
-                            <tr>
-                                <td colspan="4" class="text-center py-5 text-muted small">Synchronizing waitlist registry...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div id="channelTab" class="admin-tab d-none">
-            <div class="row g-4">
-                <div class="col-lg-5">
-                    <div class="card border-0 shadow-sm p-4 rounded-4 border bg-white">
-                        <h6 id="intelFormTitle" class="fw-bold mb-4 text-primary"><i class="bi bi-megaphone-fill me-2"></i>Marketplace Channel Update</h6>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-muted text-uppercase">Title</label>
-                            <input type="text" id="intelHeader" class="form-control rounded-pill border-light bg-light px-3">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-muted text-uppercase">Message</label>
-                            <textarea id="intelMsg" class="form-control rounded-4 border-light bg-light p-3" rows="4"></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-muted text-uppercase">Visuals (Optional)</label>
-                            <input type="file" id="intelImage" class="form-control rounded-pill border-light bg-light" accept="image/*">
-                        </div>
-                        <button id="publishIntelBtn" onclick="publishIntelligence()" class="btn btn-dark w-100 rounded-pill py-3 fw-bold shadow-sm">Push to Feed</button>
-                    </div>
-                </div>
-                <div class="col-lg-7">
-                    <h6 class="fw-bold mb-3 text-muted px-2">Published Updates</h6>
-                    <div id="adminChannelList" class="d-flex flex-column gap-3 overflow-auto" style="max-height: 600px;"></div>
-                </div>
-            </div>
-        </div>
-
-        <div id="broadcastTab" class="admin-tab d-none">
-            <div class="row g-4">
-                <div class="col-lg-5">
-                    <div class="card border-0 shadow-sm p-4 rounded-4 border">
-                        <h6 class="fw-bold mb-4 text-primary"><i class="bi bi-broadcast me-2"></i>Send Direct Notification</h6>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-muted text-uppercase">Target ID</label>
-                            <input type="text" id="notifyTarget" class="form-control rounded-pill border-light bg-light px-3" placeholder="e.g. Kwadwo Nkansah">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-muted text-uppercase">Content</label>
-                            <textarea id="notifyMsg" class="form-control rounded-4 border-light bg-light p-3" rows="3"></textarea>
-                        </div>
-                        <div class="mb-4">
-                            <label class="form-label small fw-bold text-muted text-uppercase">Priority Level</label>
-                            <select id="notifyType" class="form-select rounded-pill border-light bg-light">
-                                <option value="primary">Informational -Blue</option>
-                                <option value="warning">Compliance Flag -Yellow</option>
-                                <option value="success">Payout Alert -Green</option>
-                                <option value="danger">Urgent Alert -Red</option>
-                            </select>
-                        </div>
-                        <button onclick="sendNotification()" class="btn btn-primary w-100 rounded-pill py-2 fw-bold shadow-sm">Deliver Notification</button>
-                    </div>
-                </div>
-                <div class="col-lg-7">
-                    <h6 class="fw-bold mb-3 text-muted px-2">Notification History</h6>
-                    <div id="notificationLog" class="d-flex flex-column gap-3 overflow-auto" style="max-height: 550px;"></div>
-                </div>
-            </div>
-        </div>
-
-        <div id="revokeTab" class="admin-tab d-none">
-            <div class="row g-4">
-                <div class="col-lg-12">
-                    <div class="card border-0 shadow-sm rounded-4 p-4 border bg-white h-100">
-                        <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
-                            <h6 class="fw-bold mb-0 text-muted text-uppercase small" style="letter-spacing: 1px;">Verified Merchant Registry</h6>
-                            <span id="merchantCount" class="badge bg-dark rounded-pill px-3">0 Merchants</span>
-                        </div>
-                        <div id="merchantRegistry" class="row g-3 overflow-auto" style="max-height: 600px;"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  <!-- SCREEN: LOGIN -->
+  <div class="admin-screen centered" id="screen-login">
+    <div class="login-box">
+      <h2>ProlyfiQ Admin</h2>
+      <p>Infrastructure Management | Authorised access only</p>
+      <div class="login-err" id="loginError">Invalid credentials. Please try again.</div>
+      <input type="text"     id="adminIdInput"  placeholder="Officer ID" autocomplete="off">
+      <input type="password" id="adminPinInput" maxlength="6" placeholder="6-digit PIN" inputmode="numeric">
+      <button class="btn-auth" onclick="handleAdminLogin()">Authorise</button>
     </div>
-</div>
+  </div>
+
+  <!-- SCREEN: REQUESTS -->
+  <div class="admin-screen" id="screen-requests">
+    <div class="admin-card">
+      <div class="admin-card-title">
+        Merchant Onboarding Queue
+      </div>
+      <div id="requestsList">
+        <div class="empty-state">
+          <i class="bi bi-person-check"></i>
+          No pending verification requests.
+        </div>
+      </div>
+
+      <hr class="section-divider">
+      <div class="section-sub-title">Active CMS Invitations</div>
+      <div id="tokenRegistry" class="scroll-container" style="max-height: 240px;">
+        <div class="empty-state" style="padding: 24px;">No active tokens found.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: LISTINGS -->
+  <div class="admin-screen" id="screen-listings">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+      <div>
+        <div class="lh-page-title">Active Marketplace Listings</div>
+      </div>
+      <span id="listingsCount" class="count-chip">0 Active</span>
+    </div>
+    <div id="listingsList" class="listings-grid scroll-container" style="max-height: 700px; overflow-y: auto; padding-bottom: 12px;">
+      <div class="loading-state"><div class="lh-spinner"></div> Loading listings…</div>
+    </div>
+  </div>
+
+  <!-- SCREEN: WAITLIST -->
+  <div class="admin-screen" id="screen-waitlist">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+      <div>
+        <div class="lh-page-title">Endorsement Waitlist</div>
+        <div class="lh-page-sub">Merchants pending audit review</div>
+      </div>
+      <span id="waitlistCount" class="count-chip">0 Pending</span>
+    </div>
+    <div class="admin-card" style="padding: 0; overflow: hidden;">
+      <div style="overflow-x: auto;">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th style="padding-left: 20px;">Merchant Identifier</th>
+              <th>Joined Date</th>
+              <th>Audit Status</th>
+              <th style="text-align:right; padding-right: 20px;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="waitlistEntries">
+            <tr>
+              <td colspan="4" style="text-align:center; padding: 50px; color:#aaa; font-size:13px;">
+                Synchronizing waitlist registry…
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: CHANNEL / FEED -->
+  <div class="admin-screen" id="screen-channel">
+    <div class="channel-layout">
+      <!-- Compose form -->
+      <div>
+        <div class="admin-card">
+          <div class="admin-card-title">
+            Marketplace Channel Update
+          </div>
+          <div class="form-field">
+            <label class="form-label-tiny">Title</label>
+            <input type="text" id="intelHeader" class="admin-input" placeholder="Update headline...">
+          </div>
+          <div class="form-field">
+            <label class="form-label-tiny">Message</label>
+            <textarea id="intelMsg" class="admin-textarea" rows="4" placeholder="Write your update..."></textarea>
+          </div>
+          <div class="form-field">
+            <label class="form-label-tiny">Visuals (Optional)</label>
+            <input type="file" id="intelImage" class="admin-input" accept="image/*" style="padding: 7px 14px;">
+          </div>
+          <button id="publishIntelBtn" onclick="publishIntelligence()" class="btn-publish">Push to Feed</button>
+        </div>
+      </div>
+      <!-- Feed list -->
+      <div>
+        <div class="section-sub-title">Published Updates</div>
+        <div id="adminChannelList" class="scroll-container" style="max-height: 600px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: BROADCAST / MESSAGING -->
+  <div class="admin-screen" id="screen-broadcast">
+    <div class="broadcast-layout">
+      <!-- Compose notification -->
+      <div>
+        <div class="admin-card">
+          <div class="admin-card-title">
+            Send Direct Notification
+          </div>
+          <div class="form-field">
+            <label class="form-label-tiny">Target ID</label>
+            <input type="text" id="notifyTarget" class="admin-input" placeholder="e.g. Kwadwo Nkansah 1234">
+          </div>
+          <div class="form-field">
+            <label class="form-label-tiny">Content</label>
+            <textarea id="notifyMsg" class="admin-textarea" rows="3" placeholder="Notification message..."></textarea>
+          </div>
+          <div class="form-field">
+            <label class="form-label-tiny">Priority Level</label>
+            <select id="notifyType" class="admin-select">
+              <option value="primary">Informational — Blue</option>
+              <option value="warning">Compliance Flag — Yellow</option>
+              <option value="success">Payout Alert — Green</option>
+              <option value="danger">Urgent Alert — Red</option>
+            </select>
+          </div>
+          <button onclick="sendNotification()" class="btn-publish">Deliver Notification</button>
+        </div>
+      </div>
+      <!-- History -->
+      <div>
+        <div class="section-sub-title">Notification History</div>
+        <div id="notificationLog" class="scroll-container" style="max-height: 550px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: REGISTRY -->
+  <div class="admin-screen" id="screen-revoke">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+      <div>
+        <div class="lh-page-title">Verified Merchant Registry</div>
+        <div class="lh-page-sub">Active merchant accounts and security controls</div>
+      </div>
+      <span id="merchantCount" class="count-chip">0 Merchants</span>
+    </div>
+    <div id="merchantRegistry" class="registry-grid"></div>
+  </div>
+
+</div><!-- /container -->
 
 <script type="module">
     const config = JSON.parse(__firebase_config);
@@ -201,36 +606,37 @@
 
     let currentAdmin = localStorage.getItem('ledgehold_admin_id');
     let adminLogoutTimer, adminWarningTimer, adminCountdownInterval;
-    const ADMIN_SESSION_TIMEOUT = 360000;
+    const ADMIN_SESSION_TIMEOUT   = 360000;
     const ADMIN_WARNING_THRESHOLD = 350000;
 
+    // ── SCREEN NAVIGATION ──
+    function goTo(screenId) {
+        document.querySelectorAll('.admin-screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+    }
+
+    // ── REFRESH UI ──
     function refreshUI() {
         const lastActive = localStorage.getItem('ledgehold_admin_last_active');
         const now = Date.now();
         
-        // Check session expiry
         if (currentAdmin && lastActive && (now - lastActive > ADMIN_SESSION_TIMEOUT)) {
             handleLogout();
             return;
         }
         
-        document.getElementById('loadingView').classList.add('d-none');
-        
-        // If admin ID exists but no PIN in memory, force re-login
         if (currentAdmin && !window._adminPin) {
             localStorage.removeItem('ledgehold_admin_id');
             localStorage.removeItem('ledgehold_admin_last_active');
             currentAdmin = null;
-            document.getElementById('loginSection').classList.remove('d-none');
+            goTo('screen-login');
             return;
         }
         
         if (currentAdmin && window._adminPin) {
-            document.getElementById('loginSection').classList.add('d-none');
-            document.getElementById('commandSection').classList.remove('d-none');
+            document.getElementById('adminTopBar').classList.add('visible');
             document.getElementById('activeAdminDisplay').innerText = currentAdmin;
             resetAdminTimers();
-
             loadPendingRequests();
             loadMarketListings();
             loadEndorsementWaitlist();
@@ -239,14 +645,20 @@
             loadNotificationLog();
             loadTokenRegistry();
             loadSecuritySettings();
+            goTo('screen-requests');
         } else {
-            document.getElementById('loginSection').classList.remove('d-none');
+            goTo('screen-login');
         }
     }
 
-    /**
-     * SHARED COMPRESSION UTILITY 
-     */
+    // ── TAB SWITCHING ──
+    window.switchTab = (tab) => {
+        document.querySelectorAll('.tab-btn').forEach(l => l.classList.remove('active'));
+        document.getElementById('btn-' + tab).classList.add('active');
+        goTo('screen-' + tab);
+    };
+
+    // ── IMAGE COMPRESSION ──
     async function compressImage(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -258,22 +670,17 @@
                     const canvas = document.createElement('canvas');
                     let width = img.width;
                     let height = img.height;
-                    const MAX_DIM = 1200; 
-
+                    const MAX_DIM = 1200;
                     if (width > height) {
                         if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; }
                     } else {
                         if (height > MAX_DIM) { width *= MAX_DIM / height; height = MAX_DIM; }
                     }
-
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
-
-                    canvas.toBlob((blob) => {
-                        resolve(blob);
-                    }, 'image/jpeg', 0.7);
+                    canvas.toBlob((blob) => { resolve(blob); }, 'image/jpeg', 0.7);
                 };
                 img.onerror = reject;
             };
@@ -281,54 +688,61 @@
         });
     }
 
-    /**
-     * KYC & APPROVAL
-     */
+    // ── KYC & APPROVAL ──
     function loadPendingRequests() {
         db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('pending_merchants')
             .onSnapshot(snap => {
                 const list = document.getElementById('requestsList');
                 const badge = document.getElementById('pendingBadge');
                 const items = [];
-                snap.forEach(d => items.push({id: d.id, ...d.data()}));
+                snap.forEach(d => items.push({ id: d.id, ...d.data() }));
                 
                 badge.innerText = items.length;
-                items.length > 0 ? badge.classList.remove('d-none') : badge.classList.add('d-none');
+                items.length > 0 ? badge.classList.remove('hidden') : badge.classList.add('hidden');
 
-                list.innerHTML = items.length === 0 ? '<div class="col-12 text-center py-5 text-muted small">No pending verification requests.</div>' :
-                items.map(m => `
-                    <div class="col-md-4" id="card-${m.id}">
-                        <div class="card border-0 shadow-sm rounded-4 overflow-hidden border">
-                            <div class="bg-dark text-white p-3 d-flex justify-content-between align-items-center">
-                                <span class="small fw-bold text-truncate pe-2">${m.fullName}</span>
-                                <span class="x-small opacity-75">${new Date(m.timestamp).toLocaleDateString()}</span>
+                if (items.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <i class="bi bi-person-check"></i>
+                            No pending verification requests.
+                        </div>`;
+                    return;
+                }
+
+                list.innerHTML = `<div class="request-grid">${items.map(m => `
+                    <div class="request-card" id="card-${m.id}">
+                        <div class="request-card-header">
+                            <span>${m.fullName}</span>
+                            <small>${new Date(m.timestamp).toLocaleDateString()}</small>
+                        </div>
+                        <div class="request-card-body">
+                            <div class="request-card-links">
+                                <a href="${m.idUrl}" target="_blank" class="btn-link-pill">Student ID</a>
+                                <a href="${m.selfieUrl}" target="_blank" class="btn-link-pill">Selfie</a>
                             </div>
-                            <div class="p-3 bg-light border-bottom text-center">
-                                <div class="d-flex gap-2">
-                                    <a href="${m.idUrl}" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill flex-grow-1 x-small fw-bold">Student ID</a>
-                                    <a href="${m.selfieUrl}" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill flex-grow-1 x-small fw-bold">Selfie</a>
+                            <div class="request-info">${m.university} &nbsp;·&nbsp; ${m.course}</div>
+                            <div class="request-momo-block">
+                                <div class="request-momo-row">
+                                    <i class="bi bi-phone icon"></i>
+                                    <span>${m.momo || 'N/A'}</span>
+                                </div>
+                                <div class="request-momo-row">
+                                    <i class="bi bi-whatsapp icon" style="color:#25d366;"></i>
+                                    <span>${m.whatsapp || 'N/A'}</span>
                                 </div>
                             </div>
-                            <div class="p-3 bg-white">
-                                <p class="x-small text-muted mb-2"><b>University:</b> ${m.university} | <b>Course:</b> ${m.course}</p>
-                                <div class="bg-warning bg-opacity-10 p-2 rounded-3 mb-3 border border-warning border-opacity-25">
-                                    <div class="d-flex align-items-center gap-2 mb-1">
-                                        <i class="bi bi-phone text-dark"></i>
-                                        <span class="x-small fw-bold text-dark">${m.momo || 'N/A'}</span>
-                                    </div>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <i class="bi bi-whatsapp text-success"></i>
-                                        <span class="x-small fw-bold text-dark">${m.whatsapp || 'N/A'}</span>
-                                    </div>
-                                </div>
-                                <div class="d-grid">
-                                    <button onclick="approveMerchant('${m.id}', '${m.merchantId}', '${m.momo}', '${m.fullName}')" class="btn btn-success btn-sm rounded-pill fw-bold shadow-sm" id="btn-approve-${m.id}">Approve & Send SMS</button>
-                                    <button onclick="denyMerchant('${m.id}', '${m.fullName}', '${m.momo}')" class="btn btn-link text-danger btn-sm mt-1 fw-bold text-decoration-none">Deny</button>
-                                </div>
+                            <div class="request-actions">
+                                <button onclick="approveMerchant('${m.id}', '${m.merchantId}', '${m.momo}', '${m.fullName}')" 
+                                        class="btn-approve" id="btn-approve-${m.id}">
+                                    Approve &amp; Send SMS
+                                </button>
+                                <button onclick="denyMerchant('${m.id}', '${m.fullName}', '${m.momo}')" class="btn-deny">
+                                    Deny
+                                </button>
                             </div>
                         </div>
                     </div>
-                `).join('');
+                `).join('')}</div>`;
             });
     }
 
@@ -337,28 +751,22 @@
         
         const approveBtn = document.getElementById(`btn-approve-${docId}`);
         approveBtn.disabled = true;
-        approveBtn.innerText = "Processing...";
+        approveBtn.innerText = "Processing…";
 
         try {
             const response = await fetch('/api/admin/approve-merchant', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    docId: docId,
-                    adminId: currentAdmin,
-                    adminPin: window._adminPin || ''
-                })
+                body: JSON.stringify({ docId, adminId: currentAdmin, adminPin: window._adminPin || '' })
             });
-            
             const result = await response.json();
-            
             if (response.ok && result.success) {
                 alert(`${merchantId} Activated. CMS Invite sent via SMS.`);
             } else {
                 throw new Error(result.error || 'Approval failed.');
             }
-        } catch (e) { 
-            alert("Approval pipeline failed: " + e.message); 
+        } catch (e) {
+            alert("Approval pipeline failed: " + e.message);
             approveBtn.disabled = false;
             approveBtn.innerText = "Approve & Send SMS";
         }
@@ -366,107 +774,89 @@
 
     window.denyMerchant = async (docId, fullName, phone) => {
         if (!confirm(`Wipe this sign-up request for ${fullName}?`)) return;
-        
         try {
             const response = await fetch('/api/admin/deny-merchant', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    docId: docId,
-                    adminId: currentAdmin,
-                    adminPin: window._adminPin || ''
-                })
+                body: JSON.stringify({ docId, adminId: currentAdmin, adminPin: window._adminPin || '' })
             });
-            
             const result = await response.json();
-            
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || 'Denial failed.');
-            }
+            if (!response.ok || !result.success) throw new Error(result.error || 'Denial failed.');
         } catch (e) {
             alert("Failed to wipe or send SMS: " + e.message);
         }
     };
 
-    /**
-     * TOKEN REGISTRY (Moved into the Requests Tab)
-     */
+    // ── TOKEN REGISTRY ──
     function loadTokenRegistry() {
         db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('onboarding_tokens')
             .onSnapshot(snap => {
                 const list = document.getElementById('tokenRegistry');
-                let tokens = []; snap.forEach(d => tokens.push({id: d.id, ...d.data()}));
+                let tokens = [];
+                snap.forEach(d => tokens.push({ id: d.id, ...d.data() }));
                 const active = tokens.filter(t => t.status === 'active' && t.expiresAt > Date.now() && !t.used);
-                
-                list.innerHTML = active.length === 0 ? '<div class="text-center text-muted small py-3 border rounded bg-light">No active tokens found.</div>' :
-                active.map(t => `
-                    <div class="p-2 border rounded mb-2 x-small d-flex justify-content-between align-items-center bg-light">
+
+                if (active.length === 0) {
+                    list.innerHTML = `<div class="empty-state" style="padding: 24px;">No active tokens found.</div>`;
+                    return;
+                }
+
+                list.innerHTML = active.map(t => `
+                    <div class="token-row">
                         <div>
-                            <code class="fw-bold fs-6">...${t.id.slice(-4)}</code>
-                            <span class="ms-2 text-muted">Merchant: ${t.merchantId || 'Unknown'}</span>
+                            <code>…${t.id.slice(-4)}</code>
+                            <div class="token-meta">Merchant: ${t.merchantId || 'Unknown'}</div>
                         </div>
-                        <button class="btn btn-link text-danger p-0 fw-bold x-small text-decoration-none" onclick="revokeToken('${t.id}')">Revoke</button>
+                        <button class="btn-revoke-token" onclick="revokeToken('${t.id}')">Revoke</button>
                     </div>
                 `).join('');
             });
     }
 
-    window.revokeToken = async (id) => { 
-        if(!confirm(`Revoke token ...${id.slice(-4)}?`)) return;
+    window.revokeToken = async (id) => {
+        if (!confirm(`Revoke token …${id.slice(-4)}?`)) return;
         try {
             const response = await fetch('/api/admin/revoke-token', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tokenId: id,
-                    adminId: currentAdmin,
-                    adminPin: window._adminPin || ''
-                })
+                body: JSON.stringify({ tokenId: id, adminId: currentAdmin, adminPin: window._adminPin || '' })
             });
-            
             const result = await response.json();
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || 'Revoke failed.');
-            }
+            if (!response.ok || !result.success) throw new Error(result.error || 'Revoke failed.');
         } catch (e) {
             alert("Failed to revoke token: " + e.message);
         }
     };
 
-    /**
-     * MARKETPLACE MODERATION
-     */
+    // ── MARKETPLACE MODERATION ──
     function loadMarketListings() {
         db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('market_listings')
             .onSnapshot(snap => {
                 const list = document.getElementById('listingsList');
                 document.getElementById('listingsCount').innerText = snap.size + " Active";
-                
+
                 if (snap.empty) {
-                    list.innerHTML = '<div class="col-12 text-center py-5 text-muted small">No items currently listed in marketplace.</div>';
+                    list.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;"><i class="bi bi-bag-x"></i>No items currently listed.</div>`;
+                    list.style.display = 'flex';
                     return;
                 }
 
+                list.style.display = 'grid';
                 list.innerHTML = snap.docs.map(doc => {
                     const item = doc.data();
                     return `
-                    <div class="col-md-3">
-                        <div class="card border-0 shadow-sm rounded-4 overflow-hidden border h-100">
-                            <div class="ratio ratio-1x1 bg-light">
-                                <img src="${item.imgUrl}" class="object-fit-cover" alt="${item.itemName}" onerror="this.src='https://placehold.co/400x400?text=Image+Missing'">
+                    <div class="listing-card">
+                        <img src="${item.imgUrl}" class="listing-img" alt="${item.itemName}"
+                             onerror="this.src='https://placehold.co/400x400?text=No+Image'">
+                        <div class="listing-body">
+                            <div class="listing-name">${item.itemName}</div>
+                            <div class="listing-meta">
+                                ${item.merchantId || item.seller}<br>
+                                ${item.university}
                             </div>
-                            <div class="p-3">
-                                <p class="fw-bold text-dark small mb-1 text-truncate">${item.itemName}</p>
-                                <p class="x-small text-muted mb-2">
-                                    <i class="bi bi-person-fill text-primary"></i> ${item.merchantId || item.seller}<br>
-                                    <i class="bi bi-geo-alt-fill text-danger"></i> ${item.university}
-                                </p>
-                                <div class="d-grid">
-                                    <button onclick="takedownListing('${doc.id}', '${item.itemName}')" class="btn btn-outline-danger btn-xs rounded-pill fw-bold py-1">
-                                        <i class="bi bi-shield-slash me-1"></i> Take Down
-                                    </button>
-                                </div>
-                            </div>
+                            <button onclick="takedownListing('${doc.id}', '${item.itemName}')" class="btn-takedown">
+                                Take Down
+                            </button>
                         </div>
                     </div>`;
                 }).join('');
@@ -479,13 +869,8 @@
             const response = await fetch('/api/admin/takedown-listing', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    listingId: id,
-                    adminId: currentAdmin,
-                    adminPin: window._adminPin || ''
-                })
+                body: JSON.stringify({ listingId: id, adminId: currentAdmin, adminPin: window._adminPin || '' })
             });
-            
             const result = await response.json();
             if (response.ok && result.success) {
                 alert("Listing neutralized.");
@@ -495,31 +880,31 @@
         } catch (e) { alert("Takedown failed: " + e.message); }
     };
 
-    /**
-     * ENDORSEMENT WAITLIST
-     */
+    // ── ENDORSEMENT WAITLIST ──
     function loadEndorsementWaitlist() {
         db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('endorsement_waitlist')
             .onSnapshot(snap => {
                 const list = document.getElementById('waitlistEntries');
-                document.getElementById('waitlistCount').innerText = snap.size + " Pending Audit";
+                document.getElementById('waitlistCount').innerText = snap.size + " Pending";
 
                 if (snap.empty) {
-                    list.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted small">No merchants have joined the waitlist yet.</td></tr>';
+                    list.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:50px;color:#aaa;font-size:13px;">No merchants have joined the waitlist yet.</td></tr>`;
                     return;
                 }
 
                 list.innerHTML = snap.docs.map(doc => {
                     const entry = doc.data();
-                    const date = entry.timestamp ? new Date(entry.timestamp).toLocaleDateString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : "N/A";
+                    const date  = entry.timestamp
+                        ? new Date(entry.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                        : "N/A";
                     return `
-                    <tr class="x-small">
-                        <td class="ps-3 fw-bold">${entry.merchantId}</td>
+                    <tr>
+                        <td class="td-id" style="padding-left:20px;">${entry.merchantId}</td>
                         <td>${date}</td>
-                        <td><span class="badge bg-warning-subtle text-warning border border-warning rounded-pill px-2">PENDING AUDIT</span></td>
-                        <td class="text-end pe-3">
-                            <button onclick="removeWaitlistEntry('${doc.id}')" class="btn btn-link text-danger p-0 fw-bold text-decoration-none">
-                                <i class="bi bi-x-circle me-1"></i> Remove
+                        <td><span class="pb pb-pending">Pending Audit</span></td>
+                        <td style="text-align:right; padding-right:20px;">
+                            <button onclick="removeWaitlistEntry('${doc.id}')" class="btn-table-action">
+                                Remove
                             </button>
                         </td>
                     </tr>`;
@@ -533,64 +918,63 @@
             const response = await fetch('/api/admin/remove-waitlist', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    docId: id,
-                    adminId: currentAdmin,
-                    adminPin: window._adminPin || ''
-                })
+                body: JSON.stringify({ docId: id, adminId: currentAdmin, adminPin: window._adminPin || '' })
             });
-            
             const result = await response.json();
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || 'Remove failed.');
-            }
+            if (!response.ok || !result.success) throw new Error(result.error || 'Remove failed.');
         } catch (e) {
             alert("Failed to remove: " + e.message);
         }
     };
 
-    /**
-     * REGISTRY: RESET & REVOKE 
-     */
+    // ── MERCHANT REGISTRY ──
     function loadMerchantRegistry() {
         db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('verified_merchants')
             .onSnapshot(snap => {
                 const list = document.getElementById('merchantRegistry');
                 document.getElementById('merchantCount').innerText = snap.size + " Merchants";
+
+                if (snap.empty) {
+                    list.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><i class="bi bi-people"></i>No verified merchants.</div>`;
+                    return;
+                }
+
                 list.innerHTML = snap.docs.map(doc => {
                     const m = doc.data();
-                    const statusClass = m.setup_complete ? 'success' : 'warning';
-                    const statusText = m.setup_complete ? 'Active' : 'Awaiting PIN';
-                    
+                    const safeId = doc.id.replace(/[^a-zA-Z0-9]/g, '');
+                    const statusLabel = m.setup_complete ? 'Active' : 'Awaiting PIN';
+                    const statusClass = m.setup_complete ? 'pb-active' : 'pb-warning';
                     return `
-                    <div class="col-md-4">
-                        <div class="p-3 border rounded-4 bg-light shadow-sm position-relative">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <p class="fw-bold small mb-0 text-truncate pe-2">${doc.id}</p>
-                                <span class="badge bg-${statusClass}-subtle text-${statusClass} x-small border border-${statusClass}">${statusText}</span>
+                    <div class="registry-card">
+                        <div class="registry-card-header">
+                            <div>
+                                <div class="registry-merchant-id">${doc.id}</div>
+                                <span class="pb ${statusClass}" style="margin-top:4px;">${statusLabel}</span>
                             </div>
-                            
-                            <button class="btn btn-link p-0 x-small text-decoration-none mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#details-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}">
-                                <i class="bi bi-eye me-1"></i> View Payout Info
-                            </button>
-                            
-                            <div class="collapse mb-3" id="details-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}">
-                                <div class="bg-white p-2 rounded border x-small">
-                                    <div class="mb-1"><span class="text-muted">MoMo:</span> <span class="fw-bold select-all">${m.momo || 'N/A'}</span></div>
-                                    <div class="mb-1"><span class="text-muted">WhatsApp:</span> <span class="fw-bold select-all">${m.whatsapp || 'N/A'}</span></div>
-                                    <div class="mb-0"><span class="text-muted">Uni:</span> ${m.university}</div>
-                                </div>
-                            </div>
-
-                            <div class="d-flex gap-2">
-                                <button onclick="resetSecurity('${doc.id}')" class="btn btn-warning btn-xs px-2 py-1 rounded-pill x-small fw-bold text-dark">Reset PIN</button>
-                                <button onclick="revokeMerchant('${doc.id}')" class="btn btn-outline-danger btn-xs px-2 py-1 rounded-pill x-small fw-bold">Wipe</button>
-                            </div>
+                        </div>
+                        <button class="registry-detail-btn" type="button"
+                                onclick="togglePayoutInfo('${safeId}')">
+                            View payout info
+                        </button>
+                        <div id="payout-${safeId}" style="display:none;" class="registry-payout-info">
+                            <div class="registry-payout-row">MoMo: <span>${m.momo || 'N/A'}</span></div>
+                            <div class="registry-payout-row">WhatsApp: <span>${m.whatsapp || 'N/A'}</span></div>
+                            <div class="registry-payout-row" style="margin-bottom:0;">University: ${m.university || '—'}</div>
+                        </div>
+                        <div class="registry-actions" style="margin-top:14px;">
+                            <button onclick="resetSecurity('${doc.id}')" class="btn-reset-pin">Reset PIN</button>
+                            <button onclick="revokeMerchant('${doc.id}')" class="btn-wipe">Wipe</button>
                         </div>
                     </div>`;
                 }).join('');
             });
     }
+
+    window.togglePayoutInfo = (safeId) => {
+        const el = document.getElementById(`payout-${safeId}`);
+        const isVisible = el.style.display !== 'none';
+        el.style.display = isVisible ? 'none' : 'block';
+    };
 
     window.resetSecurity = async (id) => {
         if (!confirm(`Security Reset for ${id}? Their current PIN will be deleted.`)) return;
@@ -598,13 +982,8 @@
             const response = await fetch('/api/admin/reset-merchant-pin', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    merchantId: id,
-                    adminId: currentAdmin,
-                    adminPin: window._adminPin || ''
-                })
+                body: JSON.stringify({ merchantId: id, adminId: currentAdmin, adminPin: window._adminPin || '' })
             });
-            
             const result = await response.json();
             if (response.ok && result.success) {
                 alert("PIN cleared. Merchant can now use /cms again.");
@@ -622,79 +1001,59 @@
             const response = await fetch('/api/admin/revoke-merchant', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    merchantId: id,
-                    adminId: currentAdmin,
-                    adminPin: window._adminPin || ''
-                })
+                body: JSON.stringify({ merchantId: id, adminId: currentAdmin, adminPin: window._adminPin || '' })
             });
-            
             const result = await response.json();
             if (response.ok && result.success) {
                 alert(`Merchant and ${result.listingsRemoved || 'all'} listings wiped.`);
             } else {
                 throw new Error(result.error || 'Wipe failed.');
             }
-        } catch(e) { 
-            alert("Wipe failed: " + e.message); 
+        } catch (e) {
+            alert("Wipe failed: " + e.message);
         }
     };
 
-    /**
-     * INTEL / BROADCAST / RECEIPT
-     */
+    // ── INTELLIGENCE / FEED ──
     window.publishIntelligence = async () => {
-        const header = document.getElementById('intelHeader').value.trim();
-        const msg = document.getElementById('intelMsg').value.trim();
+        const header   = document.getElementById('intelHeader').value.trim();
+        const msg      = document.getElementById('intelMsg').value.trim();
         const imgInput = document.getElementById('intelImage');
-        const btn = document.getElementById('publishIntelBtn');
-        
-        if(!header || !msg) return;
+        const btn      = document.getElementById('publishIntelBtn');
+        if (!header || !msg) return;
         btn.disabled = true;
-        btn.innerHTML = 'Publishing...';
-        
+        btn.innerHTML = 'Publishing…';
+
         let imgUrl = null;
         try {
             if (imgInput.files.length > 0) {
-                const compressed = await compressImage(imgInput.files);
+                const compressed = await compressImage(imgInput.files[0]);
                 const formData = new FormData();
                 formData.append("file", compressed);
                 formData.append("upload_preset", UPLOAD_PRESET);
-                const resp = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { 
-                    method: "POST", 
-                    body: formData 
+                const resp = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+                    method: "POST", body: formData
                 });
                 const data = await resp.json();
                 if (data.secure_url) imgUrl = data.secure_url;
             }
-            
+
             const response = await fetch('/api/admin/publish-intel', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    header: header,
-                    message: msg,
-                    imgUrl: imgUrl,
-                    adminId: currentAdmin,
-                    adminPin: window._adminPin || ''
-                })
+                body: JSON.stringify({ header, message: msg, imgUrl, adminId: currentAdmin, adminPin: window._adminPin || '' })
             });
-
             const result = await response.json();
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || 'Publish failed.');
-            }
-            
-            document.getElementById('intelHeader').value = ""; 
-            document.getElementById('intelMsg').value = ""; 
+            if (!response.ok || !result.success) throw new Error(result.error || 'Publish failed.');
+            document.getElementById('intelHeader').value = "";
+            document.getElementById('intelMsg').value = "";
             imgInput.value = "";
             alert("Published successfully.");
-        } catch (e) { 
-            alert("Error: " + e.message); 
-        }
-        finally { 
-            btn.disabled = false; 
-            btn.innerText = "Push to Feed"; 
+        } catch (e) {
+            alert("Error: " + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Push to Feed";
         }
     };
 
@@ -702,62 +1061,57 @@
         db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('intelligence_channel')
             .onSnapshot(snap => {
                 const list = document.getElementById('adminChannelList');
-                const items = []; snap.forEach(d => items.push({id: d.id, ...d.data()}));
-                items.sort((a,b) => b.timestamp - a.timestamp);
+                const items = [];
+                snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+                items.sort((a, b) => b.timestamp - a.timestamp);
+
+                if (items.length === 0) {
+                    list.innerHTML = `<div class="empty-state"><i class="bi bi-megaphone"></i>No updates published yet.</div>`;
+                    return;
+                }
+
                 list.innerHTML = items.map(i => `
-                    <div class="card p-3 rounded-4 mb-2 small border-0 bg-light shadow-sm position-relative">
-                        <button onclick="deleteIntel('${i.id}')" class="btn btn-link text-danger p-0 position-absolute top-0 end-0 m-3" title="Take Down"><i class="bi bi-trash3-fill"></i></button>
-                        <p class="fw-bold mb-1 pe-4">${i.header}</p>
-                        ${i.imgUrl ? `<img src="${i.imgUrl}" class="img-fluid rounded-3 mb-2" style="max-height: 100px; object-fit: cover;">` : ''}
-                        <p class="text-muted mb-0">${i.message}</p>
+                    <div class="channel-item">
+                        <button onclick="deleteIntel('${i.id}')" class="btn-delete-inline" title="Remove">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                        <div class="channel-item-title">${i.header}</div>
+                        ${i.imgUrl ? `<img src="${i.imgUrl}" class="channel-item-img" alt="">` : ''}
+                        <div class="channel-item-msg">${i.message}</div>
                     </div>
                 `).join('');
             });
     }
 
     window.deleteIntel = async (id) => {
-        if (!confirm("Remove this intelligence update from the public feed?")) return;
+        if (!confirm("Remove this update from the public feed?")) return;
         try {
             const response = await fetch('/api/admin/delete-intel', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    docId: id,
-                    adminId: currentAdmin,
-                    adminPin: window._adminPin || ''
-                })
+                body: JSON.stringify({ docId: id, adminId: currentAdmin, adminPin: window._adminPin || '' })
             });
-            
             const result = await response.json();
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || 'Take down failed.');
-            }
+            if (!response.ok || !result.success) throw new Error(result.error || 'Take down failed.');
         } catch (e) { alert("Take down failed: " + e.message); }
     };
 
+    // ── NOTIFICATIONS ──
     window.sendNotification = async () => {
         const target = document.getElementById('notifyTarget').value.trim();
-        const msg = document.getElementById('notifyMsg').value.trim();
-        const type = document.getElementById('notifyType').value;
-        if(!target || !msg) return;
-        
+        const msg    = document.getElementById('notifyMsg').value.trim();
+        const type   = document.getElementById('notifyType').value;
+        if (!target || !msg) return;
         try {
             const response = await fetch('/api/admin/send-notification', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    target: target,
-                    message: msg,
-                    type: type,
-                    adminId: currentAdmin,
-                    adminPin: window._adminPin || ''
-                })
+                body: JSON.stringify({ target, message: msg, type, adminId: currentAdmin, adminPin: window._adminPin || '' })
             });
-            
             const result = await response.json();
             if (response.ok && result.success) {
                 alert("Broadcast Delivered.");
-                document.getElementById('notifyTarget').value = ""; 
+                document.getElementById('notifyTarget').value = "";
                 document.getElementById('notifyMsg').value = "";
             } else {
                 throw new Error(result.error || 'Delivery failed.');
@@ -771,13 +1125,21 @@
         db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('merchant_notifications')
             .onSnapshot(snap => {
                 const list = document.getElementById('notificationLog');
-                const items = []; snap.forEach(d => items.push({id: d.id, ...d.data()}));
+                const items = [];
+                snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+
+                if (items.length === 0) {
+                    list.innerHTML = `<div class="empty-state"><i class="bi bi-bell"></i>No active notifications.</div>`;
+                    return;
+                }
+
                 list.innerHTML = items.map(i => `
-                    <div class="card p-2 mb-2 x-small border-start border-4 border-${i.type} position-relative">
-                        <button onclick="deleteNotification('${i.id}')" class="btn btn-link text-danger p-0 position-absolute top-0 end-0 m-2" title="Clear Notification"><i class="bi bi-x-circle-fill"></i></button>
-                        <div class="pe-4">
-                            <b class="text-uppercase">${i.id}</b>: ${i.message}
-                        </div>
+                    <div class="notif-item type-${i.type}">
+                        <button onclick="deleteNotification('${i.id}')" class="btn-clear-notif" title="Clear">
+                            <i class="bi bi-x-circle-fill"></i>
+                        </button>
+                        <div class="notif-id">${i.id}</div>
+                        <div class="notif-msg">${i.message}</div>
                     </div>
                 `).join('');
             });
@@ -789,24 +1151,19 @@
             const response = await fetch('/api/admin/delete-notification', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    docId: id,
-                    adminId: currentAdmin,
-                    adminPin: window._adminPin || ''
-                })
+                body: JSON.stringify({ docId: id, adminId: currentAdmin, adminPin: window._adminPin || '' })
             });
-            
             const result = await response.json();
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || 'Clear failed.');
-            }
+            if (!response.ok || !result.success) throw new Error(result.error || 'Clear failed.');
         } catch (e) { alert("Clear failed: " + e.message); }
     };
 
+    // ── SECURITY SETTINGS ──
     async function loadSecuritySettings() {
         try {
             const doc = await db.collection('artifacts').doc(__app_id).collection('public').doc('data').collection('security_config').doc('onboarding').get();
-            if (doc.exists) document.getElementById('enforceTokenToggle').checked = doc.data().enforceTokens || false;
+            const toggle = document.getElementById('enforceTokenToggle');
+            if (doc.exists && toggle) toggle.checked = doc.data().enforceTokens || false;
         } catch (e) {}
     }
 
@@ -815,163 +1172,111 @@
             const response = await fetch('/api/admin/toggle-security', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    enabled: isEnabled,
-                    adminId: currentAdmin,
-                    adminPin: window._adminPin || ''
-                })
+                body: JSON.stringify({ enabled: isEnabled, adminId: currentAdmin, adminPin: window._adminPin || '' })
             });
-            
             const result = await response.json();
-            if (!response.ok || !result.success) {
-                throw new Error(result.error || 'Toggle failed.');
-            }
+            if (!response.ok || !result.success) throw new Error(result.error || 'Toggle failed.');
         } catch (e) {
             alert("Failed to update security config: " + e.message);
         }
     };
 
-
-    window.downloadPDF = () => {
-        const element = document.getElementById('receiptMaster');
-        const opt = {
-            margin: [0.5, 0.5, 0.5, 0.5],
-            filename: `Ledgehold_Receipt_${document.getElementById('refId').value}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { 
-                scale: 3, 
-                useCORS: true, 
-                letterRendering: true,
-                scrollY: 0,
-                width: 720
-            },
-            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' },
-            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-        };
-        html2pdf().set(opt).from(element).save();
+    // ── AUTH SYSTEM ──
+    window.handleAdminLogin = async () => {
+        const id  = document.getElementById('adminIdInput').value.trim();
+        const pin = document.getElementById('adminPinInput').value.trim();
+        if (!id || !pin) return;
+        try {
+            const resp = await fetch('/admin-auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, pin })
+            });
+            const result = await resp.json();
+            if (result.success) {
+                currentAdmin = id;
+                localStorage.setItem('ledgehold_admin_id', id);
+                window._adminPin = pin;
+                document.getElementById('loginError').style.display = 'none';
+                refreshUI();
+            } else {
+                document.getElementById('loginError').style.display = 'block';
+                document.getElementById('loginError').innerText = 'Invalid credentials.';
+            }
+        } catch (err) {
+            document.getElementById('loginError').style.display = 'block';
+            document.getElementById('loginError').innerText = 'Authorization server error.';
+        }
     };
 
-    /**
-     * ADMIN SYSTEM
-     */
-    window.handleAdminLogin = async () => { 
-      const id = document.getElementById('adminIdInput').value.trim();
-      const pin = document.getElementById('adminPinInput').value.trim();
-      
-      if (!id || !pin) return;
-      
-      try {
-        const resp = await fetch('/admin-auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, pin })
-        });
-        const result = await resp.json();
-        
-        if (result.success) {
-          currentAdmin = id; 
-          localStorage.setItem('ledgehold_admin_id', id);
-          window._adminPin = pin;
-          resetAdminTimers();
-          refreshUI();
-        } else {
-          document.getElementById('errorMsg').innerText = 'Invalid credentials.';
-          document.getElementById('loginError').classList.remove('d-none');
-        }
-      } catch (err) {
-        document.getElementById('errorMsg').innerText = 'Authorization server error.';
-        document.getElementById('loginError').classList.remove('d-none');
-      }
-  };
-    window.handleLogout = () => { 
-    const warning = document.getElementById('adminSessionWarning');
-    if (warning) warning.remove();
-    clearTimeout(adminLogoutTimer);
-    clearTimeout(adminWarningTimer);
-    clearInterval(adminCountdownInterval);
-    localStorage.removeItem('ledgehold_admin_id');
-    localStorage.removeItem('ledgehold_admin_last_active');
-    location.reload(); 
-  };
-    function resetAdminTimers() {
-    if (!currentAdmin) return;
-    clearTimeout(adminLogoutTimer);
-    clearTimeout(adminWarningTimer);
-    clearInterval(adminCountdownInterval);
-    localStorage.setItem('ledgehold_admin_last_active', Date.now());
-    adminWarningTimer = setTimeout(showAdminWarning, ADMIN_WARNING_THRESHOLD);
-    adminLogoutTimer = setTimeout(handleLogout, ADMIN_SESSION_TIMEOUT);
-  }
-
-  function showAdminWarning() {
-    if (!currentAdmin) return;
-    const warningBox = document.createElement('div');
-    warningBox.id = 'adminSessionWarning';
-    warningBox.style.cssText = `
-      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      background: #0f172a; color: #fff; padding: 28px 32px; border-radius: 18px;
-      z-index: 10000; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-      max-width: 380px; width: 90%;
-    `;
-    warningBox.innerHTML = `
-      <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" 
-           style="width: 55px; height: 55px; background: #f59e0b !important;">
-        <i class="bi bi-hourglass-split text-white fs-4"></i>
-      </div>
-      <h6 class="fw-bold text-white mb-2">Session Expiring</h6>
-      <p class="text-white-50 small mb-4">You will be logged out in <strong id="adminCountdown" class="text-warning">10</strong> seconds due to inactivity.</p>
-      <div class="d-flex gap-2 justify-content-center">
-        <button onclick="stayInAdmin()" class="btn btn-light btn-sm rounded-pill fw-bold px-4">Stay Signed In</button>
-        <button onclick="handleLogout()" class="btn btn-outline-light btn-sm rounded-pill px-4">Log Out</button>
-      </div>
-    `;
-    document.body.appendChild(warningBox);
-    
-    let countdown = 10;
-    document.getElementById('adminCountdown').innerText = countdown;
-    adminCountdownInterval = setInterval(() => {
-      countdown--;
-      const el = document.getElementById('adminCountdown');
-      if (el) el.innerText = countdown;
-      if (countdown <= 0) {
+    window.handleLogout = () => {
+        const warning = document.getElementById('adminSessionWarning');
+        if (warning) warning.remove();
+        clearTimeout(adminLogoutTimer);
+        clearTimeout(adminWarningTimer);
         clearInterval(adminCountdownInterval);
-        handleLogout();
-      }
-    }, 1000);
-  }
+        localStorage.removeItem('ledgehold_admin_id');
+        localStorage.removeItem('ledgehold_admin_last_active');
+        location.reload();
+    };
 
-  window.stayInAdmin = function() {
-    const warning = document.getElementById('adminSessionWarning');
-    if (warning) warning.remove();
-    clearInterval(adminCountdownInterval);
-    resetAdminTimers();
-  };
-    window.switchTab = (tab) => { 
-        document.querySelectorAll('.admin-tab').forEach(t => t.classList.add('d-none')); 
-        document.getElementById(tab + 'Tab').classList.remove('d-none'); 
-        document.querySelectorAll('#adminTabs .nav-link').forEach(l => l.classList.remove('active')); 
-        document.getElementById('btn-' + tab).classList.add('active'); 
+    function resetAdminTimers() {
+        if (!currentAdmin) return;
+        clearTimeout(adminLogoutTimer);
+        clearTimeout(adminWarningTimer);
+        clearInterval(adminCountdownInterval);
+        localStorage.setItem('ledgehold_admin_last_active', Date.now());
+        adminWarningTimer = setTimeout(showAdminWarning, ADMIN_WARNING_THRESHOLD);
+        adminLogoutTimer  = setTimeout(handleLogout, ADMIN_SESSION_TIMEOUT);
+    }
+
+    function showAdminWarning() {
+        if (!currentAdmin) return;
+        const warningBox = document.createElement('div');
+        warningBox.id = 'adminSessionWarning';
+        warningBox.style.cssText = `
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: #0f172a; color: #fff; padding: 28px 32px; border-radius: 18px;
+            z-index: 10000; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            max-width: 380px; width: 90%;
+        `;
+        warningBox.innerHTML = `
+            <div style="width:55px;height:55px;background:#f59e0b;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px;">
+                <i class="bi bi-hourglass-split" style="color:#fff;font-size:20px;"></i>
+            </div>
+            <h6 style="font-size:15px;font-weight:700;color:#fff;margin-bottom:8px;">Session Expiring</h6>
+            <p style="color:rgba(255,255,255,0.5);font-size:13px;margin-bottom:20px;">
+                You will be logged out in <strong id="adminCountdown" style="color:#f59e0b;">10</strong> seconds due to inactivity.
+            </p>
+            <div style="display:flex;gap:8px;justify-content:center;">
+                <button onclick="stayInAdmin()" style="padding:8px 22px;background:#fff;border:none;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;">Stay Signed In</button>
+                <button onclick="handleLogout()" style="padding:8px 22px;background:transparent;border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;">Log Out</button>
+            </div>
+        `;
+        document.body.appendChild(warningBox);
+
+        let countdown = 10;
+        document.getElementById('adminCountdown').innerText = countdown;
+        adminCountdownInterval = setInterval(() => {
+            countdown--;
+            const el = document.getElementById('adminCountdown');
+            if (el) el.innerText = countdown;
+            if (countdown <= 0) { clearInterval(adminCountdownInterval); handleLogout(); }
+        }, 1000);
+    }
+
+    window.stayInAdmin = function () {
+        const warning = document.getElementById('adminSessionWarning');
+        if (warning) warning.remove();
+        clearInterval(adminCountdownInterval);
+        resetAdminTimers();
     };
 
     ['mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
-    window.addEventListener(evt, resetAdminTimers, true);
-  });
+        window.addEventListener(evt, resetAdminTimers, true);
+    });
 
     window.onload = refreshUI;
 </script>
 
-<style>
-    .nav-pills .nav-link.active { background-color: #0f172a; }
-    .nav-pills .nav-link { color: #64748b; font-size: 0.8rem; }
-    .x-small { font-size: 0.65rem; }
-    .btn-xs { padding: 1px 5px; }
-    #notificationLog::-webkit-scrollbar, #merchantRegistry::-webkit-scrollbar, #listingsList::-webkit-scrollbar { width: 4px; }
-    #notificationLog::-webkit-scrollbar-thumb, #merchantRegistry::-webkit-scrollbar-thumb, #listingsList::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-    .btn-outline-primary:hover { color: #fff !important; }
-    .object-fit-cover { object-fit: cover; }
-    .ratio-1x1 { aspect-ratio: 1 / 1; }
-    .select-all { user-select: all; }
-    .no-scrollbar::-webkit-scrollbar { display: none; }
-    .no-scrollbar { -ms-overflow-style: none;  scrollbar-width: none; }
-</style>
 {% endblock %}
