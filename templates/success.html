@@ -430,6 +430,9 @@
 
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -452,19 +455,43 @@
                 document.getElementById('display-premium').innerText = premiumAmount.toFixed(2);
             }
 
-            // Seller phone display
-            const sellerPhone = "{{ seller_phone }}";
-            if (sellerPhone && sellerPhone.trim() !== "" && sellerPhone !== "None") {
-                document.getElementById('sellerCallBox').classList.remove('hidden');
-                document.getElementById('display-seller-phone').innerText = sellerPhone;
-                
-                // Format tel: link with international prefix
-                let dialNumber = sellerPhone;
-                if (sellerPhone.startsWith('0')) {
-                    dialNumber = '233' + sellerPhone.substring(1);
+            // ── Fetch seller phone from Firestore ──
+            (async () => {
+                if (!ref) return;
+
+                try {
+                    const fbConfig = JSON.parse('{{ __firebase_config | safe }}');
+                    if (!firebase.apps.length) firebase.initializeApp(fbConfig);
+                    const db = firebase.firestore();
+
+                    const orderDoc = await db.collection('artifacts')
+                        .doc('{{ __app_id }}')
+                        .collection('public').doc('data')
+                        .collection('orders')
+                        .doc(ref).get();
+
+                    if (orderDoc.exists) {
+                        const orderData = orderDoc.data();
+                        const sellerPhone = orderData.momo || orderData.merchantPhone;
+
+                        if (sellerPhone && sellerPhone !== "0240000000") {
+                            const display = sellerPhone.startsWith('0')
+                                ? sellerPhone
+                                : '0' + sellerPhone.slice(-9);
+
+                            document.getElementById('sellerCallBox').classList.remove('hidden');
+                            document.getElementById('display-seller-phone').innerText = display;
+
+                            let dialNumber = display.startsWith('0')
+                                ? '233' + display.substring(1)
+                                : display;
+                            document.getElementById('sellerCallHref').href = 'tel:' + dialNumber;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch seller info:', e);
                 }
-                document.getElementById('sellerCallHref').href = 'tel:' + dialNumber;
-            }
+            })();
         });
     </script>
 </body>
