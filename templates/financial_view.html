@@ -308,6 +308,11 @@
   <div id="treasuryContent" style="display:none;">
     <div class="treasury-grid">
       <div class="treasury-card">
+        <label>Completed GTV</label>
+        <div class="t-val green">GHS <span id="treasuryCompletedGTV">0.00</span></div>
+        <div style="font-size:12px; color:#aaa; margin-top:4px;">Total buyer payments successfully disbursed</div>
+      </div>
+      <div class="treasury-card">
         <label>Total Platform Commission</label>
         <div class="t-val green">GHS <span id="treasuryCommission">0.00</span></div>
         <div style="font-size:12px; color:#aaa; margin-top:4px;">Sum of merchant fees deducted (completed)</div>
@@ -655,7 +660,7 @@
     const pin = document.getElementById('adminPinInput').value.trim();
     if (!id || !pin) return;
     try {
-      const resp = await fetch('/admin-auth', {
+      const resp = await fetch('{{ FINANCIAL_API_URL }}/admin-auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, pin })
@@ -817,11 +822,13 @@
         let totalCommission = 0;
         let totalPremiums   = 0;
         let activeFloat     = 0;
+        let completedGTV    = 0; 
 
         snap.forEach(doc => {
           const o = doc.data();
           if (o.status === 'completed') {
             totalCommission += parseFloat(o.merchant_fee_deducted || 0);
+            completedGTV    += parseFloat(o.total_collected || o.amount || 0);   
           }
           if (parseInt(o.protection_option) === 1) {
             const collected = parseFloat(o.total_collected || 0);
@@ -836,6 +843,7 @@
         document.getElementById('treasuryCommission').innerText = totalCommission.toFixed(2);
         document.getElementById('treasuryPremiums').innerText   = totalPremiums.toFixed(2);
         document.getElementById('treasuryFloat').innerText      = activeFloat.toFixed(2);
+        document.getElementById('treasuryCompletedGTV').innerText = completedGTV.toFixed(2);
 
         loadingEl.style.display = 'none';
         contentEl.style.display = 'block';
@@ -1082,7 +1090,7 @@
     closeReversalModal();
 
     try {
-      const response = await fetch('/api/admin/reverse-escrow', {
+      const response = await fetch('{{ FINANCIAL_API_URL }}/api/admin/reverse-escrow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1392,7 +1400,7 @@
     if (!confirm(`Approve MoMo change for ${merchantId}?\nNew number: ${newMomo}`)) return;
     
     try {
-      const response = await fetch('/api/admin/approve-momo-change', {
+      const response = await fetch('{{ FINANCIAL_API_URL }}/api/admin/approve-momo-change', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1420,7 +1428,7 @@
     if (!confirm('Deny this MoMo change request?')) return;
     
     try {
-      const response = await fetch('/api/admin/deny-momo-change', {
+      const response = await fetch('{{ FINANCIAL_API_URL }}/api/admin/deny-momo-change', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

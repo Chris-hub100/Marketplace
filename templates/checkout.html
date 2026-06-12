@@ -33,11 +33,23 @@
     <!-- STAGE 1: PROTECTION PLAN                  -->
     <!-- ══════════════════════════════════════════ -->
     <div id="protectionStage" class="stage-wrapper">
-
-        <div class="stage-header">
-            <h2 class="stage-title">Buyer Protection Plan</h2>
-            <p class="stage-subtitle">Select how you want us to protect your funds.</p>
+        <div class="stage-header" style="display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+            <h2 class="stage-title" style="margin: 0;">Buyer Protection Plan</h2>
+            <a href="https://drive.google.com/file/d/11duolvHSHNsN44JWrwuhglQtU_rZjU7V/view?usp=sharing" 
+            target="_blank"
+            style="display: inline-flex; align-items: center; justify-content: center; 
+                    width: 26px; height: 26px; border-radius: 50%; 
+                    background: #e8eaf0; color: #64748b; text-decoration: none;
+                    font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+                    transition: background 0.15s, color 0.15s;"
+            onmouseover="this.style.background='#1a56db'; this.style.color='#fff';"
+            onmouseout="this.style.background='#e8eaf0'; this.style.color='#64748b';"
+            title="Learn more about how escrow protects you">
+                ?
+            </a>
         </div>
+        <p class="stage-subtitle">Select how you want us to protect your funds.</p>
+    </div>
 
         <!-- DESKTOP/TABLET: horizontal tier cards -->
         <div class="tiers-grid" id="tiersGrid">
@@ -588,7 +600,7 @@ window.initiateSecureCheckout = async function () {
     const item  = "{{ request.args.get('item') }}";
 
     try {
-        const initRes = await fetch('/api/checkout/init', {
+        const initRes = await fetch('{{ FINANCIAL_API_URL }}/api/checkout/init', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

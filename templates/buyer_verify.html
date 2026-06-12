@@ -210,7 +210,7 @@
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Verifying...';
         
         try {
-            const res = await fetch('/api/gatekeeper/review', {
+            const res = await fetch('{{ FINANCIAL_API_URL }}/api/gatekeeper/review', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -280,7 +280,7 @@
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Verifying...';
         
         try {
-            const res = await fetch('/api/gatekeeper/review', {
+            const res = await fetch('{{ FINANCIAL_API_URL }}/api/gatekeeper/review', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -338,7 +338,7 @@
                 handoffPin: fallbackPin
             };
 
-            const response = await fetch('/api/gatekeeper/verify', {
+            const response = await fetch('{{ FINANCIAL_API_URL }}/api/gatekeeper/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -413,7 +413,7 @@
         errorBox.classList.add('d-none');
         
         try {
-            const res = await fetch('/api/gatekeeper/review/select', {
+            const res = await fetch('{{ FINANCIAL_API_URL }}/api/gatekeeper/review/select', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

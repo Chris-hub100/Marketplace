@@ -1,25 +1,18 @@
 from flask import Flask, render_template, request, jsonify, redirect
-import requests
 import os
 import random
 import datetime
-import resend
 import firebase_admin
-import hmac
-import hashlib
 import traceback
 import redis as redis_client
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from base64 import b64encode
 from firebase_admin import credentials, firestore, initialize_app
 from dotenv import load_dotenv
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 # Load environment variables
 load_dotenv(override=True)
-
-resend.api_key = os.getenv("RESEND_API_KEY")
 
 app = Flask(__name__)
 
@@ -29,21 +22,18 @@ limiter = Limiter(
     key_func=get_remote_address,
     app=app,
     storage_uri=redis_storage_url or "memory://",
-    default_limits=["200 per day"]
+    default_limits=["5000 per day", "200 per hour"],
+    default_limits_exempt_when=lambda: request.path == '/healthz'
 )
 
 # ── ENVIRONMENT CONFIGURATION ──
-PAYSTACK_SECRET_KEY = os.getenv('PAYSTACK_SECRET_KEY')
-ADMIN_IDS = [id.strip() for id in os.environ.get("ADMIN_IDS", os.environ.get("ADMIN_ID", "")).split(",") if id.strip()]
-ADMIN_PINS = [pin.strip() for pin in os.environ.get("ADMIN_PINS", os.environ.get("ADMIN_PIN", "")).split(",") if pin.strip()]
-ADMIN_EMAILS = ["ledgehold.business@gmail.com"]
+ADMIN_IDS = [id.strip() for id in os.environ.get("ADMIN_IDS", "").split(",") if id.strip()]
+ADMIN_PINS = [pin.strip() for pin in os.environ.get("ADMIN_PINS", "").split(",") if pin.strip()]
 COMPLIANCE_MODE = False
 APP_ID = os.getenv('__app_id', 'ledgehold-ghana1')
 
-# Hubtel SMS Auth
-HUB_ID = os.getenv('HUBTEL_CLIENT_ID')
-HUB_SECRET = os.getenv('HUBTEL_CLIENT_SECRET')
-HUB_AUTH = b64encode(f"{HUB_ID}:{HUB_SECRET}".encode()).decode()
+# ── FINANCIAL API URL (points to Ledgehold's server) ──
+FINANCIAL_API_URL = os.environ.get("FINANCIAL_API_URL", "")
 
 
 # ── FIREBASE INITIALIZATION ──
@@ -70,29 +60,23 @@ db = firestore.client()
 
 
 # ── IMPORT & INITIALIZE MODULES ──
-from financial import financial_bp, init_financial
 from admin_routes import admin_bp, init_admin_routes
 from merchant_routes import merchant_bp, init_merchant_routes
 
-init_financial(db, APP_ID, PAYSTACK_SECRET_KEY, ADMIN_IDS, ADMIN_PINS, HUB_AUTH, limiter)
 init_admin_routes(db, APP_ID, ADMIN_IDS, ADMIN_PINS)
 init_merchant_routes(db, APP_ID)
 
-app.register_blueprint(financial_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(merchant_bp)
-
-from financial import initialize_secure_checkout, get_my_order_token, admin_auth, admin_reverse_escrow
-limiter.limit("10 per minute")(initialize_secure_checkout)
-limiter.limit("20 per minute")(get_my_order_token)
-limiter.limit("5 per minute")(admin_auth)
-limiter.limit("5 per minute")(admin_reverse_escrow)
 
 
 # ── CONTEXT PROCESSOR ──
 @app.context_processor
 def inject_globals():
-    return dict(compliance_mode=COMPLIANCE_MODE)
+    return {
+        "compliance_mode": COMPLIANCE_MODE,
+        "FINANCIAL_API_URL": FINANCIAL_API_URL,
+    }
 
 
 # ── SHARED HELPERS ──
@@ -104,43 +88,8 @@ def get_firebase_context():
         "IMGBB_API_KEY": os.environ.get("IMGBB_API_KEY", ""),
         "compliance_mode": COMPLIANCE_MODE,
         "campus_locations": CAMPUS_PICKUP_LOCATIONS,
+        "FINANCIAL_API_URL": FINANCIAL_API_URL,
     }
-
-
-def normalize_app_id(app_id):
-    """Normalizes appId to prevent artifacts/None paths"""
-    if not app_id:
-        return None
-    return str(app_id).strip().lower()
-
-
-# ── EXPIRY SWEEP ──
-def run_expiry_sweep():
-    print(f"🧹 Starting 120-Hour Expiry Sweep at {datetime.datetime.now()}...")
-    
-    orders_ref = db.collection('artifacts').document(APP_ID)\
-                   .collection('public').document('data')\
-                   .collection('orders')
-    
-    query = orders_ref.where(filter=FieldFilter('status', '==', 'paid_in_escrow')).get()
-    
-    expired_count = 0
-    now = datetime.datetime.now(datetime.timezone.utc)
-    
-    for doc in query:
-        data = doc.to_dict()
-        created_at = data.get('createdAt')
-        
-        if created_at:
-            order_time = created_at.replace(tzinfo=datetime.timezone.utc)
-            time_diff = now - order_time
-            
-            if time_diff.total_seconds() > (168 * 3600):
-                print(f"⚠️ Flagging Order {doc.id} for Administrative Review (Expired 120h).")
-                doc.reference.update({"status": "requires_review"})
-                expired_count += 1
-                
-    print(f"✅ Sweep Complete. Flagged {expired_count} dead transactions.")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -152,6 +101,13 @@ def home():
     source = request.args.get('ref')
     welcome_msg = None
     welcome_type = "info"
+
+    if source == 'front':
+        welcome_msg = "Curiosity rewarded! Explore our student specials."
+        welcome_type = "success"
+    elif source == 'back' or source == 'tshirt':
+        welcome_msg = "Hey Scholar! Check out our Student Specials below."
+        welcome_type = "primary"
 
     food_is_active = datetime.datetime.now().weekday() >= 4
     return render_template('home.html',
@@ -213,29 +169,10 @@ def financial_vault():
     return render_template('financial_view.html', **get_firebase_context())
 
 
-@app.route('/admin/cleanup-staged-sessions', methods=['POST'])
-def cleanup_staged_sessions():
-    if request.headers.get('X-Cron-Secret') != os.getenv('CRON_SECRET'):
-        return "Unauthorized", 401
-
-    now = datetime.datetime.now(datetime.timezone.utc)
-    col = (db.collection('artifacts').document(APP_ID)
-             .collection('private').document('staged_sessions')
-             .collection('tokens'))
-
-    expired = col.where(filter=FieldFilter('expires_at', '<', now)).stream()
-    deleted = 0
-    for doc in expired:
-        doc.reference.delete()
-        deleted += 1
-
-    print(f"🧹 Cleanup: deleted {deleted} expired staged sessions.")
-    return jsonify({"deleted": deleted}), 200
-
-
 @app.route('/verify_order')
 def verify_order_landing():
     return render_template('buyer_verify.html', **get_firebase_context())
+
 
 @app.route('/update_momo')
 def update_momo():
@@ -518,7 +455,6 @@ def payment_success():
                                 merchant_data = merchant_doc.to_dict()
                                 raw_phone = merchant_data.get('momo') or merchant_data.get('phone') or ''
                                 
-                                # Format for display: 024XXXXXXX
                                 if raw_phone and len(raw_phone) >= 10:
                                     if raw_phone.startswith('233'):
                                         seller_phone = '0' + raw_phone[3:]
@@ -651,6 +587,7 @@ def product_page(network):
                            input_type=input_type,
                            is_voucher=is_voucher)
 
+
 # ── ERROR HANDLERS ──
 @app.errorhandler(404)
 def page_not_found(e):
@@ -660,6 +597,7 @@ def page_not_found(e):
 @app.errorhandler(500)
 def internal_server_error(e):
     return render_template('500.html', **get_firebase_context()), 500
+
 
 # ═══════════════════════════════════════════════════════════════
 # CAMPUS PICKUP LOCATIONS — VERIFIED SAFE EXCHANGE POINTS
@@ -703,7 +641,6 @@ CAMPUS_PICKUP_LOCATIONS = {
     ],
 }
 
-# Default fallback for any campus not in the list
 DEFAULT_LOCATIONS = [
     "Main Administration Block",
     "Central Campus Library",
@@ -717,8 +654,4 @@ DEFAULT_LOCATIONS = [
 # ═══════════════════════════════════════════════════════════════
 
 if __name__ == '__main__':
-    try:
-        run_expiry_sweep()
-    except Exception as e:
-        print(f"⚠️ Expiry sweep skipped (network unavailable): {e}")
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=True)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))

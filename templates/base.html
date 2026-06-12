@@ -8,7 +8,7 @@
     <title>{% block title %}ProlyfiQ | Campus Community{% endblock %}</title>
     
     <!-- 2. SEO META TAGS -->
-    <meta name="description" content="{% block description %}ProlyfiQ is a premier campus community, logistics and utility platform. Providing secure student delivery services, and verified bill payments for DStv, GOtv, ECG and instant data top-ups. Operated by Ledgehold Enterprise.{% endblock %}">
+    <meta name="description" content="{% block description %}ProlyfiQ is a premier campus community, logistics and utility platform. Providing secure student delivery services. Operated by Ledgehold.{% endblock %}">
     <meta name="keywords" content="campus logistics ghana, student delivery service, campus community ghana, utility hub ghana, bill payments ghana, gatekeeper, ledgehold, campus utility app">
     <meta name="author" content="Ledgehold">
 
@@ -23,7 +23,7 @@
         {% set visual_name = raw_name[:-5] if raw_name[-1] in '0123456789' and raw_name[-5] == ' ' else raw_name %}
 
         <meta property="og:title" content="Verified Storefront: {{ visual_name }}">
-        <meta property="og:description" content="Official Ledgehold Merchant. Secure campus trade.">
+        <meta property="og:description" content="Official ProlyfiQ Merchant. Secure campus trade.">
         
         <meta property="og:image" content="{{ url_for('static', filename='images/brand_preview_card.png', _external=True) }}">
         <meta property="og:image:type" content="image/png">
@@ -61,16 +61,14 @@
     <script>
         var __imgbb_api_key = "{{ IMGBB_API_KEY }}";
     </script>
+
+    <script>
+        var FINANCIAL_API_URL = "{{ FINANCIAL_API_URL }}";
+    </script>
     
     <script src="https://js.paystack.co/v1/inline.js"></script>
 </head>
 <body class="bg-light">
-
-    <!-- TEST MODE BANNER -->
-    <div id="testModeBanner" style="background: #16a34a; color: #fff; text-align: center; padding: 6px 12px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; position: sticky; top: 0; z-index: 1100;">
-        <i class="bi bi-cone-striped me-2"></i> Test Mode
-        <button onclick="document.getElementById('testModeBanner').remove()" style="background: none; border: none; color: #fff; opacity: 0.7; cursor: pointer; font-size: 0.8rem; margin-left: 8px;">&times;</button>
-    </div>
 
     <!-- NAVBAR -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm mb-4 sticky-top">
@@ -200,7 +198,7 @@
                 <div class="col-6 col-md-4 mb-4 border-start border-secondary border-opacity-25 ps-md-5">
                     <h6 class="fw-bold mb-3 text-uppercase small" style="letter-spacing: 1px;">Discover</h6>
                     <ul class="list-unstyled">
-                        <li class="mb-2"><a href="/shop" class="text-secondary text-decoration-none small">Utility Payments</a></li>
+                        <!--li class="mb-2"><a href="/shop" class="text-secondary text-decoration-none small">Utility Payments</a></li-->
                         <li class="mb-2"><a href="/marketplace" class="text-secondary text-decoration-none small">Student Marketplace</a></li>
                         <li class="mb-2"><a href="/foodrun" class="text-secondary text-decoration-none small">FoodRun™</a></li>
                         {% if not compliance_mode %}
@@ -421,7 +419,7 @@
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Submitting...';
             
             try {
-                const response = await fetch('/api/email/dispatch', {
+                const response = await fetch(`${FINANCIAL_API_URL}/api/email/dispatch`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -478,7 +476,7 @@
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sending...';
             
             try {
-                const response = await fetch('/api/email/dispatch', {
+                const response = await fetch(`${FINANCIAL_API_URL}/api/email/dispatch`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

@@ -600,6 +600,7 @@
 </div><!-- /container -->
 
 <script type="module">
+    const FINANCIAL_API_URL = "{{ FINANCIAL_API_URL }}";
     const config = JSON.parse(__firebase_config);
     if (!firebase.apps.length) firebase.initializeApp(config);
     const db = firebase.firestore();
@@ -1187,7 +1188,7 @@
         const pin = document.getElementById('adminPinInput').value.trim();
         if (!id || !pin) return;
         try {
-            const resp = await fetch('/admin-auth', {
+            const resp = await fetch(`${FINANCIAL_API_URL}/admin-auth`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id, pin })

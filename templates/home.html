@@ -2,7 +2,7 @@
 
 {% block content %}
 <style>
-    /* MASTERCLASS ANIMATIONS & TYPOGRAPHY */
+    
     @keyframes fadeInUp {
         from { opacity: 0; transform: translateY(30px); }
         to { opacity: 1; transform: translateY(0); }
@@ -307,7 +307,7 @@
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Sending...';
 
         try {
-            const response = await fetch('/api/email/dispatch', {
+            const response = await fetch('{{ FINANCIAL_API_URL }}/api/email/dispatch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

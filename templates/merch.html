@@ -10,9 +10,9 @@
     var __app_id = '{{ __app_id if __app_id else "ledgehold-ghana1" }}';
     
     // ==========================================
-    // ⚙️ GLOBAL KIT CONFIGURATION
+    //  GLOBAL KIT CONFIGURATION
     // ==========================================
-    const ADDON_GEAR_PRICE = 65.00; // Change this to update universal add-on pricing
+    const ADDON_GEAR_PRICE = 65.00; // Change this to update add-on pricing
     const PAYSTACK_PUBLIC_KEY = 'pk_test_b0415d16cfcb3777e906de9dbdf30431d2e6ac47'; 
     
     var config = JSON.parse(__firebase_config);
@@ -432,7 +432,7 @@
 
         try {
             // 1. Dispatch Email to Ops Team
-            const emailRes = await fetch('/api/email/dispatch', {
+            const emailRes = await fetch('{{ FINANCIAL_API_URL }}/api/email/dispatch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -450,7 +450,7 @@
             // 2. Dispatch SMS to Merchant (If phone exists)
             if (merchantPhone) {
                 const smsMsg = `Your Merchant Kit order has been confirmed! We will send another alert when your gear is ready for pickup.`;
-                await fetch('/api/admin/send_sms', {
+                await fetch('{{ FINANCIAL_API_URL }}/api/admin/send_sms', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ phone: merchantPhone, message: smsMsg })

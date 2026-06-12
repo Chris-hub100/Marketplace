@@ -10,7 +10,7 @@
     var __app_id = '{{ __app_id if __app_id else "ledgehold-ghana1" }}';
     var __firebase_config = '{{ __firebase_config | safe if __firebase_config else "{}" }}';
     
-    // STATIC ASSET CONFIGURATION (Reliable)
+    // STATIC IMAGE CONFIGURATION
     // This is the verified image residing on your server used for the DASHBOARD PREVIEW only
     var STATIC_ASSET_URL = "{{ url_for('static', filename='images/brand_preview_card.png', _external=True) }}";
 

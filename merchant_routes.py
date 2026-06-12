@@ -232,6 +232,19 @@ def create_listing():
                     "success": False, 
                     "error": f"Variation '{var.get('label', i+1)}' must have a price of at least GHS 10.00."
                 }), 400
+            
+    if is_bundled:
+        price_val = float(price)
+        if price_val >= 20.00:
+            return jsonify({
+                "success": False,
+                "error": "Bundled packs are only available for items priced under GHS 20.00 per unit."
+            }), 400
+        if bundle_units < 2:
+            return jsonify({
+                "success": False,
+                "error": "Bundled packs must contain at least 2 units."
+            }), 400
     
     try:
         listing_data = {

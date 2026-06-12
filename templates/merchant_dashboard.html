@@ -713,7 +713,7 @@
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Sending...';
 
         try {
-            const response = await fetch('/api/email/dispatch', {
+            const response = await fetch('{{ FINANCIAL_API_URL }}/api/email/dispatch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -304,7 +304,7 @@
             .collection('pending_merchants').add(payload);
 
         // 5. Dispatch to Switchboard Backend
-        const emailResponse = await fetch('/api/email/dispatch', {
+        const emailResponse = await fetch('{{ FINANCIAL_API_URL }}/api/email/dispatch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: "kyc_submitted", payload: payload })
